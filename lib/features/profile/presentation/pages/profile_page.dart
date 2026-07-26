@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 
 class ProfilePage extends ConsumerWidget {
@@ -11,6 +13,7 @@ class ProfilePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authControllerProvider);
     final user = auth.user;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -19,44 +22,27 @@ class ProfilePage extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          Container(
+          AppCard(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppColors.border),
-            ),
             child: Row(
               children: [
-                const CircleAvatar(
+                const CircleIconAvatar(
+                  icon: Icons.person,
+                  color: AppColors.primary,
                   radius: 32,
-                  backgroundColor: AppColors.primary,
-                  child: Icon(
-                    Icons.person,
-                    color: Colors.white,
-                    size: 34,
-                  ),
+                  filled: true,
+                  iconSize: 34,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        user?.displayName ?? '-',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
+                      Text(user?.displayName ?? '-', style: textTheme.headlineSmall),
                       const SizedBox(height: 4),
-                      Text(
-                        user?.phone ?? '-',
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
+                      Text(user?.phone ?? '-', style: textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textSecondary,
+                      )),
                     ],
                   ),
                 ),
@@ -64,13 +50,8 @@ class ProfilePage extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 20),
-          Card(
-            elevation: 0,
-            color: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: const BorderSide(color: AppColors.border),
-            ),
+          AppCard(
+            padding: EdgeInsets.zero,
             child: Column(
               children: [
                 ListTile(
@@ -81,15 +62,15 @@ class ProfilePage extends ConsumerWidget {
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.logout, color: AppColors.danger),
-                  title: const Text(
+                  title: Text(
                     'Logout',
-                    style: TextStyle(
+                    style: textTheme.bodyLarge?.copyWith(
                       color: AppColors.danger,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  onTap: () {
-                    ref.read(authControllerProvider).logout();
+                  onTap: () async {
+                    await ref.read(authControllerProvider).logout();
                   },
                 ),
               ],

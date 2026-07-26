@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/router/app_routes.dart';
-import '../../core/constants/app_colors.dart';
 
 class MainScaffold extends StatelessWidget {
   const MainScaffold({
@@ -46,7 +45,6 @@ class MainScaffold extends StatelessWidget {
       bottomNavigationBar: NavigationBar(
         selectedIndex: currentIndex,
         onDestinationSelected: (index) => _onTap(context, index),
-        indicatorColor: AppColors.primary.withValues(alpha: 0.16),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),

@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/auth/presentation/pages/otp_verify_page.dart';
+import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/booking/presentation/pages/booking_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/members/presentation/pages/members_page.dart';
@@ -23,20 +25,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final isSplash = path == AppRoutes.splash;
       final isLogin = path == AppRoutes.login;
+      final isOtp = path == AppRoutes.otpVerify;
+      final isRegister = path == AppRoutes.register;
+      final isPreAuth = isLogin || isOtp || isRegister;
 
-      if (auth.isChecking) {
-        return isSplash ? null : AppRoutes.splash;
+      switch (auth.step) {
+        case AuthStep.checking:
+          return isSplash ? null : AppRoutes.splash;
+        case AuthStep.phoneEntry:
+          return isLogin ? null : AppRoutes.login;
+        case AuthStep.otpSent:
+          if (auth.pendingPhone == null) return AppRoutes.login;
+          return isOtp ? null : AppRoutes.otpVerify;
+        case AuthStep.needsRegistration:
+          if (auth.pendingPhone == null) return AppRoutes.login;
+          return isRegister ? null : AppRoutes.register;
+        case AuthStep.authenticated:
+          return (isSplash || isPreAuth) ? AppRoutes.home : null;
       }
-
-      if (!auth.isLoggedIn) {
-        return isLogin ? null : AppRoutes.login;
-      }
-
-      if (auth.isLoggedIn && (isSplash || isLogin)) {
-        return AppRoutes.home;
-      }
-
-      return null;
     },
     routes: [
       GoRoute(
@@ -46,6 +52,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.login,
         builder: (context, state) => const LoginPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.otpVerify,
+        builder: (context, state) => const OtpVerifyPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.register,
+        builder: (context, state) => const RegisterPage(),
       ),
       ShellRoute(
         builder: (context, state, child) {

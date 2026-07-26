@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_radius.dart';
+import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/circle_icon_avatar.dart';
+import '../../../../shared/widgets/primary_button.dart';
 import '../controllers/auth_controller.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -43,12 +48,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     FocusScope.of(context).unfocus();
 
     final phone = _phoneController.text.trim();
-    await ref.read(authControllerProvider).mockLogin(phone);
+    await ref.read(authControllerProvider).requestOtp(phone);
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
       body: SafeArea(
@@ -66,109 +72,55 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               child: Column(
                 children: [
                   const SizedBox(height: 64),
-                  Container(
-                    width: 92,
-                    height: 92,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                    child: const Icon(
-                      Icons.health_and_safety,
-                      size: 52,
-                      color: AppColors.primary,
-                    ),
+                  const CircleIconAvatar(
+                    icon: Icons.health_and_safety,
+                    color: AppColors.primary,
+                    radius: 46,
+                    iconSize: 52,
                   ),
                   const SizedBox(height: 24),
-                  const Text(
+                  Text(
                     'Welcome to CareMate',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                    ),
+                    style: textTheme.headlineLarge,
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'เข้าสู่ระบบด้วยเบอร์โทรศัพท์เพื่อเริ่มจองบริการดูแลสุขภาพ',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
+                    style: textTheme.bodyLarge?.copyWith(
                       color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 40),
 
-                  TextFormField(
+                  AppTextField(
                     controller: _phoneController,
+                    label: 'เบอร์โทรศัพท์',
+                    hint: 'เช่น 09X-XXX-XXXX',
                     keyboardType: TextInputType.phone,
                     maxLength: 10,
+                    prefixIcon: Icons.phone_outlined,
                     validator: _validatePhone,
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                     ],
-                    decoration: InputDecoration(
-                      labelText: 'เบอร์โทรศัพท์',
-                      hintText: 'เช่น 09X-XXX-XXXX',
-                      counterText: '',
-                      prefixIcon: const Icon(Icons.phone_outlined),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        borderSide: const BorderSide(
-                          color: AppColors.border,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        borderSide: const BorderSide(
-                          color: AppColors.border,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        borderSide: const BorderSide(
-                          color: AppColors.primary,
-                          width: 1.5,
-                        ),
-                      ),
-                    ),
                     onFieldSubmitted: (_) => _submitLogin(),
                   ),
 
                   const SizedBox(height: 20),
 
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: FilledButton.icon(
-                      onPressed: auth.isLoggingIn ? null : _submitLogin,
-                      icon: auth.isLoggingIn
-                          ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                        ),
-                      )
-                          : const Icon(Icons.login),
-                      label: Text(
-                        auth.isLoggingIn
-                            ? 'กำลังเข้าสู่ระบบ...'
-                            : 'เข้าสู่ระบบ',
-                      ),
-                    ),
+                  PrimaryButton(
+                    label: auth.isSubmitting ? 'กำลังส่งรหัส OTP...' : 'ขอรหัส OTP',
+                    icon: Icons.sms_rounded,
+                    isLoading: auth.isSubmitting,
+                    onPressed: auth.isSubmitting ? null : _submitLogin,
                   ),
 
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'กรุณากรอกเบอร์โทรศัพท์ของคุณ',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
+                    style: textTheme.labelMedium,
                   ),
 
                   const SizedBox(height: 32),
@@ -177,24 +129,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(18),
+                      color: AppColors.primaryLight.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(color: AppColors.primaryLight),
                     ),
-                    child: const Row(
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.info_outline,
-                          color: AppColors.primary,
-                        ),
-                        SizedBox(width: 12),
+                        const Icon(Icons.info_outline, color: AppColors.primary),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            'ตอนนี้เป็นโหมด Mock สำหรับทดสอบหน้าบ้าน ยังไม่ได้ยิง API จริง',
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 13,
-                            ),
+                            'โหมดจำลอง: ยังไม่เชื่อมต่อผู้ให้บริการ SMS จริง ระบบจะแสดงรหัส OTP ให้ในหน้าถัดไป\n'
+                            'ทดลองใช้เบอร์ ${AppConfig.demoExistingPhone} เพื่อเข้าสู่ระบบบัญชีตัวอย่าง หรือเบอร์อื่นเพื่อสมัครสมาชิกใหม่',
+                            style: textTheme.bodySmall,
                           ),
                         ),
                       ],

@@ -1,70 +1,113 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
-enum AuthStatus {
-  checking,
-  authenticated,
-  unauthenticated,
-}
+import '../../data/auth_exception.dart';
+import '../../data/auth_repository.dart';
+import '../../data/models/app_user.dart';
 
-class MockAuthUser {
-  const MockAuthUser({
-    required this.id,
-    required this.displayName,
-    required this.phone,
-  });
-
-  final String id;
-  final String displayName;
-  final String phone;
-}
+enum AuthStep { checking, phoneEntry, otpSent, needsRegistration, authenticated }
 
 class AuthController extends ChangeNotifier {
-  AuthStatus _status = AuthStatus.checking;
-  MockAuthUser? _user;
-  bool _isLoggingIn = false;
+  AuthController(this._repo);
 
-  AuthStatus get status => _status;
-  MockAuthUser? get user => _user;
-  bool get isChecking => _status == AuthStatus.checking;
-  bool get isLoggedIn => _status == AuthStatus.authenticated;
-  bool get isLoggingIn => _isLoggingIn;
+  final AuthRepository _repo;
+
+  AuthStep _step = AuthStep.checking;
+  AppUser? _user;
+  String? _pendingPhone;
+  String? _lastOtpForDemo;
+  bool _isSubmitting = false;
+
+  AuthStep get step => _step;
+  AppUser? get user => _user;
+  String? get pendingPhone => _pendingPhone;
+  String? get lastOtpForDemo => _lastOtpForDemo;
+  bool get isSubmitting => _isSubmitting;
+
+  bool get isChecking => _step == AuthStep.checking;
+  bool get isLoggedIn => _step == AuthStep.authenticated;
 
   Future<void> checkSession() async {
-    if (_status != AuthStatus.checking) return;
+    if (_step != AuthStep.checking) return;
 
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    _status = AuthStatus.unauthenticated;
+    final user = await _repo.restoreSession();
+    _user = user;
+    _step = user != null ? AuthStep.authenticated : AuthStep.phoneEntry;
     notifyListeners();
   }
 
-  Future<void> mockLogin(String phone) async {
-    if (_isLoggingIn) return;
-
-    _isLoggingIn = true;
+  Future<void> requestOtp(String phone) async {
+    _isSubmitting = true;
     notifyListeners();
 
-    await Future.delayed(const Duration(milliseconds: 700));
+    try {
+      final code = await _repo.requestOtp(phone);
+      _pendingPhone = phone;
+      _lastOtpForDemo = code;
+      _step = AuthStep.otpSent;
+    } finally {
+      _isSubmitting = false;
+      notifyListeners();
+    }
+  }
 
-    _user = MockAuthUser(
-      id: 'mock-user-001',
-      displayName: 'Gabel',
-      phone: phone,
-    );
+  bool canResendOtp() => _repo.canResendOtp();
 
-    _status = AuthStatus.authenticated;
-    _isLoggingIn = false;
+  Future<void> verifyOtp(String code) async {
+    final phone = _pendingPhone;
+    if (phone == null) throw const AuthException('กรุณาเริ่มต้นใหม่อีกครั้ง');
+
+    _isSubmitting = true;
+    notifyListeners();
+
+    try {
+      final result = await _repo.verifyOtp(phone: phone, code: code);
+      if (result.isLoginSuccess) {
+        _user = result.user;
+        _step = AuthStep.authenticated;
+      } else {
+        _step = AuthStep.needsRegistration;
+      }
+    } finally {
+      _isSubmitting = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> register({required String displayName}) async {
+    final phone = _pendingPhone;
+    if (phone == null) throw const AuthException('กรุณาเริ่มต้นใหม่อีกครั้ง');
+
+    _isSubmitting = true;
+    notifyListeners();
+
+    try {
+      final user = await _repo.register(phone: phone, displayName: displayName);
+      _user = user;
+      _step = AuthStep.authenticated;
+    } finally {
+      _isSubmitting = false;
+      notifyListeners();
+    }
+  }
+
+  void backToPhoneEntry() {
+    _pendingPhone = null;
+    _lastOtpForDemo = null;
+    _step = AuthStep.phoneEntry;
     notifyListeners();
   }
 
-  void logout() {
+  Future<void> logout() async {
+    await _repo.logout();
     _user = null;
-    _status = AuthStatus.unauthenticated;
+    _pendingPhone = null;
+    _lastOtpForDemo = null;
+    _step = AuthStep.phoneEntry;
     notifyListeners();
   }
 }
 
 final authControllerProvider = ChangeNotifierProvider<AuthController>((ref) {
-  return AuthController();
+  return AuthController(ref.read(authRepositoryProvider));
 });
