@@ -22,6 +22,21 @@ class MembersPage extends ConsumerStatefulWidget {
   ConsumerState<MembersPage> createState() => _MembersPageState();
 }
 
+const _genderOptions = [
+  ('male', 'ชาย'),
+  ('female', 'หญิง'),
+  ('other', 'อื่นๆ'),
+];
+
+const _bloodTypeOptions = ['A', 'B', 'AB', 'O'];
+
+String _genderLabel(String value) {
+  for (final option in _genderOptions) {
+    if (option.$1 == value) return option.$2;
+  }
+  return value;
+}
+
 class _MembersPageState extends ConsumerState<MembersPage> {
   final _searchController = TextEditingController();
   String _selectedFilter = 'ทั้งหมด';
@@ -87,7 +102,7 @@ class _MembersPageState extends ConsumerState<MembersPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Members')),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddMemberSheet,
+        onPressed: () => _showMemberFormSheet(),
         icon: const Icon(Icons.add),
         label: const Text('เพิ่มสมาชิก'),
       ),
@@ -279,16 +294,17 @@ class _MembersPageState extends ConsumerState<MembersPage> {
     }
   }
 
-  void _showAddMemberSheet() {
+  void _showMemberFormSheet({CareMember? member}) {
+    final isEditing = member != null;
     final formKey = GlobalKey<FormState>();
-    final fullNameController = TextEditingController();
-    final nicknameController = TextEditingController();
-    final relationshipController = TextEditingController();
-    final phoneController = TextEditingController();
-    final ageController = TextEditingController();
-    final careNoteController = TextEditingController();
-    String gender = 'ชาย';
-    String bloodType = 'O';
+    final fullNameController = TextEditingController(text: member?.fullName ?? '');
+    final nicknameController = TextEditingController(text: member?.nickname ?? '');
+    final relationshipController = TextEditingController(text: member?.relationship ?? '');
+    final phoneController = TextEditingController(text: member?.phone ?? '');
+    final ageController = TextEditingController(text: member == null || member.age == 0 ? '' : '${member.age}');
+    final careNoteController = TextEditingController(text: member?.careNote ?? '');
+    String gender = member != null && member.gender.isNotEmpty ? member.gender : _genderOptions.first.$1;
+    String bloodType = member != null && member.bloodType.isNotEmpty ? member.bloodType : _bloodTypeOptions.first;
     var isSubmitting = false;
 
     showModalBottomSheet(
@@ -309,14 +325,18 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const CircleIconAvatar(
-                        icon: Icons.person_add_alt_1_rounded,
+                      CircleIconAvatar(
+                        icon: isEditing ? Icons.edit_rounded : Icons.person_add_alt_1_rounded,
                         color: AppColors.primary,
                         radius: 32,
                         iconSize: 36,
                       ),
                       const SizedBox(height: 12),
-                      Text('เพิ่มสมาชิกใหม่', textAlign: TextAlign.center, style: textTheme.headlineSmall),
+                      Text(
+                        isEditing ? 'แก้ไขข้อมูลสมาชิก' : 'เพิ่มสมาชิกใหม่',
+                        textAlign: TextAlign.center,
+                        style: textTheme.headlineSmall,
+                      ),
                       const SizedBox(height: 18),
                       AppTextField(
                         controller: fullNameController,
@@ -365,10 +385,9 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                             child: DropdownButtonFormField<String>(
                               initialValue: gender,
                               decoration: const InputDecoration(labelText: 'เพศ'),
-                              items: const [
-                                DropdownMenuItem(value: 'ชาย', child: Text('ชาย')),
-                                DropdownMenuItem(value: 'หญิง', child: Text('หญิง')),
-                              ],
+                              items: _genderOptions
+                                  .map((g) => DropdownMenuItem(value: g.$1, child: Text(g.$2)))
+                                  .toList(),
                               onChanged: (v) => setSheetState(() => gender = v ?? gender),
                             ),
                           ),
@@ -377,7 +396,7 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                             child: DropdownButtonFormField<String>(
                               initialValue: bloodType,
                               decoration: const InputDecoration(labelText: 'กรุ๊ปเลือด'),
-                              items: const ['A', 'B', 'AB', 'O']
+                              items: _bloodTypeOptions
                                   .map((b) => DropdownMenuItem(value: b, child: Text(b)))
                                   .toList(),
                               onChanged: (v) => setSheetState(() => bloodType = v ?? bloodType),
@@ -393,8 +412,10 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                       ),
                       const SizedBox(height: 20),
                       PrimaryButton(
-                        label: isSubmitting ? 'กำลังบันทึก...' : 'เพิ่มสมาชิก',
-                        icon: Icons.add,
+                        label: isSubmitting
+                            ? 'กำลังบันทึก...'
+                            : (isEditing ? 'บันทึกการแก้ไข' : 'เพิ่มสมาชิก'),
+                        icon: isEditing ? Icons.save_rounded : Icons.add,
                         isLoading: isSubmitting,
                         onPressed: isSubmitting
                             ? null
@@ -404,16 +425,31 @@ class _MembersPageState extends ConsumerState<MembersPage> {
 
                                 setSheetState(() => isSubmitting = true);
                                 try {
-                                  await ref.read(memberRepositoryProvider).create(
-                                        fullName: fullNameController.text.trim(),
-                                        nickname: nicknameController.text.trim(),
-                                        relationship: relationshipController.text.trim(),
-                                        phone: phoneController.text.trim(),
-                                        age: int.tryParse(ageController.text.trim()) ?? 0,
-                                        gender: gender,
-                                        bloodType: bloodType,
-                                        careNote: careNoteController.text.trim(),
-                                      );
+                                  final repo = ref.read(memberRepositoryProvider);
+                                  if (isEditing) {
+                                    await repo.update(
+                                      id: member.id,
+                                      fullName: fullNameController.text.trim(),
+                                      nickname: nicknameController.text.trim(),
+                                      relationship: relationshipController.text.trim(),
+                                      phone: phoneController.text.trim(),
+                                      age: int.tryParse(ageController.text.trim()) ?? 0,
+                                      gender: gender,
+                                      bloodType: bloodType,
+                                      careNote: careNoteController.text.trim(),
+                                    );
+                                  } else {
+                                    await repo.create(
+                                      fullName: fullNameController.text.trim(),
+                                      nickname: nicknameController.text.trim(),
+                                      relationship: relationshipController.text.trim(),
+                                      phone: phoneController.text.trim(),
+                                      age: int.tryParse(ageController.text.trim()) ?? 0,
+                                      gender: gender,
+                                      bloodType: bloodType,
+                                      careNote: careNoteController.text.trim(),
+                                    );
+                                  }
                                   if (context.mounted) Navigator.pop(context);
                                   await _load();
                                 } on MaxRelativesReachedException catch (e) {
@@ -469,11 +505,23 @@ class _MembersPageState extends ConsumerState<MembersPage> {
               ),
               const SizedBox(height: 22),
               _DetailRow(icon: Icons.phone_outlined, label: 'เบอร์โทร', value: member.phone),
-              _DetailRow(icon: Icons.wc_rounded, label: 'เพศ', value: member.gender),
+              _DetailRow(icon: Icons.wc_rounded, label: 'เพศ', value: _genderLabel(member.gender)),
               _DetailRow(
                 icon: Icons.note_alt_outlined,
                 label: 'หมายเหตุการดูแล',
                 value: member.careNote.isEmpty ? '-' : member.careNote,
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _showMemberFormSheet(member: member);
+                  },
+                  icon: const Icon(Icons.edit_rounded),
+                  label: const Text('แก้ไขข้อมูล'),
+                ),
               ),
               if (!member.isSelf) ...[
                 const SizedBox(height: 14),

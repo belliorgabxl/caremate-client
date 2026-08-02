@@ -3,14 +3,20 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
-import '../../features/auth/presentation/pages/otp_verify_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
+import '../../features/booking/presentation/pages/booking_history_page.dart';
 import '../../features/booking/presentation/pages/booking_page.dart';
+import '../../features/booking/presentation/pages/booking_status_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/members/presentation/pages/members_page.dart';
 import '../../features/payment/presentation/pages/payment_page.dart';
+import '../../features/profile/presentation/pages/addresses_page.dart';
+import '../../features/profile/presentation/pages/health_information_page.dart';
+import '../../features/profile/presentation/pages/personal_information_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
+import '../../features/profile/presentation/pages/settings_page.dart';
 import '../../features/splash/presentation/pages/splash_page.dart';
+import '../../shared/models/booking.dart';
 import '../../shared/widgets/main_scaffold.dart';
 import 'app_routes.dart';
 
@@ -25,23 +31,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final isSplash = path == AppRoutes.splash;
       final isLogin = path == AppRoutes.login;
-      final isOtp = path == AppRoutes.otpVerify;
       final isRegister = path == AppRoutes.register;
-      final isPreAuth = isLogin || isOtp || isRegister;
 
       switch (auth.step) {
         case AuthStep.checking:
           return isSplash ? null : AppRoutes.splash;
-        case AuthStep.phoneEntry:
-          return isLogin ? null : AppRoutes.login;
-        case AuthStep.otpSent:
-          if (auth.pendingPhone == null) return AppRoutes.login;
-          return isOtp ? null : AppRoutes.otpVerify;
-        case AuthStep.needsRegistration:
-          if (auth.pendingPhone == null) return AppRoutes.login;
-          return isRegister ? null : AppRoutes.register;
+        case AuthStep.loggedOut:
+          return (isLogin || isRegister) ? null : AppRoutes.login;
         case AuthStep.authenticated:
-          return (isSplash || isPreAuth) ? AppRoutes.home : null;
+          return (isSplash || isLogin || isRegister) ? AppRoutes.home : null;
       }
     },
     routes: [
@@ -52,10 +50,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.login,
         builder: (context, state) => const LoginPage(),
-      ),
-      GoRoute(
-        path: AppRoutes.otpVerify,
-        builder: (context, state) => const OtpVerifyPage(),
       ),
       GoRoute(
         path: AppRoutes.register,
@@ -87,6 +81,33 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.payment,
         builder: (context, state) => const PaymentPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.profilePersonalInformation,
+        builder: (context, state) => const PersonalInformationPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.profileHealthInformation,
+        builder: (context, state) => const HealthInformationPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.profileAddresses,
+        builder: (context, state) => const AddressesPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.profileSettings,
+        builder: (context, state) => const SettingsPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.bookingHistory,
+        builder: (context, state) => const BookingHistoryPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.bookingStatus,
+        builder: (context, state) => BookingStatusPage(
+          bookingId: state.pathParameters['bookingId']!,
+          seed: state.extra is Booking ? state.extra as Booking : null,
+        ),
       ),
     ],
   );

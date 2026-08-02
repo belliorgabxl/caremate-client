@@ -1,0 +1,228 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../../app/router/app_routes.dart';
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_radius.dart';
+import '../../../../shared/models/address.dart';
+import '../../../../shared/models/user_profile.dart';
+import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/location_picker_page.dart';
+import '../../../../shared/widgets/primary_button.dart';
+import '../../../../shared/widgets/section_header.dart';
+import '../../../auth/presentation/controllers/auth_controller.dart';
+import '../../data/profile_repository.dart';
+
+class AddressesPage extends ConsumerStatefulWidget {
+  const AddressesPage({super.key});
+
+  @override
+  ConsumerState<AddressesPage> createState() => _AddressesPageState();
+}
+
+class _AddressesPageState extends ConsumerState<AddressesPage> {
+  final _addressController = TextEditingController();
+
+  bool _isLoading = true;
+  bool _isSaving = false;
+  UserProfile? _profile;
+  Address? _pickedLocation;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final user = ref.read(authControllerProvider).user;
+    if (user == null) return;
+
+    final profile = await ref.read(profileRepositoryProvider).getForUser(user);
+    if (!mounted) return;
+
+    setState(() {
+      _profile = profile;
+      _pickedLocation = profile.address;
+      _addressController.text = profile.address?.addressLine ?? '';
+      _isLoading = false;
+    });
+  }
+
+  @override
+  void dispose() {
+    _addressController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickOnMap() async {
+    final picked = await Navigator.of(context).push<Address>(
+      MaterialPageRoute(
+        builder: (context) => LocationPickerPage(
+          title: 'เลือกที่อยู่บนแผนที่',
+          initialAddress: _pickedLocation,
+        ),
+      ),
+    );
+
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      _pickedLocation = picked;
+      _addressController.text = picked.addressLine;
+    });
+  }
+
+  Future<void> _save() async {
+    final profile = _profile;
+    if (profile == null) return;
+
+    if (_addressController.text.trim().isEmpty) {
+      setState(() => _error = 'กรุณากรอกที่อยู่');
+      return;
+    }
+    if (_pickedLocation?.hasCoordinates != true) {
+      setState(() => _error = 'กรุณาเลือกตำแหน่งบนแผนที่');
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+      _error = null;
+    });
+
+    final updated = profile.copyWith(
+      address: Address(
+        addressLine: _addressController.text.trim(),
+        latitude: _pickedLocation!.latitude,
+        longitude: _pickedLocation!.longitude,
+      ),
+    );
+
+    await ref.read(profileRepositoryProvider).update(updated);
+
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('บันทึกที่อยู่เรียบร้อยแล้ว')),
+    );
+    context.go(AppRoutes.profile);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('ที่อยู่ของฉัน'),
+          leading: BackButton(onPressed: () => context.go(AppRoutes.profile)),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final textTheme = Theme.of(context).textTheme;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('ที่อยู่ของฉัน'),
+        leading: BackButton(onPressed: () => context.go(AppRoutes.profile)),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        children: [
+          const SectionHeader(
+            title: 'ที่อยู่หลัก',
+            subtitle: 'ใช้เป็นค่าเริ่มต้นเมื่อจองบริการ',
+            icon: Icons.location_on_rounded,
+          ),
+          const SizedBox(height: 12),
+          AppCard(
+            child: Column(
+              children: [
+                AppTextField(
+                  controller: _addressController,
+                  label: 'รายละเอียดที่อยู่',
+                  hint: 'บ้านเลขที่ ถนน แขวง/ตำบล เขต/อำเภอ',
+                  prefixIcon: Icons.home_outlined,
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 14),
+                InkWell(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  onTap: _pickOnMap,
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceAlt,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.map_rounded, color: AppColors.primary),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('เลือกตำแหน่งบนแผนที่', style: textTheme.titleSmall),
+                              const SizedBox(height: 3),
+                              Text(
+                                _pickedLocation?.hasCoordinates == true
+                                    ? '${_pickedLocation!.latitude!.toStringAsFixed(5)}, ${_pickedLocation!.longitude!.toStringAsFixed(5)}'
+                                    : 'ยังไม่ได้ปักหมุด',
+                                style: textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right_rounded),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.dangerBg,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              child: Text(
+                _error!,
+                style: textTheme.bodySmall?.copyWith(color: AppColors.danger, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: Text(
+              'ที่อยู่นี้จะถูกใช้เป็นจุดรับเริ่มต้นเมื่อคุณสร้างการจองใหม่',
+              style: textTheme.bodySmall,
+            ),
+          ),
+          const SizedBox(height: 24),
+          PrimaryButton(
+            label: _isSaving ? 'กำลังบันทึก...' : 'บันทึกที่อยู่',
+            icon: Icons.save_rounded,
+            isLoading: _isSaving,
+            onPressed: _isSaving ? null : _save,
+          ),
+        ],
+      ),
+    );
+  }
+}

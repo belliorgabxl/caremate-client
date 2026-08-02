@@ -1,87 +1,60 @@
-import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/network/api_client.dart';
 import '../../../shared/models/payment.dart';
-
-class PaymentNotFoundException implements Exception {
-  const PaymentNotFoundException();
-
-  @override
-  String toString() => 'ไม่พบรายการชำระเงิน';
-}
+import 'promptpay_qr.dart';
 
 class PaymentRepository {
-  final List<PaymentMethod> methods = const [
-    PaymentMethod(
-      id: 'card',
-      title: 'บัตรเครดิต/เดบิต',
-      subtitle: 'Visa, Mastercard, JCB',
-      icon: Icons.credit_card_rounded,
-    ),
-    PaymentMethod(
-      id: 'promptpay',
-      title: 'พร้อมเพย์ (PromptPay)',
-      subtitle: 'สแกน QR เพื่อชำระเงิน',
-      icon: Icons.qr_code_rounded,
-    ),
-    PaymentMethod(
-      id: 'cash',
-      title: 'เงินสด (จ่ายกับพาร์ทเนอร์)',
-      subtitle: 'ชำระเมื่อได้รับบริการ',
-      icon: Icons.payments_rounded,
-    ),
-    PaymentMethod(
-      id: 'truemoney',
-      title: 'TrueMoney Wallet',
-      subtitle: 'เชื่อมต่อบัญชี TrueMoney',
-      icon: Icons.account_balance_wallet_rounded,
-    ),
-  ];
+  PaymentRepository(this._api);
 
-  final List<Payment> _payments = [];
+  final ApiClient _api;
 
   Future<List<PaymentMethod>> getMethods() async {
-    await Future.delayed(AppConfig.mockNetworkDelay);
-    return methods;
-  }
+    try {
+      final response = await _api.dio.get('/payments/methods');
+      final data = _api.unwrap(response.data);
+      final methods = data is List ? data : const [];
 
-  Payment createForBooking({
-    required String bookingId,
-    required double totalAmount,
-    required String paymentMethodId,
-  }) {
-    final payment = Payment(
-      id: 'pay-${DateTime.now().millisecondsSinceEpoch}',
-      bookingId: bookingId,
-      paymentMethodId: paymentMethodId,
-      totalAmount: totalAmount,
-      status: PaymentStatus.pending,
-      reference: 'CM${DateTime.now().millisecondsSinceEpoch.toRadixString(36).toUpperCase()}',
-      expiredAt: DateTime.now().add(const Duration(minutes: 15)),
-    );
-    _payments.add(payment);
-    return payment;
+      return [
+        for (final method in methods.cast<Map<String, dynamic>>())
+          if (method['is_active'] as bool? ?? true) PaymentMethod.fromJson(method),
+      ];
+    } on DioException catch (e) {
+      _api.throwApiException(e);
+    }
   }
 
   Future<Payment> getById(String id) async {
-    await Future.delayed(AppConfig.mockNetworkDelay);
-    for (final payment in _payments) {
-      if (payment.id == id) return payment;
+    try {
+      final response = await _api.dio.get('/payments/${Uri.encodeComponent(id)}');
+      final data = _api.unwrap(response.data) as Map<String, dynamic>;
+      return Payment.fromJson(data);
+    } on DioException catch (e) {
+      _api.throwApiException(e);
     }
-    throw const PaymentNotFoundException();
   }
 
-  Future<Payment> confirm(String id) async {
-    await Future.delayed(AppConfig.mockNetworkDelay);
+  Future<Payment> confirm({required String bookingId, required String paymentId}) async {
+    try {
+      await _api.dio.post('/payments/confirm', data: {'bookingId': bookingId, 'paymentId': paymentId});
+      final payment = await getById(paymentId);
+      return payment.status == PaymentStatus.paid ? payment : payment.copyWith(status: PaymentStatus.paid, paidAt: DateTime.now());
+    } on DioException catch (e) {
+      _api.throwApiException(e);
+    }
+  }
 
-    final index = _payments.indexWhere((p) => p.id == id);
-    if (index == -1) throw const PaymentNotFoundException();
-
-    final confirmed = _payments[index].copyWith(status: PaymentStatus.paid, paidAt: DateTime.now());
-    _payments[index] = confirmed;
-    return confirmed;
+  /// Generates the raw PromptPay EMV QR payload string to render (e.g. with
+  /// `QrImageView`), not an image itself. There's no backend endpoint for
+  /// this — it's computed locally the same way caremate-client's Next.js
+  /// proxy used to (see `promptpay_qr.dart`).
+  String getPromptPayQrPayload({required double amount}) {
+    return generatePromptPayPayload(promptPayId: AppConfig.promptPayId, amount: amount);
   }
 }
 
-final paymentRepositoryProvider = Provider<PaymentRepository>((ref) => PaymentRepository());
+final paymentRepositoryProvider = Provider<PaymentRepository>((ref) {
+  return PaymentRepository(ref.read(apiClientProvider));
+});

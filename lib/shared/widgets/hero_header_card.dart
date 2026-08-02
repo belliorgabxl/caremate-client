@@ -38,13 +38,20 @@ class HeroHeaderCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               CircleAvatar(
                 radius: 26,
                 backgroundColor: Colors.white.withValues(alpha: 0.16),
                 child: Icon(leadingIcon, color: Colors.white, size: 28),
               ),
-              const Spacer(),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  title,
+                  style: textTheme.headlineMedium?.copyWith(color: Colors.white),
+                ),
+              ),
               if (badgeText != null)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -67,12 +74,7 @@ class HeroHeaderCard extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 22),
-          Text(
-            title,
-            style: textTheme.headlineMedium?.copyWith(color: Colors.white),
-          ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 14),
           Text(
             subtitle,
             style: textTheme.bodyMedium?.copyWith(

@@ -1,9 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_config.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../../shared/models/address.dart';
+import '../../../core/network/api_client.dart';
 import '../../../shared/models/care_member.dart';
 
 class MaxRelativesReachedException implements Exception {
@@ -14,116 +13,23 @@ class MaxRelativesReachedException implements Exception {
 }
 
 class MemberRepository {
-  final List<CareMember> _members = [
-    const CareMember(
-      id: 'm1',
-      fullName: 'ภัทรจาริน นภากาญจน์',
-      nickname: 'Gabel',
-      relationship: 'ตัวเอง',
-      phone: '081-234-5678',
-      age: 27,
-      gender: 'ชาย',
-      bloodType: 'O',
-      isDefault: true,
-      isSelf: true,
-      isActive: true,
-      color: AppColors.primary,
-      icon: Icons.person,
-      tags: ['ไม่มีโรคประจำตัว', 'แพ้ฝุ่น'],
-      careNote: 'ดูแลทั่วไป สามารถเดินทางเองได้',
-      address: Address(addressLine: 'คอนโด CareMate Residence, ถนนสุขุมวิท'),
-    ),
-    const CareMember(
-      id: 'm2',
-      fullName: 'สมชาย นภากาญจน์',
-      nickname: 'พ่อ',
-      relationship: 'บิดา',
-      phone: '089-111-2222',
-      age: 64,
-      gender: 'ชาย',
-      bloodType: 'B',
-      isDefault: false,
-      isSelf: false,
-      isActive: true,
-      color: AppColors.serviceHomeCare,
-      icon: Icons.elderly,
-      tags: ['ความดัน', 'ต้องมีคนพยุง'],
-      careNote: 'เดินช้า ต้องระวังตอนขึ้นลงรถ',
-      address: Address(addressLine: 'คอนโด CareMate Residence, ถนนสุขุมวิท'),
-    ),
-    const CareMember(
-      id: 'm3',
-      fullName: 'สมหญิง นภากาญจน์',
-      nickname: 'แม่',
-      relationship: 'มารดา',
-      phone: '086-333-4444',
-      age: 59,
-      gender: 'หญิง',
-      bloodType: 'A',
-      isDefault: false,
-      isSelf: false,
-      isActive: true,
-      color: AppColors.serviceMedication,
-      icon: Icons.favorite,
-      tags: ['แพ้อาหารทะเล', 'ทานยาประจำ'],
-      careNote: 'แจ้งเตือนให้ทานยาหลังอาหาร',
-      address: Address(addressLine: 'คอนโด CareMate Residence, ถนนสุขุมวิท'),
-    ),
-  ];
+  MemberRepository(this._api);
+
+  final ApiClient _api;
 
   Future<List<CareMember>> list() async {
-    await Future.delayed(AppConfig.mockNetworkDelay);
-    return _members.where((m) => m.isActive).toList(growable: false);
-  }
+    try {
+      final response = await _api.dio.get('/user-relatives');
+      final data = _api.unwrap(response.data) as Map<String, dynamic>;
+      final relatives = data['relatives'] as List<dynamic>? ?? const [];
 
-  CareMember? getById(String id) {
-    for (final member in _members) {
-      if (member.id == id) return member;
+      return [
+        for (var i = 0; i < relatives.length; i++)
+          CareMember.fromJson(relatives[i] as Map<String, dynamic>, seq: i),
+      ].where((m) => m.isActive).toList(growable: false);
+    } on DioException catch (e) {
+      _api.throwApiException(e);
     }
-    return null;
-  }
-
-  Future<CareMember> getSelf() async {
-    await Future.delayed(AppConfig.mockNetworkDelay);
-    return _members.firstWhere((m) => m.isSelf);
-  }
-
-  Future<CareMember> updateDetails(
-    String id, {
-    String? fullName,
-    String? nickname,
-    String? phone,
-    int? age,
-    String? gender,
-    String? bloodType,
-    List<String>? tags,
-    String? careNote,
-    Address? address,
-    String? emergencyContactName,
-    String? emergencyContactPhone,
-    String? emergencyContactRelationship,
-  }) async {
-    await Future.delayed(AppConfig.mockNetworkDelay);
-
-    final index = _members.indexWhere((m) => m.id == id);
-    if (index == -1) throw StateError('ไม่พบข้อมูลสมาชิก');
-
-    final updated = _members[index].copyWith(
-      fullName: fullName,
-      nickname: nickname,
-      phone: phone,
-      age: age,
-      gender: gender,
-      bloodType: bloodType,
-      tags: tags,
-      careNote: careNote,
-      address: address,
-      emergencyContactName: emergencyContactName,
-      emergencyContactPhone: emergencyContactPhone,
-      emergencyContactRelationship: emergencyContactRelationship,
-    );
-    _members[index] = updated;
-    return updated;
   }
 
   Future<CareMember> create({
@@ -136,61 +42,136 @@ class MemberRepository {
     required String bloodType,
     required String careNote,
   }) async {
-    await Future.delayed(AppConfig.mockNetworkDelay);
-
-    final activeRelatives = _members.where((m) => !m.isSelf && m.isActive).length;
+    final current = await list();
+    final activeRelatives = current.where((m) => !m.isSelf).length;
     if (activeRelatives >= AppConfig.maxRelatives) {
       throw const MaxRelativesReachedException();
     }
 
-    final colors = AppColors.serviceColors;
-    final member = CareMember(
-      id: 'm-${DateTime.now().millisecondsSinceEpoch}',
-      fullName: fullName,
-      nickname: nickname,
-      relationship: relationship,
-      phone: phone,
-      age: age,
-      gender: gender,
-      bloodType: bloodType,
-      isDefault: false,
-      isSelf: false,
-      isActive: true,
-      color: colors[_members.length % colors.length],
-      icon: Icons.person_outline_rounded,
-      tags: const [],
-      careNote: careNote,
-      address: const Address(addressLine: ''),
-    );
+    final nameParts = fullName.trim().split(RegExp(r'\s+'));
+    final now = DateTime.now();
+    final approxDateOfBirth = DateTime(now.year - age, now.month, now.day);
+    final dateOfBirthIso = approxDateOfBirth.toIso8601String().split('T').first;
 
-    _members.add(member);
-    return member;
+    try {
+      final response = await _api.dio.post('/user-relatives', data: {
+        'firstName': nameParts.isNotEmpty ? nameParts.first : fullName,
+        'lastName': nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '',
+        'phone': phone,
+        'email': null,
+        'dateOfBirth': dateOfBirthIso,
+        'gender': gender,
+        'registerAs': null,
+        'addressLine': null,
+        'province': null,
+        'emergencyContactName': null,
+        'emergencyContactPhone': null,
+        'careNote': careNote,
+        'relationship': relationship,
+        'isDefault': false,
+      });
+      final data = _api.unwrap(response.data) as Map<String, dynamic>;
+
+      // `POST /user-relatives` (CreateUserRelativeRequest) has no nickname/
+      // bloodType fields on the backend, and its dateOfBirth is accepted but
+      // never persisted (repo bug) — only `PATCH` (UpdateUserRelativeRequest)
+      // writes those columns, so a follow-up patch is required or they save
+      // as NULL in `user_informations`.
+      final createdId = data['id'] as String?;
+      if (createdId != null) {
+        await _api.dio.patch('/user-relatives/$createdId', data: {
+          'nickname': nickname,
+          'bloodType': bloodType,
+          'dateOfBirth': dateOfBirthIso,
+        });
+      }
+
+      return CareMember.fromJson(data, seq: current.length);
+    } on DioException catch (e) {
+      _api.throwApiException(e);
+    }
   }
 
+  Future<void> update({
+    required String id,
+    required String fullName,
+    required String nickname,
+    required String relationship,
+    required String phone,
+    required int age,
+    required String gender,
+    required String bloodType,
+    required String careNote,
+  }) async {
+    final nameParts = fullName.trim().split(RegExp(r'\s+'));
+    final now = DateTime.now();
+    final approxDateOfBirth = DateTime(now.year - age, now.month, now.day);
+
+    try {
+      await _api.dio.patch('/user-relatives/$id', data: {
+        'firstName': nameParts.isNotEmpty ? nameParts.first : fullName,
+        'lastName': nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '',
+        'nickname': nickname,
+        'relationship': relationship,
+        'phone': phone,
+        'dateOfBirth': approxDateOfBirth.toIso8601String().split('T').first,
+        'gender': gender,
+        'bloodType': bloodType,
+        'careNote': careNote,
+      });
+    } on DioException catch (e) {
+      _api.throwApiException(e);
+    }
+  }
+
+  /// Backend has no DELETE /user-relatives/{id} route yet — this will 404
+  /// until it's added there.
   Future<void> softDelete(String id) async {
-    await Future.delayed(AppConfig.mockNetworkDelay);
-
-    final index = _members.indexWhere((m) => m.id == id);
-    if (index == -1) return;
-
-    final removed = _members[index];
-    _members[index] = removed.copyWith(isActive: false, isDefault: false);
-
-    if (removed.isDefault) {
-      final selfIndex = _members.indexWhere((m) => m.isSelf);
-      if (selfIndex != -1) {
-        _members[selfIndex] = _members[selfIndex].copyWith(isDefault: true);
-      }
+    try {
+      await _api.dio.delete('/user-relatives/$id');
+    } on DioException catch (e) {
+      _api.throwApiException(e);
     }
   }
 
   Future<void> setDefault(String id) async {
-    await Future.delayed(AppConfig.mockNetworkDelay);
+    try {
+      final detailResponse = await _api.dio.get('/user-relatives/$id');
+      final unwrapped = _api.unwrap(detailResponse.data) as Map<String, dynamic>;
+      final detail = (unwrapped['relative'] as Map<String, dynamic>?) ?? unwrapped;
 
-    for (var i = 0; i < _members.length; i++) {
-      _members[i] = _members[i].copyWith(isDefault: _members[i].id == id);
+      await _api.dio.patch('/user-relatives/$id', data: {
+        'firstName': detail['firstName'],
+        'lastName': detail['lastName'],
+        'phone': detail['phone'],
+        'email': detail['email'],
+        'dateOfBirth': detail['dateOfBirth'],
+        'gender': detail['gender'],
+        'registerAs': null,
+        'relationship': detail['relationship'],
+        'addressLine': detail['addressLine'],
+        'subdistrict': detail['subdistrict'],
+        'district': detail['district'],
+        'province': detail['province'],
+        'latitude': (detail['latitude'] as num?)?.toDouble() ?? 0,
+        'longitude': (detail['longitude'] as num?)?.toDouble() ?? 0,
+        'postalCode': detail['postalCode'],
+        'emergencyContactName': detail['emergencyContactName'],
+        'emergencyContactPhone': detail['emergencyContactPhone'],
+        'emergencyContactRelationship': detail['emergencyContactRelationship'],
+        'bloodType': detail['bloodType'],
+        'allergies': detail['allergies'],
+        'congenitalDiseases': detail['congenitalDiseases'],
+        'currentMedications': detail['currentMedications'],
+        'careNote': detail['careNote'],
+        'isDefault': true,
+      });
+    } on DioException catch (e) {
+      _api.throwApiException(e);
     }
   }
 }
 
-final memberRepositoryProvider = Provider<MemberRepository>((ref) => MemberRepository());
+final memberRepositoryProvider = Provider<MemberRepository>((ref) {
+  return MemberRepository(ref.read(apiClientProvider));
+});

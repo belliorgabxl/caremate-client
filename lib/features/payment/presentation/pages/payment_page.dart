@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -31,6 +32,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   Booking? _booking;
   Payment? _payment;
   List<PaymentMethod> _methods = const [];
+  String? _qrPayload;
 
   Timer? _unlockTimer;
   Timer? _countdownTimer;
@@ -55,20 +57,17 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     final bookingRepo = ref.read(bookingRepositoryProvider);
     final paymentRepo = ref.read(paymentRepositoryProvider);
 
-    final activeBookings = await bookingRepo.getActiveBookings();
-    final awaitingPayment = activeBookings.where((b) => b.status == BookingStatus.awaitingPayment);
-    final pendingBooking = awaitingPayment.isEmpty ? null : awaitingPayment.first;
-
+    final pending = await bookingRepo.getPendingPayment();
     final methods = await paymentRepo.getMethods();
 
     Payment? payment;
-    if (pendingBooking != null) {
-      payment = await paymentRepo.getById(pendingBooking.paymentId);
+    if (pending != null && pending.$2.id.isNotEmpty) {
+      payment = await paymentRepo.getById(pending.$2.id);
     }
 
     if (!mounted) return;
     setState(() {
-      _booking = pendingBooking;
+      _booking = pending?.$1;
       _payment = payment;
       _methods = methods;
       _isLoading = false;
@@ -76,7 +75,18 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
 
     if (payment != null) {
       _startTimers(payment);
+      await _loadQrIfNeeded(payment);
     }
+  }
+
+  Future<void> _loadQrIfNeeded(Payment payment) async {
+    final method = _selectedMethod;
+    if (method?.slug != 'qr_promptpay') return;
+
+    final payload = ref.read(paymentRepositoryProvider).getPromptPayQrPayload(amount: payment.totalAmount);
+
+    if (!mounted) return;
+    setState(() => _qrPayload = payload);
   }
 
   void _startTimers(Payment payment) {
@@ -95,7 +105,12 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   }
 
   void _updateRemaining(Payment payment) {
-    final remaining = payment.expiredAt.difference(DateTime.now());
+    final expiredAt = payment.expiredAt;
+    if (expiredAt == null) {
+      setState(() => _remaining = Duration.zero);
+      return;
+    }
+    final remaining = expiredAt.difference(DateTime.now());
     setState(() => _remaining = remaining.isNegative ? Duration.zero : remaining);
   }
 
@@ -175,14 +190,18 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
             ),
           ),
           const SizedBox(height: 24),
-          if (method?.id == 'promptpay') ...[
+          if (method?.slug == 'qr_promptpay') ...[
             const SectionHeader(
               title: 'สแกน QR เพื่อชำระเงิน',
               subtitle: 'เปิดแอปธนาคารแล้วสแกน QR นี้',
               icon: Icons.qr_code_rounded,
             ),
             const SizedBox(height: 12),
-            _PromptPayQrCard(reference: payment.reference, countdownLabel: _countdownLabel),
+            _PromptPayQrCard(
+              payload: _qrPayload,
+              reference: payment.reference,
+              countdownLabel: _countdownLabel,
+            ),
           ] else if (method != null) ...[
             const SectionHeader(
               title: 'วิธีชำระเงิน',
@@ -255,15 +274,15 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   Future<void> _confirmPayment(Payment payment) async {
     setState(() => _isConfirming = true);
 
-    await ref.read(paymentRepositoryProvider).confirm(payment.id);
-    await ref.read(bookingRepositoryProvider).markPaid(payment.bookingId);
+    await ref.read(paymentRepositoryProvider).confirm(bookingId: payment.bookingId, paymentId: payment.id);
+    ref.read(bookingRepositoryProvider).clearPendingPayment();
 
     if (!mounted) return;
     setState(() => _isConfirming = false);
-    _showSuccessSheet();
+    _showSuccessSheet(_booking!);
   }
 
-  void _showSuccessSheet() {
+  void _showSuccessSheet(Booking booking) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -293,12 +312,24 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
               ),
               const SizedBox(height: 22),
               PrimaryButton(
-                label: 'กลับหน้าหลัก',
-                icon: Icons.home_rounded,
+                label: 'ติดตามสถานะการจอง',
+                icon: Icons.track_changes_rounded,
                 onPressed: () {
                   Navigator.pop(context);
-                  context.go(AppRoutes.home);
+                  context.go(AppRoutes.bookingStatusPath(booking.id), extra: booking);
                 },
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    context.go(AppRoutes.home);
+                  },
+                  child: const Text('กลับหน้าหลัก'),
+                ),
               ),
             ],
           ),
@@ -309,14 +340,16 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
 }
 
 class _PromptPayQrCard extends StatelessWidget {
-  const _PromptPayQrCard({required this.reference, required this.countdownLabel});
+  const _PromptPayQrCard({required this.payload, required this.reference, required this.countdownLabel});
 
+  final String? payload;
   final String reference;
   final String countdownLabel;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final hasPayload = payload != null && payload!.isNotEmpty;
 
     return AppCard(
       padding: const EdgeInsets.all(20),
@@ -325,12 +358,21 @@ class _PromptPayQrCard extends StatelessWidget {
           Container(
             width: 200,
             height: 200,
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: AppColors.surfaceAlt,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.border),
             ),
-            child: const Icon(Icons.qr_code_2_rounded, size: 140, color: AppColors.textPrimary),
+            child: hasPayload
+                ? QrImageView(data: payload!, backgroundColor: AppColors.surfaceAlt)
+                : const Center(
+                    child: SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(strokeWidth: 3),
+                    ),
+                  ),
           ),
           const SizedBox(height: 14),
           Text('อ้างอิง: $reference', style: textTheme.bodySmall),
@@ -362,8 +404,8 @@ class _SummaryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+        return Padding(
+    padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
