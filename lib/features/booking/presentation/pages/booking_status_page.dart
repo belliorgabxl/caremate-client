@@ -144,6 +144,10 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
               ),
             ),
             const SizedBox(height: 20),
+            const SectionHeader(title: 'รายละเอียดการจอง', icon: Icons.receipt_long_rounded),
+            const SizedBox(height: 12),
+            _BookingDetailCard(booking: booking),
+            const SizedBox(height: 20),
             _buildStatusBody(booking, textTheme),
             const SizedBox(height: 20),
             SizedBox(
@@ -317,9 +321,123 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
           ],
         );
 
-      case BookingStatus.cancelled:
       case BookingStatus.awaitingPayment:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppCard(child: Text(booking.status.label)),
+            const SizedBox(height: 14),
+            PrimaryButton(
+              label: 'ชำระเงิน',
+              icon: Icons.payment_rounded,
+              onPressed: () => context.go(AppRoutes.payment),
+            ),
+          ],
+        );
+
+      case BookingStatus.cancelled:
         return AppCard(child: Text(booking.status.label));
     }
+  }
+}
+
+class _BookingDetailCard extends StatelessWidget {
+  const _BookingDetailCard({required this.booking});
+
+  final Booking booking;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return AppCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        children: [
+          _DetailRow(
+            icon: Icons.person_outline_rounded,
+            label: 'ผู้รับบริการ',
+            value: booking.memberName,
+          ),
+          const Divider(height: 24),
+          _DetailRow(
+            icon: Icons.event_outlined,
+            label: 'วันและเวลา',
+            value: _formatDateTime(booking.scheduledAt),
+          ),
+          const Divider(height: 24),
+          _DetailRow(
+            icon: Icons.location_on_outlined,
+            label: booking.destinationAddress == null ? 'สถานที่รับบริการ' : 'จุดรับ → จุดหมาย',
+            value: booking.destinationAddress == null
+                ? booking.pickupAddress
+                : '${booking.pickupAddress} → ${booking.destinationAddress}',
+          ),
+          if (booking.notes != null && booking.notes!.isNotEmpty) ...[
+            const Divider(height: 24),
+            _DetailRow(
+              icon: Icons.notes_rounded,
+              label: 'หมายเหตุ',
+              value: booking.notes!,
+            ),
+          ],
+          const Divider(height: 24),
+          Row(
+            children: [
+              Text(
+                'ยอดชำระ',
+                style: textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+              ),
+              const Spacer(),
+              Text(
+                '฿${booking.totalAmount.toStringAsFixed(0)}',
+                style: textTheme.titleMedium?.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    const months = [
+      'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+      'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.',
+    ];
+    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    return '${dateTime.day} ${months[dateTime.month - 1]} เวลา $hour:$minute น.';
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({required this.icon, required this.label, required this.value});
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: AppColors.textSecondary),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: textTheme.labelMedium?.copyWith(color: AppColors.textSecondary)),
+              const SizedBox(height: 2),
+              Text(value, style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }

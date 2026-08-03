@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../shared/models/booking.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
@@ -22,6 +23,7 @@ class BookingHistoryPage extends ConsumerStatefulWidget {
 
 class _BookingHistoryPageState extends ConsumerState<BookingHistoryPage> {
   bool _isLoading = true;
+  String? _error;
   List<Booking> _bookings = const [];
 
   @override
@@ -31,13 +33,24 @@ class _BookingHistoryPageState extends ConsumerState<BookingHistoryPage> {
   }
 
   Future<void> _load() async {
-    setState(() => _isLoading = true);
-    final bookings = await ref.read(bookingRepositoryProvider).getAllBookings();
-    if (!mounted) return;
     setState(() {
-      _bookings = bookings;
-      _isLoading = false;
+      _isLoading = true;
+      _error = null;
     });
+    try {
+      final bookings = await ref.read(bookingRepositoryProvider).getAllBookings();
+      if (!mounted) return;
+      setState(() {
+        _bookings = bookings;
+        _isLoading = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.message;
+        _isLoading = false;
+      });
+    }
   }
 
   String _formatDateTime(DateTime dateTime) {
@@ -61,7 +74,24 @@ class _BookingHistoryPageState extends ConsumerState<BookingHistoryPage> {
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _load,
-              child: _bookings.isEmpty
+              child: _error != null
+                  ? ListView(
+                      padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
+                      children: [
+                        EmptyState(
+                          icon: Icons.error_outline_rounded,
+                          title: 'โหลดประวัติการจองไม่สำเร็จ',
+                          message: _error!,
+                          action: PrimaryButton(
+                            label: 'ลองอีกครั้ง',
+                            icon: Icons.refresh_rounded,
+                            expanded: false,
+                            onPressed: _load,
+                          ),
+                        ),
+                      ],
+                    )
+                  : _bookings.isEmpty
                   ? ListView(
                       padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
                       children: [
@@ -87,6 +117,10 @@ class _BookingHistoryPageState extends ConsumerState<BookingHistoryPage> {
                         final textTheme = Theme.of(context).textTheme;
 
                         return AppCard(
+                          onTap: () => context.go(
+                            AppRoutes.bookingStatusPath(booking.id),
+                            extra: booking,
+                          ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [

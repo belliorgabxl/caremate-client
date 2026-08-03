@@ -362,22 +362,27 @@ class _UpcomingBookingSection extends StatelessWidget {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('บันทึกการจอง: ${booking.reference}')),
-                    );
-                  },
+                  onPressed: () => context.go(
+                    AppRoutes.bookingStatusPath(booking.id),
+                    extra: booking,
+                  ),
                   icon: const Icon(Icons.visibility_outlined),
                   label: const Text('ดูรายละเอียด'),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => context.go(AppRoutes.booking),
-                  icon: const Icon(Icons.add),
-                  label: const Text('จองเพิ่ม'),
-                ),
+                child: booking.status == BookingStatus.awaitingPayment
+                    ? FilledButton.icon(
+                        onPressed: () => context.go(AppRoutes.payment),
+                        icon: const Icon(Icons.payment_rounded),
+                        label: const Text('ชำระเงิน'),
+                      )
+                    : FilledButton.icon(
+                        onPressed: () => context.go(AppRoutes.booking),
+                        icon: const Icon(Icons.add),
+                        label: const Text('จองเพิ่ม'),
+                      ),
               ),
             ],
           ),
