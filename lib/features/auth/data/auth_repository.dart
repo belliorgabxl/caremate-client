@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/storage/local_storage.dart';
 import 'models/app_user.dart';
+import 'models/pdpa_policy.dart';
 
 class AuthRepository {
   AuthRepository(this._api, this._localStorage);
@@ -46,6 +47,12 @@ class AuthRepository {
   /// nullable there) — the app's register form requires all of them
   /// up front regardless, so address/health-info/emergency-contact remain
   /// the only things deferred to the profile pages.
+  ///
+  /// `pdpaConsentVersion` is sent as `pdpaConsent`/`pdpaConsentVersion` —
+  /// **proposed fields, not yet present on the backend's `RegisterRequest`**
+  /// (see CLAUDE.md). Until the backend adds them they're harmlessly
+  /// ignored/dropped server-side; consent is still recorded locally via
+  /// `LocalStorage.savePdpaConsentGiven()` regardless.
   Future<AppUser> register({
     required String phone,
     required String firstName,
@@ -54,6 +61,7 @@ class AuthRepository {
     required String gender,
     required String dateOfBirth,
     required String email,
+    String? pdpaConsentVersion,
   }) async {
     try {
       final response = await _api.dio.post('/authentication/register', data: {
@@ -64,9 +72,26 @@ class AuthRepository {
         'gender': gender,
         'dateOfBirth': dateOfBirth,
         'email': email,
+        if (pdpaConsentVersion != null)
+          ...{'pdpaConsent': true, 'pdpaConsentVersion': pdpaConsentVersion},
       });
       await _saveSessionCookie(response);
       return await fetchMe();
+    } on DioException catch (e) {
+      _api.throwApiException(e);
+    }
+  }
+
+  /// `GET /legal/pdpa` — **proposed endpoint, not yet implemented on the
+  /// backend** (see CLAUDE.md). Returns the current PDPA consent copy so it
+  /// can be updated without an app release; callers should fall back to a
+  /// bundled copy of the policy if this throws (e.g. 404 until the backend
+  /// adds it, or any network failure).
+  Future<PdpaPolicy> fetchPdpaPolicy() async {
+    try {
+      final response = await _api.dio.get('/legal/pdpa');
+      final data = _api.unwrap(response.data) as Map<String, dynamic>;
+      return PdpaPolicy.fromJson(data);
     } on DioException catch (e) {
       _api.throwApiException(e);
     }

@@ -6,11 +6,13 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/storage/local_storage.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../controllers/auth_controller.dart';
+import '../widgets/pdpa_consent_dialog.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
@@ -69,6 +71,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
     setState(() => _error = null);
 
+    final pdpaConsentVersion = await PdpaConsentDialog.show(context);
+    if (pdpaConsentVersion == null) return;
+    await ref.read(localStorageProvider).savePdpaConsentGiven(pdpaConsentVersion);
+    if (!mounted) return;
+
     final dateOfBirthIso = _dateOfBirth!.toIso8601String().split('T').first;
 
     try {
@@ -80,6 +87,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             gender: _gender,
             dateOfBirth: dateOfBirthIso,
             email: _emailController.text.trim(),
+            pdpaConsentVersion: pdpaConsentVersion,
           );
     } on ApiException catch (e) {
       if (!mounted) return;

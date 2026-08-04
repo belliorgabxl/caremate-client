@@ -52,6 +52,7 @@ class AuthController extends ChangeNotifier {
     required String gender,
     required String dateOfBirth,
     required String email,
+    String? pdpaConsentVersion,
   }) async {
     _isSubmitting = true;
     notifyListeners();
@@ -65,6 +66,7 @@ class AuthController extends ChangeNotifier {
         gender: gender,
         dateOfBirth: dateOfBirth,
         email: email,
+        pdpaConsentVersion: pdpaConsentVersion,
       );
       _step = AuthStep.authenticated;
     } finally {
