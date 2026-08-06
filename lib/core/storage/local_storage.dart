@@ -27,7 +27,10 @@ class LocalStorage {
   // bundled fallback) the user actually agreed to.
   Future<void> savePdpaConsentGiven(String version) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_pdpaConsentAtKey, DateTime.now().toUtc().toIso8601String());
+    await prefs.setString(
+      _pdpaConsentAtKey,
+      DateTime.now().toUtc().toIso8601String(),
+    );
     await prefs.setString(_pdpaConsentVersionKey, version);
   }
 

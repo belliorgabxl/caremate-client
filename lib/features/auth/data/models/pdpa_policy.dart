@@ -1,35 +1,72 @@
-class PdpaSection {
-  const PdpaSection({required this.title, required this.body});
+DateTime? _parseDate(dynamic value) {
+  if (value is! String || value.isEmpty) return null;
+  return DateTime.tryParse(value);
+}
 
+/// `GET /api/v1/pdpa` (active version) and `GET /api/v1/pdpa/:version`
+/// (one specific version) both return this shape. `content` is
+/// pre-rendered HTML (`<h2>...</h2><p>...</p>...`) — render it directly,
+/// no markdown parsing needed.
+class PdpaPolicy {
+  const PdpaPolicy({
+    required this.id,
+    required this.version,
+    required this.title,
+    required this.content,
+    this.summary,
+    required this.isActive,
+    this.effectiveDate,
+    this.updatedAt,
+  });
+
+  final String id;
+  final String version;
   final String title;
-  final String body;
+  final String content;
+  final String? summary;
+  final bool isActive;
+  final DateTime? effectiveDate;
+  final DateTime? updatedAt;
 
-  factory PdpaSection.fromJson(Map<String, dynamic> json) {
-    return PdpaSection(
+  factory PdpaPolicy.fromJson(Map<String, dynamic> json) {
+    return PdpaPolicy(
+      id: json['id'] as String? ?? '',
+      version: json['version'] as String? ?? '',
       title: json['title'] as String? ?? '',
-      body: json['body'] as String? ?? '',
+      content: json['content'] as String? ?? '',
+      summary: json['summary'] as String?,
+      isActive: json['is_active'] as bool? ?? false,
+      effectiveDate: _parseDate(json['effective_date']),
+      updatedAt: _parseDate(json['updated_at']),
     );
   }
 }
 
-/// Proposed shape for `GET /legal/pdpa` — **not yet implemented on the
-/// backend** (see CLAUDE.md). Lets legal copy change without an app release;
-/// `version` is echoed back on `POST /authentication/register` so the
-/// consent record is tied to the exact text the user agreed to.
-class PdpaPolicy {
-  const PdpaPolicy({required this.version, required this.title, required this.sections});
+/// `GET /api/v1/pdpa/versions` list entries — metadata only, no `content`/
+/// `id`. Use for a version-history list, not for display of the policy text
+/// itself (fetch `GET /pdpa/:version` for that).
+class PdpaVersionSummary {
+  const PdpaVersionSummary({
+    required this.version,
+    required this.title,
+    this.summary,
+    required this.isActive,
+    this.effectiveDate,
+  });
 
   final String version;
   final String title;
-  final List<PdpaSection> sections;
+  final String? summary;
+  final bool isActive;
+  final DateTime? effectiveDate;
 
-  factory PdpaPolicy.fromJson(Map<String, dynamic> json) {
-    return PdpaPolicy(
+  factory PdpaVersionSummary.fromJson(Map<String, dynamic> json) {
+    return PdpaVersionSummary(
       version: json['version'] as String? ?? '',
       title: json['title'] as String? ?? '',
-      sections: (json['sections'] as List<dynamic>? ?? [])
-          .map((e) => PdpaSection.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      summary: json['summary'] as String?,
+      isActive: json['is_active'] as bool? ?? false,
+      effectiveDate: _parseDate(json['effective_date']),
     );
   }
 }

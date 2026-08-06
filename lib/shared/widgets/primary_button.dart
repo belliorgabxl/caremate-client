@@ -67,10 +67,7 @@ class SecondaryButton extends StatelessWidget {
             icon: Icon(icon),
             label: Text(label),
           )
-        : OutlinedButton(
-            onPressed: onPressed,
-            child: Text(label),
-          );
+        : OutlinedButton(onPressed: onPressed, child: Text(label));
 
     return SizedBox(
       width: expanded ? double.infinity : null,

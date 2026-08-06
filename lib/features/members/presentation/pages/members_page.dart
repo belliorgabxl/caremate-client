@@ -1,3 +1,7 @@
+// Aurora Glass members list — aurora blobs behind the hero summary card;
+// stat tiles and member rows stay plain solid cards. See DESIGN.md ("Aurora
+// & Glass") — glass is reserved for the one hero moment, not every row.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,9 +11,9 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../shared/models/care_member.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/aurora_background.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../../shared/widgets/empty_state.dart';
-import '../../../../shared/widgets/hero_header_card.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/stat_card.dart';
 import '../../../../shared/widgets/status_badge.dart';
@@ -77,7 +81,8 @@ class _MembersPageState extends ConsumerState<MembersPage> {
         _ => true,
       };
 
-      final matchSearch = keyword.isEmpty ||
+      final matchSearch =
+          keyword.isEmpty ||
           member.fullName.toLowerCase().contains(keyword) ||
           member.nickname.toLowerCase().contains(keyword) ||
           member.relationship.toLowerCase().contains(keyword) ||
@@ -106,47 +111,64 @@ class _MembersPageState extends ConsumerState<MembersPage> {
         icon: const Icon(Icons.add),
         label: const Text('เพิ่มสมาชิก'),
       ),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
-          children: [
-            _buildHeroCard(),
-            const SizedBox(height: 18),
-            _buildSummarySection(),
-            const SizedBox(height: 18),
-            _buildSearchBox(),
-            const SizedBox(height: 14),
-            _buildFilters(),
-            const SizedBox(height: 18),
-            Row(
+      body: Stack(
+        children: [
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: AuroraBackground(),
+          ),
+          RefreshIndicator(
+            onRefresh: _load,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
               children: [
-                Text('สมาชิกทั้งหมด', style: textTheme.titleLarge),
-                const SizedBox(width: 8),
-                StatusBadge(text: '${members.length} คน', color: AppColors.primary),
+                _buildHeroCard(),
+                const SizedBox(height: 18),
+                _buildSummarySection(),
+                const SizedBox(height: 18),
+                _buildSearchBox(),
+                const SizedBox(height: 14),
+                _buildFilters(),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Text('สมาชิกทั้งหมด', style: textTheme.titleLarge),
+                    const SizedBox(width: 8),
+                    StatusBadge(
+                      text: '${members.length} คน',
+                      color: AppColors.primary,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (members.isEmpty)
+                  const EmptyState(
+                    icon: Icons.search_off_rounded,
+                    title: 'ไม่พบสมาชิก',
+                    message: 'ลองเปลี่ยนคำค้นหาหรือตัวกรองอีกครั้ง',
+                  )
+                else
+                  ...members.map(
+                    (member) => Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: _MemberCard(
+                        member: member,
+                        onTap: () => _showMemberDetail(member),
+                        onSetDefault: member.isDefault
+                            ? null
+                            : () => _setDefault(member),
+                        onDelete: member.isSelf
+                            ? null
+                            : () => _confirmDelete(member),
+                      ),
+                    ),
+                  ),
               ],
             ),
-            const SizedBox(height: 12),
-            if (members.isEmpty)
-              const EmptyState(
-                icon: Icons.search_off_rounded,
-                title: 'ไม่พบสมาชิก',
-                message: 'ลองเปลี่ยนคำค้นหาหรือตัวกรองอีกครั้ง',
-              )
-            else
-              ...members.map(
-                (member) => Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: _MemberCard(
-                    member: member,
-                    onTap: () => _showMemberDetail(member),
-                    onSetDefault: member.isDefault ? null : () => _setDefault(member),
-                    onDelete: member.isSelf ? null : () => _confirmDelete(member),
-                  ),
-                ),
-              ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -155,41 +177,71 @@ class _MembersPageState extends ConsumerState<MembersPage> {
     final defaultMember = _members.where((m) => m.isDefault).isEmpty
         ? null
         : _members.firstWhere((member) => member.isDefault);
+    final textTheme = Theme.of(context).textTheme;
 
-    return HeroHeaderCard(
-      title: 'จัดการคนที่คุณดูแล',
-      subtitle: 'เลือกสมาชิกเพื่อจองบริการ ดูข้อมูลสุขภาพ หรือจัดการผู้ติดต่อฉุกเฉิน',
-      leadingIcon: Icons.groups_rounded,
-      footer: defaultMember == null
-          ? null
-          : Container(
+    return AppCard(
+      glass: true,
+      padding: const EdgeInsets.all(22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const CircleIconAvatar(
+                icon: Icons.groups_rounded,
+                color: AppColors.primary,
+                radius: 28,
+                filled: true,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('จัดการคนที่คุณดูแล', style: textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(
+                      'เลือกสมาชิกเพื่อจองบริการ ดูข้อมูลสุขภาพ หรือจัดการผู้ติดต่อฉุกเฉิน',
+                      style: textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (defaultMember != null) ...[
+            const SizedBox(height: 16),
+            Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.14),
+                color: AppColors.surfaceAlt,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.star_rounded, color: Colors.white),
+                  const Icon(Icons.star_rounded, color: AppColors.badgeDefault),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'ค่าเริ่มต้น: ${defaultMember.nickname} (${defaultMember.relationship})',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
+          ],
+        ],
+      ),
     );
   }
 
   Widget _buildSummarySection() {
-    final withNotes = _members.where((m) => m.careNote.trim().isNotEmpty).length;
+    final withNotes = _members
+        .where((m) => m.careNote.trim().isNotEmpty)
+        .length;
 
     return Row(
       children: [
@@ -277,9 +329,14 @@ class _MembersPageState extends ConsumerState<MembersPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('ลบสมาชิก'),
-        content: Text('ต้องการลบ ${member.nickname} ออกจากรายชื่อผู้ดูแลใช่หรือไม่?'),
+        content: Text(
+          'ต้องการลบ ${member.nickname} ออกจากรายชื่อผู้ดูแลใช่หรือไม่?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('ยกเลิก')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('ยกเลิก'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('ลบ', style: TextStyle(color: AppColors.danger)),
@@ -297,14 +354,28 @@ class _MembersPageState extends ConsumerState<MembersPage> {
   void _showMemberFormSheet({CareMember? member}) {
     final isEditing = member != null;
     final formKey = GlobalKey<FormState>();
-    final fullNameController = TextEditingController(text: member?.fullName ?? '');
-    final nicknameController = TextEditingController(text: member?.nickname ?? '');
-    final relationshipController = TextEditingController(text: member?.relationship ?? '');
+    final fullNameController = TextEditingController(
+      text: member?.fullName ?? '',
+    );
+    final nicknameController = TextEditingController(
+      text: member?.nickname ?? '',
+    );
+    final relationshipController = TextEditingController(
+      text: member?.relationship ?? '',
+    );
     final phoneController = TextEditingController(text: member?.phone ?? '');
-    final ageController = TextEditingController(text: member == null || member.age == 0 ? '' : '${member.age}');
-    final careNoteController = TextEditingController(text: member?.careNote ?? '');
-    String gender = member != null && member.gender.isNotEmpty ? member.gender : _genderOptions.first.$1;
-    String bloodType = member != null && member.bloodType.isNotEmpty ? member.bloodType : _bloodTypeOptions.first;
+    final ageController = TextEditingController(
+      text: member == null || member.age == 0 ? '' : '${member.age}',
+    );
+    final careNoteController = TextEditingController(
+      text: member?.careNote ?? '',
+    );
+    String gender = member != null && member.gender.isNotEmpty
+        ? member.gender
+        : _genderOptions.first.$1;
+    String bloodType = member != null && member.bloodType.isNotEmpty
+        ? member.bloodType
+        : _bloodTypeOptions.first;
     var isSubmitting = false;
 
     showModalBottomSheet(
@@ -317,7 +388,12 @@ class _MembersPageState extends ConsumerState<MembersPage> {
             final textTheme = Theme.of(context).textTheme;
 
             return Padding(
-              padding: EdgeInsets.fromLTRB(24, 8, 24, MediaQuery.of(context).viewInsets.bottom + 28),
+              padding: EdgeInsets.fromLTRB(
+                24,
+                8,
+                24,
+                MediaQuery.of(context).viewInsets.bottom + 28,
+              ),
               child: SingleChildScrollView(
                 child: Form(
                   key: formKey,
@@ -326,7 +402,9 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       CircleIconAvatar(
-                        icon: isEditing ? Icons.edit_rounded : Icons.person_add_alt_1_rounded,
+                        icon: isEditing
+                            ? Icons.edit_rounded
+                            : Icons.person_add_alt_1_rounded,
                         color: AppColors.primary,
                         radius: 32,
                         iconSize: 36,
@@ -342,14 +420,18 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                         controller: fullNameController,
                         label: 'ชื่อ-นามสกุล',
                         prefixIcon: Icons.badge_outlined,
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'กรุณากรอกชื่อ-นามสกุล' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'กรุณากรอกชื่อ-นามสกุล'
+                            : null,
                       ),
                       const SizedBox(height: 12),
                       AppTextField(
                         controller: nicknameController,
                         label: 'ชื่อเล่น',
                         prefixIcon: Icons.face_outlined,
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'กรุณากรอกชื่อเล่น' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'กรุณากรอกชื่อเล่น'
+                            : null,
                       ),
                       const SizedBox(height: 12),
                       AppTextField(
@@ -357,7 +439,9 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                         label: 'ความสัมพันธ์',
                         hint: 'เช่น บิดา, มารดา, ญาติ',
                         prefixIcon: Icons.diversity_3_outlined,
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'กรุณากรอกความสัมพันธ์' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'กรุณากรอกความสัมพันธ์'
+                            : null,
                       ),
                       const SizedBox(height: 12),
                       AppTextField(
@@ -365,9 +449,13 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                         label: 'เบอร์โทรศัพท์',
                         keyboardType: TextInputType.phone,
                         prefixIcon: Icons.phone_outlined,
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
                         validator: (v) =>
-                            (v == null || !RegExp(r'^0[0-9]{9}$').hasMatch(v)) ? 'เบอร์โทรไม่ถูกต้อง' : null,
+                            (v == null || !RegExp(r'^0[0-9]{9}$').hasMatch(v))
+                            ? 'เบอร์โทรไม่ถูกต้อง'
+                            : null,
                       ),
                       const SizedBox(height: 12),
                       AppTextField(
@@ -375,8 +463,12 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                         label: 'อายุ',
                         keyboardType: TextInputType.number,
                         prefixIcon: Icons.cake_outlined,
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'กรุณากรอกอายุ' : null,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'กรุณากรอกอายุ'
+                            : null,
                       ),
                       const SizedBox(height: 12),
                       Row(
@@ -384,22 +476,39 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                           Expanded(
                             child: DropdownButtonFormField<String>(
                               initialValue: gender,
-                              decoration: const InputDecoration(labelText: 'เพศ'),
+                              decoration: const InputDecoration(
+                                labelText: 'เพศ',
+                              ),
                               items: _genderOptions
-                                  .map((g) => DropdownMenuItem(value: g.$1, child: Text(g.$2)))
+                                  .map(
+                                    (g) => DropdownMenuItem(
+                                      value: g.$1,
+                                      child: Text(g.$2),
+                                    ),
+                                  )
                                   .toList(),
-                              onChanged: (v) => setSheetState(() => gender = v ?? gender),
+                              onChanged: (v) =>
+                                  setSheetState(() => gender = v ?? gender),
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: DropdownButtonFormField<String>(
                               initialValue: bloodType,
-                              decoration: const InputDecoration(labelText: 'กรุ๊ปเลือด'),
+                              decoration: const InputDecoration(
+                                labelText: 'กรุ๊ปเลือด',
+                              ),
                               items: _bloodTypeOptions
-                                  .map((b) => DropdownMenuItem(value: b, child: Text(b)))
+                                  .map(
+                                    (b) => DropdownMenuItem(
+                                      value: b,
+                                      child: Text(b),
+                                    ),
+                                  )
                                   .toList(),
-                              onChanged: (v) => setSheetState(() => bloodType = v ?? bloodType),
+                              onChanged: (v) => setSheetState(
+                                () => bloodType = v ?? bloodType,
+                              ),
                             ),
                           ),
                         ],
@@ -420,20 +529,28 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                         onPressed: isSubmitting
                             ? null
                             : () async {
-                                final isValid = formKey.currentState?.validate() ?? false;
+                                final isValid =
+                                    formKey.currentState?.validate() ?? false;
                                 if (!isValid) return;
 
                                 setSheetState(() => isSubmitting = true);
                                 try {
-                                  final repo = ref.read(memberRepositoryProvider);
+                                  final repo = ref.read(
+                                    memberRepositoryProvider,
+                                  );
                                   if (isEditing) {
                                     await repo.update(
                                       id: member.id,
                                       fullName: fullNameController.text.trim(),
                                       nickname: nicknameController.text.trim(),
-                                      relationship: relationshipController.text.trim(),
+                                      relationship: relationshipController.text
+                                          .trim(),
                                       phone: phoneController.text.trim(),
-                                      age: int.tryParse(ageController.text.trim()) ?? 0,
+                                      age:
+                                          int.tryParse(
+                                            ageController.text.trim(),
+                                          ) ??
+                                          0,
                                       gender: gender,
                                       bloodType: bloodType,
                                       careNote: careNoteController.text.trim(),
@@ -442,9 +559,14 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                                     await repo.create(
                                       fullName: fullNameController.text.trim(),
                                       nickname: nicknameController.text.trim(),
-                                      relationship: relationshipController.text.trim(),
+                                      relationship: relationshipController.text
+                                          .trim(),
                                       phone: phoneController.text.trim(),
-                                      age: int.tryParse(ageController.text.trim()) ?? 0,
+                                      age:
+                                          int.tryParse(
+                                            ageController.text.trim(),
+                                          ) ??
+                                          0,
                                       gender: gender,
                                       bloodType: bloodType,
                                       careNote: careNoteController.text.trim(),
@@ -455,8 +577,9 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                                 } on MaxRelativesReachedException catch (e) {
                                   setSheetState(() => isSubmitting = false);
                                   if (context.mounted) {
-                                    ScaffoldMessenger.of(context)
-                                        .showSnackBar(SnackBar(content: Text(e.toString())));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(e.toString())),
+                                    );
                                   }
                                 }
                               },
@@ -501,11 +624,21 @@ class _MembersPageState extends ConsumerState<MembersPage> {
               const SizedBox(height: 6),
               Text(
                 '${member.relationship} • ${member.age} ปี • กรุ๊ปเลือด ${member.bloodType}',
-                style: textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                style: textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
               const SizedBox(height: 22),
-              _DetailRow(icon: Icons.phone_outlined, label: 'เบอร์โทร', value: member.phone),
-              _DetailRow(icon: Icons.wc_rounded, label: 'เพศ', value: _genderLabel(member.gender)),
+              _DetailRow(
+                icon: Icons.phone_outlined,
+                label: 'เบอร์โทร',
+                value: member.phone,
+              ),
+              _DetailRow(
+                icon: Icons.wc_rounded,
+                label: 'เพศ',
+                value: _genderLabel(member.gender),
+              ),
               _DetailRow(
                 icon: Icons.note_alt_outlined,
                 label: 'หมายเหตุการดูแล',
@@ -526,7 +659,9 @@ class _MembersPageState extends ConsumerState<MembersPage> {
               if (!member.isSelf) ...[
                 const SizedBox(height: 14),
                 PrimaryButton(
-                  label: member.isDefault ? 'เป็นค่าเริ่มต้นอยู่แล้ว' : 'ตั้งเป็นค่าเริ่มต้น',
+                  label: member.isDefault
+                      ? 'เป็นค่าเริ่มต้นอยู่แล้ว'
+                      : 'ตั้งเป็นค่าเริ่มต้น',
                   icon: Icons.star_rounded,
                   onPressed: member.isDefault
                       ? null
@@ -611,7 +746,10 @@ class _MemberCard extends StatelessWidget {
               if (onDelete != null)
                 IconButton(
                   onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: AppColors.danger,
+                  ),
                 ),
             ],
           ),
@@ -623,7 +761,13 @@ class _MemberCard extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: member.tags
-                    .map((tag) => StatusBadge(text: tag, color: member.color, dense: true))
+                    .map(
+                      (tag) => StatusBadge(
+                        text: tag,
+                        color: member.color,
+                        dense: true,
+                      ),
+                    )
                     .toList(),
               ),
             ),
@@ -638,7 +782,11 @@ class _MemberCard extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.medical_information_outlined, color: AppColors.primary, size: 20),
+                  const Icon(
+                    Icons.medical_information_outlined,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -702,7 +850,12 @@ class _DetailRow extends StatelessWidget {
               children: [
                 Text(label, style: textTheme.labelMedium),
                 const SizedBox(height: 3),
-                Text(value, style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  value,
+                  style: textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ],
             ),
           ),

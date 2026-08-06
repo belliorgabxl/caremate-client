@@ -10,6 +10,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../shared/models/booking.dart';
 import '../../../../shared/models/payment.dart';
 import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/aurora_background.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/section_header.dart';
@@ -83,7 +84,9 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     final method = _selectedMethod;
     if (method?.slug != 'qr_promptpay') return;
 
-    final payload = ref.read(paymentRepositoryProvider).getPromptPayQrPayload(amount: payment.totalAmount);
+    final payload = ref
+        .read(paymentRepositoryProvider)
+        .getPromptPayQrPayload(amount: payment.totalAmount);
 
     if (!mounted) return;
     setState(() => _qrPayload = payload);
@@ -111,12 +114,20 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
       return;
     }
     final remaining = expiredAt.difference(DateTime.now());
-    setState(() => _remaining = remaining.isNegative ? Duration.zero : remaining);
+    setState(
+      () => _remaining = remaining.isNegative ? Duration.zero : remaining,
+    );
   }
 
   String get _countdownLabel {
-    final minutes = _remaining.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = _remaining.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final minutes = _remaining.inMinutes
+        .remainder(60)
+        .toString()
+        .padLeft(2, '0');
+    final seconds = _remaining.inSeconds
+        .remainder(60)
+        .toString()
+        .padLeft(2, '0');
     return '$minutes:$seconds';
   }
 
@@ -152,81 +163,124 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     final method = _selectedMethod;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('ชำระเงิน')),
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        title: const Text('ชำระเงิน'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+      ),
       bottomNavigationBar: _buildBottomBar(payment),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      body: Stack(
         children: [
-          AppCard(
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.receipt_long_rounded, color: AppColors.primary),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text('สรุปรายการจอง', style: textTheme.titleMedium)),
-                    StatusBadge(text: payment.status.label, color: AppColors.warning),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _SummaryRow(label: 'บริการ', value: booking.serviceTitle),
-                _SummaryRow(label: 'ผู้รับบริการ', value: booking.memberName),
-                _SummaryRow(label: 'อ้างอิง', value: booking.reference),
-                const Divider(height: 24),
-                Row(
-                  children: [
-                    Text(
-                      'ยอดชำระ',
-                      style: textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '฿${payment.totalAmount.toStringAsFixed(0)}',
-                      style: textTheme.headlineMedium?.copyWith(color: AppColors.primary),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: AuroraBackground(height: 360),
           ),
-          const SizedBox(height: 24),
-          if (method?.slug == 'qr_promptpay') ...[
-            const SectionHeader(
-              title: 'สแกน QR เพื่อชำระเงิน',
-              subtitle: 'เปิดแอปธนาคารแล้วสแกน QR นี้',
-              icon: Icons.qr_code_rounded,
+          ListView(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              MediaQuery.paddingOf(context).top + 68,
+              20,
+              24,
             ),
-            const SizedBox(height: 12),
-            _PromptPayQrCard(
-              payload: _qrPayload,
-              reference: payment.reference,
-              countdownLabel: _countdownLabel,
-            ),
-          ] else if (method != null) ...[
-            const SectionHeader(
-              title: 'วิธีชำระเงิน',
-              icon: Icons.wallet_rounded,
-            ),
-            const SizedBox(height: 12),
-            AppCard(
-              child: Row(
-                children: [
-                  CircleIconAvatar(icon: method.icon, color: AppColors.primary),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppCard(
+                glass: true,
+                child: Column(
+                  children: [
+                    Row(
                       children: [
-                        Text(method.title, style: textTheme.titleSmall),
-                        const SizedBox(height: 2),
-                        Text(method.subtitle, style: textTheme.bodySmall),
+                        const Icon(
+                          Icons.receipt_long_rounded,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'สรุปรายการจอง',
+                            style: textTheme.titleMedium,
+                          ),
+                        ),
+                        StatusBadge(
+                          text: payment.status.label,
+                          color: AppColors.warning,
+                        ),
                       ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    _SummaryRow(label: 'บริการ', value: booking.serviceTitle),
+                    _SummaryRow(
+                      label: 'ผู้รับบริการ',
+                      value: booking.memberName,
+                    ),
+                    _SummaryRow(label: 'อ้างอิง', value: booking.reference),
+                    const Divider(height: 24),
+                    Row(
+                      children: [
+                        Text(
+                          'ยอดชำระ',
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '฿${payment.totalAmount.toStringAsFixed(0)}',
+                          style: textTheme.headlineMedium?.copyWith(
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 24),
+              if (method?.slug == 'qr_promptpay') ...[
+                const SectionHeader(
+                  title: 'สแกน QR เพื่อชำระเงิน',
+                  subtitle: 'เปิดแอปธนาคารแล้วสแกน QR นี้',
+                  icon: Icons.qr_code_rounded,
+                ),
+                const SizedBox(height: 12),
+                _PromptPayQrCard(
+                  payload: _qrPayload,
+                  reference: payment.reference,
+                  countdownLabel: _countdownLabel,
+                ),
+              ] else if (method != null) ...[
+                const SectionHeader(
+                  title: 'วิธีชำระเงิน',
+                  icon: Icons.wallet_rounded,
+                ),
+                const SizedBox(height: 12),
+                AppCard(
+                  child: Row(
+                    children: [
+                      CircleIconAvatar(
+                        icon: method.icon,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(method.title, style: textTheme.titleSmall),
+                            const SizedBox(height: 2),
+                            Text(method.subtitle, style: textTheme.bodySmall),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
         ],
       ),
     );
@@ -252,7 +306,10 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                 children: [
                   Text('ยอดชำระ', style: textTheme.labelMedium),
                   const SizedBox(height: 2),
-                  Text('฿${payment.totalAmount.toStringAsFixed(0)}', style: textTheme.headlineSmall),
+                  Text(
+                    '฿${payment.totalAmount.toStringAsFixed(0)}',
+                    style: textTheme.headlineSmall,
+                  ),
                 ],
               ),
             ),
@@ -262,7 +319,9 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                 label: _canConfirm ? 'ฉันชำระเงินแล้ว' : 'กรุณาสแกน QR ก่อน',
                 icon: Icons.lock_rounded,
                 isLoading: _isConfirming,
-                onPressed: (_canConfirm && !_isConfirming) ? () => _confirmPayment(payment) : null,
+                onPressed: (_canConfirm && !_isConfirming)
+                    ? () => _confirmPayment(payment)
+                    : null,
               ),
             ),
           ],
@@ -274,7 +333,9 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   Future<void> _confirmPayment(Payment payment) async {
     setState(() => _isConfirming = true);
 
-    await ref.read(paymentRepositoryProvider).confirm(bookingId: payment.bookingId, paymentId: payment.id);
+    await ref
+        .read(paymentRepositoryProvider)
+        .confirm(bookingId: payment.bookingId, paymentId: payment.id);
     ref.read(bookingRepositoryProvider).clearPendingPayment();
 
     if (!mounted) return;
@@ -308,7 +369,9 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
               Text(
                 'ระบบได้บันทึกรายการชำระเงินเรียบร้อยแล้ว',
                 textAlign: TextAlign.center,
-                style: textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                style: textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
               const SizedBox(height: 22),
               PrimaryButton(
@@ -316,7 +379,10 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                 icon: Icons.track_changes_rounded,
                 onPressed: () {
                   Navigator.pop(context);
-                  context.go(AppRoutes.bookingStatusPath(booking.id), extra: booking);
+                  context.go(
+                    AppRoutes.bookingStatusPath(booking.id),
+                    extra: booking,
+                  );
                 },
               ),
               const SizedBox(height: 10),
@@ -340,7 +406,11 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
 }
 
 class _PromptPayQrCard extends StatelessWidget {
-  const _PromptPayQrCard({required this.payload, required this.reference, required this.countdownLabel});
+  const _PromptPayQrCard({
+    required this.payload,
+    required this.reference,
+    required this.countdownLabel,
+  });
 
   final String? payload;
   final String reference;
@@ -352,6 +422,7 @@ class _PromptPayQrCard extends StatelessWidget {
     final hasPayload = payload != null && payload!.isNotEmpty;
 
     return AppCard(
+      elevated: true,
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
@@ -365,7 +436,10 @@ class _PromptPayQrCard extends StatelessWidget {
               border: Border.all(color: AppColors.border),
             ),
             child: hasPayload
-                ? QrImageView(data: payload!, backgroundColor: AppColors.surfaceAlt)
+                ? QrImageView(
+                    data: payload!,
+                    backgroundColor: AppColors.surfaceAlt,
+                  )
                 : const Center(
                     child: SizedBox(
                       width: 28,
@@ -380,11 +454,18 @@ class _PromptPayQrCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.timer_outlined, size: 16, color: AppColors.danger),
+              const Icon(
+                Icons.timer_outlined,
+                size: 16,
+                color: AppColors.danger,
+              ),
               const SizedBox(width: 6),
               Text(
                 'QR หมดอายุใน $countdownLabel นาที',
-                style: textTheme.bodySmall?.copyWith(color: AppColors.danger, fontWeight: FontWeight.w700),
+                style: textTheme.bodySmall?.copyWith(
+                  color: AppColors.danger,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
@@ -404,20 +485,27 @@ class _SummaryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-        return Padding(
-    padding: const EdgeInsets.only(bottom: 10),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
             width: 96,
-            child: Text(label, style: textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+            child: Text(
+              label,
+              style: textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
           ),
           Expanded(
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+              style: textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],

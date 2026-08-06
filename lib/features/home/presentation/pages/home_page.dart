@@ -1,17 +1,22 @@
+// "Aurora Glass" home — cool-white ground, jewel-tone brand colors, blurred
+// aurora blobs behind frosted-glass hero cards. See DESIGN.md for the full
+// system (pinned 2026-08-05, supersedes "Premium Clinic Companion"'s One
+// Blue Rule, which itself superseded the discarded "Report Book" world).
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_radius.dart';
 import '../../../../shared/models/booking.dart';
 import '../../../../shared/models/care_member.dart';
 import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/aurora_background.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../../shared/widgets/empty_state.dart';
-import '../../../../shared/widgets/hero_header_card.dart';
 import '../../../../shared/widgets/section_header.dart';
-import '../../../../shared/widgets/stat_card.dart';
 import '../../../../shared/widgets/status_badge.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../booking/data/booking_repository.dart';
@@ -39,7 +44,9 @@ class _HomePageState extends ConsumerState<HomePage> {
     setState(() => _isLoading = true);
 
     final members = await ref.read(memberRepositoryProvider).list();
-    final bookings = await ref.read(bookingRepositoryProvider).getActiveBookings();
+    final bookings = await ref
+        .read(bookingRepositoryProvider)
+        .getActiveBookings();
 
     if (!mounted) return;
     setState(() {
@@ -49,13 +56,17 @@ class _HomePageState extends ConsumerState<HomePage> {
     });
   }
 
-  List<Booking> get _pendingPaymentBookings =>
-      _activeBookings.where((b) => b.status == BookingStatus.awaitingPayment).toList();
+  List<Booking> get _pendingPaymentBookings => _activeBookings
+      .where((b) => b.status == BookingStatus.awaitingPayment)
+      .toList();
 
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
     final user = auth.user;
+    final pendingPayments = _pendingPaymentBookings;
+    final hasPendingPayment = pendingPayments.isNotEmpty;
+    final hasActiveBooking = _activeBookings.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
@@ -64,7 +75,9 @@ class _HomePageState extends ConsumerState<HomePage> {
           IconButton(
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('ยังไม่มี Notification จริงในโหมดจำลอง')),
+                const SnackBar(
+                  content: Text('ยังไม่มี Notification จริงในโหมดจำลอง'),
+                ),
               );
             },
             icon: const Icon(Icons.notifications_none_rounded),
@@ -74,98 +87,151 @@ class _HomePageState extends ConsumerState<HomePage> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 110),
-                children: [
-                  HeroHeaderCard(
-                    title: 'สวัสดีครับ, ${user?.displayName ?? 'ผู้ใช้งาน'}',
-                    subtitle: 'วันนี้ต้องการให้ CareMate ช่วยดูแลอะไรครับ?',
-                    leadingIcon: Icons.health_and_safety_rounded,
-                    actions: Row(
-                      children: [
-                        Expanded(
-                          child: FilledButton.icon(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: AppColors.primary,
-                              minimumSize: const Size.fromHeight(48),
+          : Stack(
+              children: [
+                const Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: AuroraBackground(),
+                ),
+                RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 110),
+                    children: [
+                      Text(
+                        'สวัสดีครับ, ${user?.displayName ?? 'ผู้ใช้งาน'}',
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'วันนี้ต้องการให้ CareMate ช่วยดูแลอะไรครับ?',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: () => context.go(AppRoutes.booking),
+                              icon: const Icon(Icons.add_circle_rounded),
+                              label: const Text('จองบริการ'),
                             ),
+                          ),
+                          const SizedBox(width: 12),
+                          IconButton.filled(
+                            onPressed: () => context.go(AppRoutes.members),
+                            icon: const Icon(Icons.groups_rounded),
+                            style: IconButton.styleFrom(
+                              backgroundColor: AppColors.primaryLight,
+                              foregroundColor: AppColors.onPrimaryContainer,
+                              minimumSize: const Size(56, 56),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.md,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      _StatsCard(
+                        memberCount: _members.length,
+                        bookingCount: _activeBookings.length,
+                        pendingPaymentCount: pendingPayments.length,
+                      ),
+                      const SizedBox(height: 28),
+
+                      // Urgent-first: whichever needs the user's attention leads.
+                      if (hasPendingPayment) ...[
+                        SectionHeader(
+                          title: 'การชำระเงิน',
+                          subtitle: 'สรุปรายการชำระเงินล่าสุด',
+                          actionText: 'ดูเพิ่ม',
+                          onActionTap: () => context.go(AppRoutes.payment),
+                        ),
+                        const SizedBox(height: 12),
+                        _PaymentSummaryCard(pendingBookings: pendingPayments),
+                        const SizedBox(height: 28),
+                      ],
+                      if (hasActiveBooking) ...[
+                        SectionHeader(
+                          title: 'นัดหมายล่าสุด',
+                          subtitle: 'รายการจองที่กำลังจะมาถึง',
+                          actionText: 'ดูรายการ',
+                          onActionTap: () => context.go(AppRoutes.booking),
+                        ),
+                        const SizedBox(height: 12),
+                        _UpcomingBookingCard(booking: _activeBookings.first),
+                        const SizedBox(height: 28),
+                      ] else ...[
+                        SectionHeader(
+                          title: 'นัดหมายล่าสุด',
+                          subtitle: 'รายการจองที่กำลังจะมาถึง',
+                        ),
+                        const SizedBox(height: 12),
+                        EmptyState(
+                          icon: Icons.event_available_rounded,
+                          title: 'ยังไม่มีนัดหมาย',
+                          message: 'จองบริการใหม่เพื่อเริ่มดูแลคนที่คุณรัก',
+                          action: FilledButton.icon(
                             onPressed: () => context.go(AppRoutes.booking),
-                            icon: const Icon(Icons.add_circle_rounded),
+                            icon: const Icon(Icons.add),
                             label: const Text('จองบริการ'),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Container(
-                          height: 48,
-                          width: 48,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: IconButton(
-                            onPressed: () => context.go(AppRoutes.members),
-                            icon: const Icon(Icons.groups_rounded, color: Colors.white),
-                          ),
-                        ),
+                        const SizedBox(height: 28),
                       ],
-                    ),
+                      if (!hasPendingPayment) ...[
+                        SectionHeader(
+                          title: 'การชำระเงิน',
+                          subtitle: 'สรุปรายการชำระเงินล่าสุด',
+                        ),
+                        const SizedBox(height: 12),
+                        const EmptyState(
+                          icon: Icons.verified_rounded,
+                          title: 'ไม่มีรายการค้างชำระ',
+                          message: 'คุณชำระเงินครบทุกรายการแล้ว',
+                        ),
+                        const SizedBox(height: 28),
+                      ],
+
+                      SectionHeader(
+                        title: 'บริการด่วน',
+                        subtitle: 'เลือกสิ่งที่ต้องการให้ CareMate ช่วยดูแล',
+                        actionText: 'ทั้งหมด',
+                        onActionTap: () => context.go(AppRoutes.booking),
+                      ),
+                      const SizedBox(height: 12),
+                      const _QuickActionsGrid(),
+                      const SizedBox(height: 28),
+
+                      SectionHeader(
+                        title: 'สมาชิกที่ดูแล',
+                        subtitle: 'เลือกสมาชิกเพื่อจองบริการอย่างรวดเร็ว',
+                        actionText: 'จัดการ',
+                        onActionTap: () => context.go(AppRoutes.members),
+                      ),
+                      const SizedBox(height: 12),
+                      _FamilyPreview(members: _members),
+                      const SizedBox(height: 28),
+
+                      const _CareTipCard(),
+                    ],
                   ),
-                  const SizedBox(height: 18),
-                  _QuickStatsSection(
-                    memberCount: _members.length,
-                    bookingCount: _activeBookings.length,
-                    pendingPaymentCount: _pendingPaymentBookings.length,
-                  ),
-                  const SizedBox(height: 24),
-                  SectionHeader(
-                    title: 'บริการด่วน',
-                    subtitle: 'เลือกสิ่งที่ต้องการให้ CareMate ช่วยดูแล',
-                    actionText: 'ทั้งหมด',
-                    onActionTap: () => context.go(AppRoutes.booking),
-                  ),
-                  const SizedBox(height: 12),
-                  const _QuickActionsGrid(),
-                  const SizedBox(height: 24),
-                  SectionHeader(
-                    title: 'นัดหมายล่าสุด',
-                    subtitle: 'รายการจองที่กำลังจะมาถึง',
-                    actionText: 'ดูรายการ',
-                    onActionTap: () => context.go(AppRoutes.booking),
-                  ),
-                  const SizedBox(height: 12),
-                  _UpcomingBookingSection(bookings: _activeBookings),
-                  const SizedBox(height: 24),
-                  SectionHeader(
-                    title: 'สมาชิกที่ดูแล',
-                    subtitle: 'เลือกสมาชิกเพื่อจองบริการอย่างรวดเร็ว',
-                    actionText: 'จัดการ',
-                    onActionTap: () => context.go(AppRoutes.members),
-                  ),
-                  const SizedBox(height: 12),
-                  _FamilyPreview(members: _members),
-                  const SizedBox(height: 24),
-                  SectionHeader(
-                    title: 'การชำระเงิน',
-                    subtitle: 'สรุปรายการชำระเงินล่าสุด',
-                    actionText: 'ดูเพิ่ม',
-                    onActionTap: () => context.go(AppRoutes.payment),
-                  ),
-                  const SizedBox(height: 12),
-                  _PaymentSummarySection(pendingBookings: _pendingPaymentBookings),
-                  const SizedBox(height: 24),
-                  const _CareTipsCard(),
-                ],
-              ),
+                ),
+              ],
             ),
     );
   }
 }
 
-class _QuickStatsSection extends StatelessWidget {
-  const _QuickStatsSection({
+class _StatsCard extends StatelessWidget {
+  const _StatsCard({
     required this.memberCount,
     required this.bookingCount,
     required this.pendingPaymentCount,
@@ -177,34 +243,76 @@ class _QuickStatsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return AppCard(
+      glass: true,
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: _StatItem(
+              icon: Icons.groups_rounded,
+              color: AppColors.primary,
+              value: '$memberCount',
+              label: 'สมาชิก',
+            ),
+          ),
+          const _StatDivider(),
+          Expanded(
+            child: _StatItem(
+              icon: Icons.calendar_month_rounded,
+              color: AppColors.serviceHomeCare,
+              value: '$bookingCount',
+              label: 'นัดหมาย',
+            ),
+          ),
+          const _StatDivider(),
+          Expanded(
+            child: _StatItem(
+              icon: Icons.receipt_long_rounded,
+              color: AppColors.warning,
+              value: '$pendingPaymentCount',
+              label: 'รอชำระ',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatDivider extends StatelessWidget {
+  const _StatDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(width: 1, height: 40, color: AppColors.divider);
+  }
+}
+
+class _StatItem extends StatelessWidget {
+  const _StatItem({
+    required this.icon,
+    required this.color,
+    required this.value,
+    required this.label,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
       children: [
-        Expanded(
-          child: StatCard(
-            title: '$memberCount',
-            subtitle: 'สมาชิก',
-            icon: Icons.people_alt_rounded,
-            color: AppColors.primary,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: StatCard(
-            title: '$bookingCount',
-            subtitle: 'นัดหมาย',
-            icon: Icons.calendar_month_rounded,
-            color: AppColors.serviceHomeCare,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: StatCard(
-            title: '$pendingPaymentCount',
-            subtitle: 'รอชำระ',
-            icon: Icons.receipt_long_rounded,
-            color: AppColors.warning,
-          ),
-        ),
+        CircleIconAvatar(icon: icon, color: color, radius: 18, iconSize: 18),
+        const SizedBox(height: 8),
+        Text(value, style: textTheme.titleLarge),
+        const SizedBox(height: 2),
+        Text(label, style: textTheme.labelMedium),
       ],
     );
   }
@@ -224,7 +332,7 @@ class _QuickActionsGrid extends StatelessWidget {
         route: AppRoutes.booking,
       ),
       _HomeAction(
-        icon: Icons.volunteer_activism_rounded,
+        icon: Icons.health_and_safety_rounded,
         title: 'ดูแลรายชั่วโมง',
         subtitle: 'ที่บ้าน / คอนโด',
         color: AppColors.serviceHomeCare,
@@ -252,9 +360,9 @@ class _QuickActionsGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.16,
+        crossAxisSpacing: 14,
+        mainAxisSpacing: 14,
+        childAspectRatio: 1.22,
       ),
       itemBuilder: (context, index) {
         final action = actions[index];
@@ -262,10 +370,15 @@ class _QuickActionsGrid extends StatelessWidget {
 
         return AppCard(
           onTap: () => context.go(action.route),
+          padding: const EdgeInsets.all(18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleIconAvatar(icon: action.icon, color: action.color, radius: 23),
+              CircleIconAvatar(
+                icon: action.icon,
+                color: action.color,
+                radius: 22,
+              ),
               const Spacer(),
               Text(
                 action.title,
@@ -273,8 +386,13 @@ class _QuickActionsGrid extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: textTheme.titleSmall,
               ),
-              const SizedBox(height: 4),
-              Text(action.subtitle, style: textTheme.labelMedium),
+              const SizedBox(height: 3),
+              Text(
+                action.subtitle,
+                style: textTheme.labelMedium,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
         );
@@ -283,40 +401,28 @@ class _QuickActionsGrid extends StatelessWidget {
   }
 }
 
-class _UpcomingBookingSection extends StatelessWidget {
-  const _UpcomingBookingSection({required this.bookings});
+class _UpcomingBookingCard extends StatelessWidget {
+  const _UpcomingBookingCard({required this.booking});
 
-  final List<Booking> bookings;
+  final Booking booking;
 
   @override
   Widget build(BuildContext context) {
-    if (bookings.isEmpty) {
-      return EmptyState(
-        icon: Icons.event_busy_rounded,
-        title: 'ยังไม่มีนัดหมาย',
-        message: 'จองบริการใหม่เพื่อเริ่มดูแลคนที่คุณรัก',
-        action: FilledButton.icon(
-          onPressed: () => context.go(AppRoutes.booking),
-          icon: const Icon(Icons.add),
-          label: const Text('จองบริการ'),
-        ),
-      );
-    }
-
-    final booking = bookings.first;
     final textTheme = Theme.of(context).textTheme;
 
     return AppCard(
-      padding: const EdgeInsets.all(18),
+      glass: true,
+      padding: const EdgeInsets.all(22),
       child: Column(
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CircleIconAvatar(
                 icon: booking.serviceIcon,
                 color: booking.serviceColor,
-                radius: 27,
-                iconSize: 30,
+                radius: 26,
+                iconSize: 26,
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -332,7 +438,11 @@ class _UpcomingBookingSection extends StatelessWidget {
                   ],
                 ),
               ),
-              StatusBadge(text: booking.status.label, color: booking.status.color, dense: true),
+              StatusBadge(
+                text: booking.status.label,
+                color: booking.status.color,
+                dense: true,
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -340,11 +450,15 @@ class _UpcomingBookingSection extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: AppColors.surfaceAlt,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
             ),
             child: Row(
               children: [
-                const Icon(Icons.location_on_rounded, color: AppColors.primary, size: 22),
+                const Icon(
+                  Icons.location_on_rounded,
+                  color: AppColors.primary,
+                  size: 22,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -357,7 +471,7 @@ class _UpcomingBookingSection extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -393,8 +507,18 @@ class _UpcomingBookingSection extends StatelessWidget {
 
   String _formatDateTime(DateTime dateTime) {
     const months = [
-      'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
-      'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.',
+      'ม.ค.',
+      'ก.พ.',
+      'มี.ค.',
+      'เม.ย.',
+      'พ.ค.',
+      'มิ.ย.',
+      'ก.ค.',
+      'ส.ค.',
+      'ก.ย.',
+      'ต.ค.',
+      'พ.ย.',
+      'ธ.ค.',
     ];
     final hour = dateTime.hour.toString().padLeft(2, '0');
     final minute = dateTime.minute.toString().padLeft(2, '0');
@@ -417,40 +541,43 @@ class _FamilyPreview extends StatelessWidget {
       );
     }
 
+    final textTheme = Theme.of(context).textTheme;
+
     return SizedBox(
-      height: 136,
+      height: 108,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: members.length,
-        separatorBuilder: (context, _) => const SizedBox(width: 12),
+        separatorBuilder: (context, _) => const SizedBox(width: 14),
         itemBuilder: (context, index) {
           final member = members[index];
-          final textTheme = Theme.of(context).textTheme;
 
-          return SizedBox(
-            width: 104,
-            child: AppCard(
-              padding: const EdgeInsets.all(12),
-              onTap: () => context.go(AppRoutes.members),
+          return GestureDetector(
+            onTap: () => context.go(AppRoutes.members),
+            child: SizedBox(
+              width: 76,
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircleIconAvatar(icon: member.icon, color: member.color, radius: 25),
-                  const SizedBox(height: 10),
+                  CircleIconAvatar(
+                    icon: member.icon,
+                    color: member.color,
+                    radius: 30,
+                    filled: true,
+                  ),
+                  const SizedBox(height: 8),
                   Text(
                     member.nickname,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
-                    style: textTheme.titleSmall,
+                    style: textTheme.labelLarge,
                   ),
-                  const SizedBox(height: 4),
                   Text(
                     member.relationship,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
-                    style: textTheme.labelMedium,
+                    style: textTheme.labelSmall,
                   ),
                 ],
               ),
@@ -462,49 +589,54 @@ class _FamilyPreview extends StatelessWidget {
   }
 }
 
-class _PaymentSummarySection extends StatelessWidget {
-  const _PaymentSummarySection({required this.pendingBookings});
+class _PaymentSummaryCard extends StatelessWidget {
+  const _PaymentSummaryCard({required this.pendingBookings});
 
   final List<Booking> pendingBookings;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-
-    if (pendingBookings.isEmpty) {
-      return const EmptyState(
-        icon: Icons.check_circle_outline_rounded,
-        title: 'ไม่มีรายการค้างชำระ',
-        message: 'คุณชำระเงินครบทุกรายการแล้ว',
-      );
-    }
-
-    final totalAmount = pendingBookings.fold<double>(0, (sum, b) => sum + b.totalAmount);
+    final totalAmount = pendingBookings.fold<double>(
+      0,
+      (sum, b) => sum + b.totalAmount,
+    );
 
     return AppCard(
-      padding: const EdgeInsets.all(18),
+      glass: true,
+      padding: const EdgeInsets.all(22),
       child: Row(
         children: [
           const CircleIconAvatar(
-            icon: Icons.payment_rounded,
+            icon: Icons.receipt_long_rounded,
             color: AppColors.warning,
-            radius: 27,
-            iconSize: 30,
+            radius: 26,
+            iconSize: 26,
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('รอชำระ ${pendingBookings.length} รายการ', style: textTheme.titleMedium),
-                const SizedBox(height: 4),
-                Text('ยอดรวม ฿${totalAmount.toStringAsFixed(0)}', style: textTheme.bodySmall),
+                Text(
+                  'รอชำระ ${pendingBookings.length} รายการ',
+                  style: textTheme.titleMedium,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'ยอดรวม ฿${totalAmount.toStringAsFixed(0)}',
+                  style: textTheme.bodySmall,
+                ),
               ],
             ),
           ),
-          IconButton(
+          FilledButton(
             onPressed: () => context.go(AppRoutes.payment),
-            icon: const Icon(Icons.chevron_right_rounded),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 44),
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+            ),
+            child: const Text('ชำระ'),
           ),
         ],
       ),
@@ -512,16 +644,16 @@ class _PaymentSummarySection extends StatelessWidget {
   }
 }
 
-class _CareTipsCard extends StatelessWidget {
-  const _CareTipsCard();
+class _CareTipCard extends StatelessWidget {
+  const _CareTipCard();
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
     return AppCard(
-      padding: const EdgeInsets.all(18),
-      color: AppColors.primaryLight.withValues(alpha: 0.35),
+      padding: const EdgeInsets.all(20),
+      color: AppColors.primaryLight,
       borderColor: AppColors.primaryLight,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -536,11 +668,19 @@ class _CareTipsCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Care Tip วันนี้', style: textTheme.titleSmall),
+                Text(
+                  'Care Tip วันนี้',
+                  style: textTheme.titleSmall?.copyWith(
+                    color: AppColors.onPrimaryContainer,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 Text(
                   'ก่อนพาผู้สูงอายุไปโรงพยาบาล ควรเตรียมยาเดิม บัตรประชาชน และประวัติแพ้ยาไว้ให้พร้อม',
-                  style: textTheme.bodySmall?.copyWith(height: 1.45),
+                  style: textTheme.bodySmall?.copyWith(
+                    color: AppColors.onPrimaryContainer,
+                    height: 1.45,
+                  ),
                 ),
               ],
             ),

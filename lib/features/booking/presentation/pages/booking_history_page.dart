@@ -38,7 +38,9 @@ class _BookingHistoryPageState extends ConsumerState<BookingHistoryPage> {
       _error = null;
     });
     try {
-      final bookings = await ref.read(bookingRepositoryProvider).getAllBookings();
+      final bookings = await ref
+          .read(bookingRepositoryProvider)
+          .getAllBookings();
       if (!mounted) return;
       setState(() {
         _bookings = bookings;
@@ -55,8 +57,18 @@ class _BookingHistoryPageState extends ConsumerState<BookingHistoryPage> {
 
   String _formatDateTime(DateTime dateTime) {
     const months = [
-      'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
-      'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.',
+      'ม.ค.',
+      'ก.พ.',
+      'มี.ค.',
+      'เม.ย.',
+      'พ.ค.',
+      'มิ.ย.',
+      'ก.ค.',
+      'ส.ค.',
+      'ก.ย.',
+      'ต.ค.',
+      'พ.ย.',
+      'ธ.ค.',
     ];
     final hour = dateTime.hour.toString().padLeft(2, '0');
     final minute = dateTime.minute.toString().padLeft(2, '0');
@@ -111,7 +123,8 @@ class _BookingHistoryPageState extends ConsumerState<BookingHistoryPage> {
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
                       itemCount: _bookings.length,
-                      separatorBuilder: (context, _) => const SizedBox(height: 12),
+                      separatorBuilder: (context, _) =>
+                          const SizedBox(height: 12),
                       itemBuilder: (context, index) {
                         final booking = _bookings[index];
                         final textTheme = Theme.of(context).textTheme;
@@ -137,7 +150,10 @@ class _BookingHistoryPageState extends ConsumerState<BookingHistoryPage> {
                                     Row(
                                       children: [
                                         Expanded(
-                                          child: Text(booking.serviceTitle, style: textTheme.titleSmall),
+                                          child: Text(
+                                            booking.serviceTitle,
+                                            style: textTheme.titleSmall,
+                                          ),
                                         ),
                                         StatusBadge(
                                           text: booking.status.label,
@@ -158,22 +174,35 @@ class _BookingHistoryPageState extends ConsumerState<BookingHistoryPage> {
                                           : '${booking.pickupAddress} → ${booking.destinationAddress}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+                                      style: textTheme.bodySmall?.copyWith(
+                                        color: AppColors.textSecondary,
+                                      ),
                                     ),
                                     const SizedBox(height: 8),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 6,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: AppColors.surfaceAlt,
-                                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                                        borderRadius: BorderRadius.circular(
+                                          AppRadius.sm,
+                                        ),
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          const Icon(Icons.receipt_rounded, size: 14, color: AppColors.textSecondary),
+                                          const Icon(
+                                            Icons.receipt_rounded,
+                                            size: 14,
+                                            color: AppColors.textSecondary,
+                                          ),
                                           const SizedBox(width: 6),
-                                          Text('${booking.reference} • ฿${booking.totalAmount.toStringAsFixed(0)}',
-                                              style: textTheme.labelMedium),
+                                          Text(
+                                            '${booking.reference} • ฿${booking.totalAmount.toStringAsFixed(0)}',
+                                            style: textTheme.labelMedium,
+                                          ),
                                         ],
                                       ),
                                     ),

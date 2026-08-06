@@ -1,3 +1,6 @@
+// Aurora Glass auth — aurora blobs behind the hero intro card; the long
+// form card stays solid white for legibility. See DESIGN.md ("Aurora & Glass").
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +11,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/storage/local_storage.dart';
 import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/aurora_background.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../../shared/widgets/primary_button.dart';
@@ -73,13 +77,17 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
     final pdpaConsentVersion = await PdpaConsentDialog.show(context);
     if (pdpaConsentVersion == null) return;
-    await ref.read(localStorageProvider).savePdpaConsentGiven(pdpaConsentVersion);
+    await ref
+        .read(localStorageProvider)
+        .savePdpaConsentGiven(pdpaConsentVersion);
     if (!mounted) return;
 
     final dateOfBirthIso = _dateOfBirth!.toIso8601String().split('T').first;
 
     try {
-      await ref.read(authControllerProvider).register(
+      await ref
+          .read(authControllerProvider)
+          .register(
             phone: _phoneController.text.trim(),
             firstName: _firstNameController.text.trim(),
             lastName: _lastNameController.text.trim(),
@@ -100,8 +108,18 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   String _formatDate(DateTime date) {
     const months = [
-      'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
-      'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.',
+      'ม.ค.',
+      'ก.พ.',
+      'มี.ค.',
+      'เม.ย.',
+      'พ.ค.',
+      'มิ.ย.',
+      'ก.ค.',
+      'ส.ค.',
+      'ก.ย.',
+      'ต.ค.',
+      'พ.ย.',
+      'ธ.ค.',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year + 543}';
   }
@@ -112,145 +130,200 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('สมัครสมาชิก'),
         leading: BackButton(onPressed: () => context.go(AppRoutes.login)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-          children: [
-            AppCard(
-              child: Row(
-                children: [
-                  const CircleIconAvatar(
-                    icon: Icons.person_add_alt_1,
-                    color: AppColors.primary,
-                    radius: 28,
-                    filled: true,
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('สร้างบัญชีใหม่', style: textTheme.titleMedium),
-                        const SizedBox(height: 4),
-                        Text(
-                          'กรอกข้อมูลเบื้องต้น รายละเอียดอื่นแก้ไขเพิ่มเติมได้ภายหลัง',
-                          style: textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+      body: Stack(
+        children: [
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: AuroraBackground(height: 320),
+          ),
+          Form(
+            key: _formKey,
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                MediaQuery.paddingOf(context).top + 68,
+                20,
+                32,
               ),
-            ),
-            const SizedBox(height: 16),
-            AppCard(
-              child: Column(
-                children: [
-                  AppTextField(
-                    controller: _phoneController,
-                    label: 'เบอร์โทรศัพท์',
-                    prefixIcon: Icons.phone_outlined,
-                    keyboardType: TextInputType.phone,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    validator: (v) =>
-                        (v == null || !RegExp(r'^0[0-9]{9}$').hasMatch(v)) ? 'เบอร์โทรไม่ถูกต้อง' : null,
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
+              children: [
+                AppCard(
+                  glass: true,
+                  child: Row(
                     children: [
-                      Expanded(
-                        child: AppTextField(
-                          controller: _firstNameController,
-                          label: 'ชื่อจริง',
-                          prefixIcon: Icons.badge_outlined,
-                          validator: (v) => (v == null || v.trim().isEmpty) ? 'กรุณากรอกชื่อจริง' : null,
-                        ),
+                      const CircleIconAvatar(
+                        icon: Icons.person_add_alt_1,
+                        color: AppColors.primary,
+                        radius: 28,
+                        filled: true,
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 14),
                       Expanded(
-                        child: AppTextField(
-                          controller: _lastNameController,
-                          label: 'นามสกุล',
-                          validator: (v) => (v == null || v.trim().isEmpty) ? 'กรุณากรอกนามสกุล' : null,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'สร้างบัญชีใหม่',
+                              style: textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'กรอกข้อมูลเบื้องต้น รายละเอียดอื่นแก้ไขเพิ่มเติมได้ภายหลัง',
+                              style: textTheme.bodySmall,
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  AppTextField(
-                    controller: _nicknameController,
-                    label: 'ชื่อเล่น',
-                    prefixIcon: Icons.face_outlined,
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'กรุณากรอกชื่อเล่น' : null,
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                ),
+                const SizedBox(height: 16),
+                AppCard(
+                  child: Column(
                     children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: _gender,
-                          decoration: const InputDecoration(labelText: 'เพศ'),
-                          items: _genderOptions
-                              .map((g) => DropdownMenuItem(value: g.$1, child: Text(g.$2)))
-                              .toList(),
-                          onChanged: (v) => setState(() => _gender = v ?? _gender),
-                        ),
+                      AppTextField(
+                        controller: _phoneController,
+                        label: 'เบอร์โทรศัพท์',
+                        prefixIcon: Icons.phone_outlined,
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        validator: (v) =>
+                            (v == null || !RegExp(r'^0[0-9]{9}$').hasMatch(v))
+                            ? 'เบอร์โทรไม่ถูกต้อง'
+                            : null,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: InkWell(
-                          onTap: _pickDateOfBirth,
-                          child: InputDecorator(
-                            decoration: const InputDecoration(labelText: 'วันเกิด'),
-                            child: Text(
-                              _dateOfBirth == null ? 'เลือกวันเกิด' : _formatDate(_dateOfBirth!),
-                              style: TextStyle(
-                                color: _dateOfBirth == null ? AppColors.textSecondary : null,
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: AppTextField(
+                              controller: _firstNameController,
+                              label: 'ชื่อจริง',
+                              prefixIcon: Icons.badge_outlined,
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? 'กรุณากรอกชื่อจริง'
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: AppTextField(
+                              controller: _lastNameController,
+                              label: 'นามสกุล',
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? 'กรุณากรอกนามสกุล'
+                                  : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      AppTextField(
+                        controller: _nicknameController,
+                        label: 'ชื่อเล่น',
+                        prefixIcon: Icons.face_outlined,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'กรุณากรอกชื่อเล่น'
+                            : null,
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              initialValue: _gender,
+                              decoration: const InputDecoration(
+                                labelText: 'เพศ',
+                              ),
+                              items: _genderOptions
+                                  .map(
+                                    (g) => DropdownMenuItem(
+                                      value: g.$1,
+                                      child: Text(g.$2),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (v) =>
+                                  setState(() => _gender = v ?? _gender),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: InkWell(
+                              onTap: _pickDateOfBirth,
+                              child: InputDecorator(
+                                decoration: const InputDecoration(
+                                  labelText: 'วันเกิด',
+                                ),
+                                child: Text(
+                                  _dateOfBirth == null
+                                      ? 'เลือกวันเกิด'
+                                      : _formatDate(_dateOfBirth!),
+                                  style: TextStyle(
+                                    color: _dateOfBirth == null
+                                        ? AppColors.textSecondary
+                                        : null,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      AppTextField(
+                        controller: _emailController,
+                        label: 'อีเมล',
+                        prefixIcon: Icons.email_outlined,
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty)
+                            return 'กรุณากรอกอีเมล';
+                          if (!RegExp(
+                            r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                          ).hasMatch(v.trim()))
+                            return 'อีเมลไม่ถูกต้อง';
+                          return null;
+                        },
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  AppTextField(
-                    controller: _emailController,
-                    label: 'อีเมล',
-                    prefixIcon: Icons.email_outlined,
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'กรุณากรอกอีเมล';
-                      if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim())) return 'อีเมลไม่ถูกต้อง';
-                      return null;
-                    },
+                ),
+                const SizedBox(height: 24),
+                PrimaryButton(
+                  label: auth.isSubmitting
+                      ? 'กำลังสมัครสมาชิก...'
+                      : 'สมัครสมาชิก',
+                  icon: Icons.person_add_rounded,
+                  isLoading: auth.isSubmitting,
+                  onPressed: auth.isSubmitting ? null : _register,
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    _error!,
+                    textAlign: TextAlign.center,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: AppColors.danger,
+                    ),
                   ),
                 ],
-              ),
+              ],
             ),
-            const SizedBox(height: 24),
-            PrimaryButton(
-              label: auth.isSubmitting ? 'กำลังสมัครสมาชิก...' : 'สมัครสมาชิก',
-              icon: Icons.person_add_rounded,
-              isLoading: auth.isSubmitting,
-              onPressed: auth.isSubmitting ? null : _register,
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 16),
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: textTheme.bodySmall?.copyWith(color: AppColors.danger),
-              ),
-            ],
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

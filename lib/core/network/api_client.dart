@@ -19,14 +19,14 @@ class ApiException implements Exception {
 
 class ApiClient {
   ApiClient(this._localStorage)
-      : dio = Dio(
-          BaseOptions(
-            baseUrl: AppConfig.apiBaseUrl,
-            connectTimeout: const Duration(seconds: 15),
-            receiveTimeout: const Duration(seconds: 15),
-            headers: const {'Accept': 'application/json'},
-          ),
-        ) {
+    : dio = Dio(
+        BaseOptions(
+          baseUrl: AppConfig.apiBaseUrl,
+          connectTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 15),
+          headers: const {'Accept': 'application/json'},
+        ),
+      ) {
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
@@ -57,7 +57,8 @@ class ApiClient {
   /// handlers (e.g. `AuthMe`'s 401) hand-roll `{ message }` instead.
   Never throwApiException(DioException error) {
     final data = error.response?.data;
-    final message = (data is Map<String, dynamic> ? data['error'] as String? : null) ??
+    final message =
+        (data is Map<String, dynamic> ? data['error'] as String? : null) ??
         (data is Map<String, dynamic> ? data['message'] as String? : null) ??
         error.message ??
         'เกิดข้อผิดพลาดในการเชื่อมต่อ';

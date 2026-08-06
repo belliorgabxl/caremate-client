@@ -34,7 +34,10 @@ class AuthRepository {
   /// back the freshly-authenticated user.
   Future<AppUser> login(String phone) async {
     try {
-      final response = await _api.dio.post('/authentication/login', data: {'phone': phone});
+      final response = await _api.dio.post(
+        '/authentication/login',
+        data: {'phone': phone},
+      );
       await _saveSessionCookie(response);
       return await fetchMe();
     } on DioException catch (e) {
@@ -64,17 +67,22 @@ class AuthRepository {
     String? pdpaConsentVersion,
   }) async {
     try {
-      final response = await _api.dio.post('/authentication/register', data: {
-        'phone': phone,
-        'firstName': firstName,
-        'lastName': lastName,
-        'nickname': nickname,
-        'gender': gender,
-        'dateOfBirth': dateOfBirth,
-        'email': email,
-        if (pdpaConsentVersion != null)
-          ...{'pdpaConsent': true, 'pdpaConsentVersion': pdpaConsentVersion},
-      });
+      final response = await _api.dio.post(
+        '/authentication/register',
+        data: {
+          'phone': phone,
+          'firstName': firstName,
+          'lastName': lastName,
+          'nickname': nickname,
+          'gender': gender,
+          'dateOfBirth': dateOfBirth,
+          'email': email,
+          if (pdpaConsentVersion != null) ...{
+            'pdpaConsent': true,
+            'pdpaConsentVersion': pdpaConsentVersion,
+          },
+        },
+      );
       await _saveSessionCookie(response);
       return await fetchMe();
     } on DioException catch (e) {
@@ -82,16 +90,44 @@ class AuthRepository {
     }
   }
 
-  /// `GET /legal/pdpa` — **proposed endpoint, not yet implemented on the
-  /// backend** (see CLAUDE.md). Returns the current PDPA consent copy so it
-  /// can be updated without an app release; callers should fall back to a
-  /// bundled copy of the policy if this throws (e.g. 404 until the backend
-  /// adds it, or any network failure).
+  /// `GET /pdpa` — the PDPA version currently in effect. Public, no auth
+  /// required. Returns the current consent copy so it can be updated
+  /// without an app release; callers should fall back to a bundled copy of
+  /// the policy if this throws (e.g. 404 if no version has been activated
+  /// yet, or any network failure).
   Future<PdpaPolicy> fetchPdpaPolicy() async {
     try {
-      final response = await _api.dio.get('/legal/pdpa');
+      final response = await _api.dio.get('/pdpa');
       final data = _api.unwrap(response.data) as Map<String, dynamic>;
       return PdpaPolicy.fromJson(data);
+    } on DioException catch (e) {
+      _api.throwApiException(e);
+    }
+  }
+
+  /// `GET /pdpa/:version` — the exact policy text for one specific version,
+  /// e.g. to show a user what they agreed to at signup time even if a newer
+  /// version is now active.
+  Future<PdpaPolicy> fetchPdpaPolicyVersion(String version) async {
+    try {
+      final response = await _api.dio.get('/pdpa/$version');
+      final data = _api.unwrap(response.data) as Map<String, dynamic>;
+      return PdpaPolicy.fromJson(data);
+    } on DioException catch (e) {
+      _api.throwApiException(e);
+    }
+  }
+
+  /// `GET /pdpa/versions` — metadata (no `content`) for every version,
+  /// newest `effective_date` first. `data` is always an array; empty means
+  /// no versions exist yet, not an error.
+  Future<List<PdpaVersionSummary>> fetchPdpaVersions() async {
+    try {
+      final response = await _api.dio.get('/pdpa/versions');
+      final data = _api.unwrap(response.data) as List<dynamic>;
+      return data
+          .map((e) => PdpaVersionSummary.fromJson(e as Map<String, dynamic>))
+          .toList();
     } on DioException catch (e) {
       _api.throwApiException(e);
     }
@@ -122,5 +158,8 @@ class AuthRepository {
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepository(ref.read(apiClientProvider), ref.read(localStorageProvider));
+  return AuthRepository(
+    ref.read(apiClientProvider),
+    ref.read(localStorageProvider),
+  );
 });

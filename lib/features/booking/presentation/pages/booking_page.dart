@@ -13,6 +13,7 @@ import '../../../../shared/models/care_service.dart';
 import '../../../../shared/models/payment.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/aurora_background.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../../shared/widgets/hero_header_card.dart';
 import '../../../../shared/widgets/location_picker_page.dart';
@@ -71,9 +72,11 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     '13:00-18:00',
   ];
 
-  CareService? get _selectedService => _services.isEmpty ? null : _services[_selectedServiceIndex];
+  CareService? get _selectedService =>
+      _services.isEmpty ? null : _services[_selectedServiceIndex];
 
-  CareMember? get _selectedMember => _members.isEmpty ? null : _members[_selectedMemberIndex];
+  CareMember? get _selectedMember =>
+      _members.isEmpty ? null : _members[_selectedMemberIndex];
 
   int _minutesOfDay(String hhmm) {
     final parts = hhmm.split(':');
@@ -105,13 +108,17 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   double get _estimatedFee {
     final service = _selectedService;
     if (service == null || !_isTimeRangeValid) return 0;
-    return calculateTotal(baseFeePerHour: service.baseFeePerHour, durationMinutes: _selectedDurationMinutes);
+    return calculateTotal(
+      baseFeePerHour: service.baseFeePerHour,
+      durationMinutes: _selectedDurationMinutes,
+    );
   }
 
   double get _estimatedDistanceKm {
     final pickup = _pickupLocation;
     final destination = _destinationLocation;
-    if (pickup?.hasCoordinates != true || destination?.hasCoordinates != true) return 0;
+    if (pickup?.hasCoordinates != true || destination?.hasCoordinates != true)
+      return 0;
 
     const earthRadiusKm = 6371.0;
     final lat1 = pickup!.latitude! * math.pi / 180;
@@ -119,8 +126,12 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     final dLat = (destination.latitude! - pickup.latitude!) * math.pi / 180;
     final dLng = (destination.longitude! - pickup.longitude!) * math.pi / 180;
 
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(lat1) * math.cos(lat2) * math.sin(dLng / 2) * math.sin(dLng / 2);
+    final a =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1) *
+            math.cos(lat2) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
     final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
     return earthRadiusKm * c;
   }
@@ -136,14 +147,18 @@ class _BookingPageState extends ConsumerState<BookingPage> {
 
     final services = await ref.read(bookingRepositoryProvider).getServices();
     final members = await ref.read(memberRepositoryProvider).list();
-    final paymentMethods = await ref.read(paymentRepositoryProvider).getMethods();
+    final paymentMethods = await ref
+        .read(paymentRepositoryProvider)
+        .getMethods();
 
     if (!mounted) return;
     setState(() {
       _services = services;
       _members = members;
       _paymentMethods = paymentMethods;
-      _pickupController.text = members.isNotEmpty ? members.first.address.addressLine : '';
+      _pickupController.text = members.isNotEmpty
+          ? members.first.address.addressLine
+          : '';
       _pickupLocation = members.isNotEmpty ? members.first.address : null;
       _isLoading = false;
     });
@@ -173,33 +188,43 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Booking')),
       bottomNavigationBar: _buildBottomBar(),
-      body: Column(
+      body: Stack(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-            child: Column(
-              children: [
-                if (_currentStep == 0) ...[
-                  _buildHeroCard(),
-                  const SizedBox(height: 10),
-                ],
-                _buildStepProgress(),
-              ],
-            ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: AuroraBackground(height: _currentStep == 0 ? 340 : 210),
           ),
-          const SizedBox(height: 18),
-          Expanded(
-            child: PageView(
-              controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                _buildServiceStep(),
-                _buildDateTimeStep(),
-                _buildMemberStep(),
-                _buildLocationStep(),
-                _buildConfirmStep(service, member),
-              ],
-            ),
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                child: Column(
+                  children: [
+                    if (_currentStep == 0) ...[
+                      _buildHeroCard(),
+                      const SizedBox(height: 10),
+                    ],
+                    _buildStepProgress(),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    _buildServiceStep(),
+                    _buildDateTimeStep(),
+                    _buildMemberStep(),
+                    _buildLocationStep(),
+                    _buildConfirmStep(service, member),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -209,20 +234,28 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   Widget _buildHeroCard() {
     return const HeroHeaderCard(
       title: 'จองบริการดูแลสุขภาพ',
-      subtitle: 'เลือกบริการ ผู้รับบริการ วันเวลา และสถานที่ จากนั้นระบบจะสรุปราคาให้ก่อนยืนยัน',
+      subtitle:
+          'เลือกบริการ ผู้รับบริการ วันเวลา และสถานที่ จากนั้นระบบจะสรุปราคาให้ก่อนยืนยัน',
       leadingIcon: Icons.health_and_safety_rounded,
     );
   }
 
   Widget _buildStepProgress() {
     return AppCard(
+      glass: true,
+      padding: const EdgeInsets.all(20),
       child: Column(
         children: [
           Row(
             children: [
               for (var i = 0; i < _stepLabels.length; i++) ...[
-                _MiniStep(number: '${i + 1}', label: _stepLabels[i], active: i <= _currentStep),
-                if (i != _stepLabels.length - 1) _StepLine(active: i < _currentStep),
+                _MiniStep(
+                  number: '${i + 1}',
+                  label: _stepLabels[i],
+                  active: i <= _currentStep,
+                ),
+                if (i != _stepLabels.length - 1)
+                  _StepLine(active: i < _currentStep),
               ],
             ],
           ),
@@ -308,7 +341,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
           if (service != null)
             SectionHeader(
               title: 'สถานที่',
-              subtitle: service.requiresDestination ? 'ระบุจุดรับและจุดหมายปลายทาง' : 'ระบุสถานที่ที่ต้องการให้ดูแล',
+              subtitle: service.requiresDestination
+                  ? 'ระบุจุดรับและจุดหมายปลายทาง'
+                  : 'ระบุสถานที่ที่ต้องการให้ดูแล',
               icon: Icons.location_on_rounded,
             ),
           const SizedBox(height: 12),
@@ -342,7 +377,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
               icon: service.icon,
               color: service.color,
               title: service.title,
-              subtitle: '฿${_estimatedFee.toStringAsFixed(0)} • $_selectedDurationMinutes นาที',
+              subtitle:
+                  '฿${_estimatedFee.toStringAsFixed(0)} • $_selectedDurationMinutes นาที',
             ),
             _ConfirmTile(
               icon: member.icon,
@@ -359,7 +395,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
             const SizedBox(height: 12),
             _buildSummaryCard(service, member),
           ] else
-            const AppCard(child: Text('กรุณาเลือกบริการและผู้รับบริการให้ครบก่อน')),
+            const AppCard(
+              child: Text('กรุณาเลือกบริการและผู้รับบริการให้ครบก่อน'),
+            ),
         ],
       ),
     );
@@ -419,7 +457,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: textTheme.bodySmall?.copyWith(
-                      color: selected ? Colors.white.withValues(alpha: 0.86) : AppColors.textSecondary,
+                      color: selected
+                          ? Colors.white.withValues(alpha: 0.86)
+                          : AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -433,7 +473,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
 
   Widget _buildMemberSelector() {
     if (_members.isEmpty) {
-      return const AppCard(child: Text('ยังไม่มีสมาชิก กรุณาเพิ่มสมาชิกก่อนทำการจอง'));
+      return const AppCard(
+        child: Text('ยังไม่มีสมาชิก กรุณาเพิ่มสมาชิกก่อนทำการจอง'),
+      );
     }
 
     return Column(
@@ -454,7 +496,12 @@ class _BookingPageState extends ConsumerState<BookingPage> {
             }),
             child: Row(
               children: [
-                CircleIconAvatar(icon: member.icon, color: member.color, radius: 28, iconSize: 30),
+                CircleIconAvatar(
+                  icon: member.icon,
+                  color: member.color,
+                  radius: 28,
+                  iconSize: 30,
+                ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -462,7 +509,10 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     children: [
                       Text(member.nickname, style: textTheme.titleMedium),
                       const SizedBox(height: 4),
-                      Text('${member.relationship} • ${member.age} ปี', style: textTheme.bodySmall),
+                      Text(
+                        '${member.relationship} • ${member.age} ปี',
+                        style: textTheme.bodySmall,
+                      ),
                       const SizedBox(height: 7),
                       Text(
                         member.careNote,
@@ -634,7 +684,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                   Expanded(
                     child: Text(
                       'ระยะทางประมาณ ${_estimatedDistanceKm.toStringAsFixed(1)} กม. • ใช้เวลาประมาณ $_selectedDurationMinutes นาที',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],
@@ -665,28 +717,40 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         children: [
           Row(
             children: [
-              const Icon(Icons.receipt_long_rounded, color: AppColors.primary),
+              Icon(Icons.receipt_long_rounded, color: service.color),
               const SizedBox(width: 8),
-              Expanded(child: Text('สรุปรายการจอง', style: textTheme.titleMedium)),
-              const StatusBadge(text: 'Estimate', color: AppColors.primary),
+              Expanded(
+                child: Text('สรุปรายการจอง', style: textTheme.titleMedium),
+              ),
+              StatusBadge(text: 'Estimate', color: service.color),
             ],
           ),
           const SizedBox(height: 16),
           _SummaryRow(label: 'บริการ', value: service.title),
           _SummaryRow(label: 'ผู้รับบริการ', value: member.fullName),
-          _SummaryRow(label: 'วันเวลา', value: '${_formatDate(_selectedDate)} $_startTime-$_endTime'),
+          _SummaryRow(
+            label: 'วันเวลา',
+            value: '${_formatDate(_selectedDate)} $_startTime-$_endTime',
+          ),
           _SummaryRow(
             label: 'ระยะทาง',
-            value: service.requiresDestination ? '${_estimatedDistanceKm.toStringAsFixed(1)} กม.' : '-',
+            value: service.requiresDestination
+                ? '${_estimatedDistanceKm.toStringAsFixed(1)} กม.'
+                : '-',
           ),
           const Divider(height: 24),
           Row(
             children: [
-              Text('ยอดชำระโดยประมาณ', style: textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+              Text(
+                'ยอดชำระโดยประมาณ',
+                style: textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
               const Spacer(),
               Text(
                 '฿${_estimatedFee.toStringAsFixed(0)}',
-                style: textTheme.headlineMedium?.copyWith(color: AppColors.primary),
+                style: textTheme.headlineMedium?.copyWith(color: service.color),
               ),
             ],
           ),
@@ -729,7 +793,10 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                 children: [
                   Text('ราคาโดยประมาณ', style: textTheme.labelMedium),
                   const SizedBox(height: 2),
-                  Text('฿${_estimatedFee.toStringAsFixed(0)}', style: textTheme.headlineSmall),
+                  Text(
+                    '฿${_estimatedFee.toStringAsFixed(0)}',
+                    style: textTheme.headlineSmall,
+                  ),
                 ],
               ),
             ),
@@ -739,7 +806,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                 label: isLastStep ? 'ยืนยันและไปชำระเงิน' : 'ถัดไป',
                 icon: isLastStep ? Icons.payment_rounded : null,
                 isLoading: _isSubmitting,
-                onPressed: canInteract ? (isLastStep ? _confirmAndSubmit : _goToNextStep) : null,
+                onPressed: canInteract
+                    ? (isLastStep ? _confirmAndSubmit : _goToNextStep)
+                    : null,
               ),
             ),
           ],
@@ -749,12 +818,18 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   }
 
   void _showSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _goToStep(int step) {
     setState(() => _currentStep = step);
-    _pageController.animateToPage(step, duration: const Duration(milliseconds: 280), curve: Curves.easeOut);
+    _pageController.animateToPage(
+      step,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOut,
+    );
   }
 
   void _goToPreviousStep() {
@@ -774,7 +849,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         return;
       }
       final service = _selectedService;
-      if (service != null && service.requiresDestination && _destinationLocation?.hasCoordinates != true) {
+      if (service != null &&
+          service.requiresDestination &&
+          _destinationLocation?.hasCoordinates != true) {
         _showSnack('กรุณาเลือกจุดหมายปลายทางบนแผนที่');
         return;
       }
@@ -806,14 +883,16 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     final current = isStart ? _startTime : _endTime;
     final parts = current.split(':');
     final initial = TimeOfDay(
-      hour: int.tryParse(parts.elementAtOrNull(0) ?? '') ?? TimeOfDay.now().hour,
+      hour:
+          int.tryParse(parts.elementAtOrNull(0) ?? '') ?? TimeOfDay.now().hour,
       minute: int.tryParse(parts.elementAtOrNull(1) ?? '') ?? 0,
     );
 
     final picked = await showTimePicker(context: context, initialTime: initial);
     if (picked == null || !mounted) return;
 
-    final formatted = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+    final formatted =
+        '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
     setState(() {
       if (isStart) {
         _startTime = formatted;
@@ -861,7 +940,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       _showSnack('กรุณาเลือกจุดรับบนแผนที่');
       return;
     }
-    if (service.requiresDestination && _destinationLocation?.hasCoordinates != true) {
+    if (service.requiresDestination &&
+        _destinationLocation?.hasCoordinates != true) {
       _showSnack('กรุณาเลือกจุดหมายปลายทางบนแผนที่');
       return;
     }
@@ -894,19 +974,27 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       int.parse(endParts[1]),
     );
 
-    final pickup = _pickupLocation!.copyWith(addressLine: _pickupController.text.trim());
+    final pickup = _pickupLocation!.copyWith(
+      addressLine: _pickupController.text.trim(),
+    );
     final destination = service.requiresDestination
-        ? _destinationLocation!.copyWith(addressLine: _destinationController.text.trim())
+        ? _destinationLocation!.copyWith(
+            addressLine: _destinationController.text.trim(),
+          )
         : null;
 
-    await ref.read(bookingRepositoryProvider).createBooking(
+    await ref
+        .read(bookingRepositoryProvider)
+        .createBooking(
           service: service,
           member: member,
           scheduledAt: scheduledAt,
           scheduledEndAt: scheduledEndAt,
           pickupAddress: pickup,
           destinationAddress: destination,
-          notes: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
+          notes: _noteController.text.trim().isEmpty
+              ? null
+              : _noteController.text.trim(),
           paymentMethodId: paymentMethodId,
         );
 
@@ -965,7 +1053,11 @@ class _TimeField extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.access_time_rounded, color: AppColors.primary, size: 20),
+            const Icon(
+              Icons.access_time_rounded,
+              color: AppColors.primary,
+              size: 20,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -984,7 +1076,8 @@ class _TimeField extends StatelessWidget {
 }
 
 extension<T> on List<T> {
-  T? elementAtOrNull(int index) => index >= 0 && index < length ? this[index] : null;
+  T? elementAtOrNull(int index) =>
+      index >= 0 && index < length ? this[index] : null;
 }
 
 class _MiniStep extends StatelessWidget {
@@ -1018,8 +1111,8 @@ class _MiniStep extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: active ? AppColors.primary : AppColors.textSecondary,
-              ),
+            color: active ? AppColors.primary : AppColors.textSecondary,
+          ),
         ),
       ],
     );
@@ -1044,10 +1137,7 @@ class _StepLine extends StatelessWidget {
 }
 
 class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-  });
+  const _SummaryRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -1063,13 +1153,20 @@ class _SummaryRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 96,
-            child: Text(label, style: textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+            child: Text(
+              label,
+              style: textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
           ),
           Expanded(
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+              style: textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],

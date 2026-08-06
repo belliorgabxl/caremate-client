@@ -14,12 +14,12 @@ class AppUser {
   final bool isActive;
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
-        id: json['id'] as String? ?? '',
-        phone: json['phone'] as String? ?? '',
-        displayName: json['name'] as String? ?? '',
-        avatarUrl: json['avatarUrl'] as String? ?? '',
-        isActive: json['isActive'] as bool? ?? true,
-      );
+    id: json['id'] as String? ?? '',
+    phone: json['phone'] as String? ?? '',
+    displayName: json['name'] as String? ?? '',
+    avatarUrl: json['avatarUrl'] as String? ?? '',
+    isActive: json['isActive'] as bool? ?? true,
+  );
 
   AppUser copyWith({
     String? id,

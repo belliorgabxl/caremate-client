@@ -49,16 +49,23 @@ class HeroHeaderCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: textTheme.headlineMedium?.copyWith(color: Colors.white),
+                  style: textTheme.headlineMedium?.copyWith(
+                    color: Colors.white,
+                  ),
                 ),
               ),
               if (badgeText != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(AppRadius.pill),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.2),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -67,7 +74,9 @@ class HeroHeaderCard extends StatelessWidget {
                       const SizedBox(width: 5),
                       Text(
                         badgeText!,
-                        style: textTheme.labelMedium?.copyWith(color: Colors.white),
+                        style: textTheme.labelMedium?.copyWith(
+                          color: Colors.white,
+                        ),
                       ),
                     ],
                   ),
@@ -82,14 +91,8 @@ class HeroHeaderCard extends StatelessWidget {
               height: 1.4,
             ),
           ),
-          if (actions != null) ...[
-            const SizedBox(height: 20),
-            actions!,
-          ],
-          if (footer != null) ...[
-            const SizedBox(height: 18),
-            footer!,
-          ],
+          if (actions != null) ...[const SizedBox(height: 20), actions!],
+          if (footer != null) ...[const SizedBox(height: 18), footer!],
         ],
       ),
     );

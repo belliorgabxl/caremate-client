@@ -4,10 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/router/app_routes.dart';
 
 class MainScaffold extends StatelessWidget {
-  const MainScaffold({
-    super.key,
-    required this.child,
-  });
+  const MainScaffold({super.key, required this.child});
 
   final Widget child;
 
@@ -49,22 +46,22 @@ class MainScaffold extends StatelessWidget {
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),
-            label: 'Home',
+            label: 'หน้าแรก',
           ),
           NavigationDestination(
             icon: Icon(Icons.calendar_month_outlined),
             selectedIcon: Icon(Icons.calendar_month),
-            label: 'Booking',
+            label: 'จองบริการ',
           ),
           NavigationDestination(
             icon: Icon(Icons.people_outline),
             selectedIcon: Icon(Icons.people),
-            label: 'Members',
+            label: 'สมาชิก',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
-            label: 'Profile',
+            label: 'โปรไฟล์',
           ),
         ],
       ),

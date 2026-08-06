@@ -45,6 +45,57 @@ one backend.
   (`ชาย`/`หญิง`/`อื่นๆ`) — never send Thai literals as the field value, only as display
   labels. Blood type is `A`/`B`/`AB`/`O` only.
 
+## Visual redesign — "Aurora Glass" world (rolled out app-wide)
+Full-app visual redesign complete across every screen: `PRODUCT.md` and
+`DESIGN.md` (both repo root) are the source of truth for product context and
+the design system — read `DESIGN.md` before touching UI on any screen. Three
+pivots deep this session, each fully superseding the last (none kept as
+fallbacks): **Report Book** (kraft-paper/ink-stamp, discarded) → **Premium
+Clinic Companion** (restrained blue/white, One Blue Rule, superseded) →
+**Aurora Glass** (current): cool-white ground, four jewel-tone brand colors
+at full weight (Sapphire/Coral/Emerald/Amethyst — `AppColors.primary` +
+`serviceTransport/HomeCare/Medication`, deepened and promoted from mere
+category tints, plus Rose/`serviceErrand` as a fifth accent), blurred
+"aurora" color blobs (`AuroraBackground`) anchored behind a screen's hero
+region, frosted-glass hero cards (`AppCard(glass: true)`, real
+`BackdropFilter` blur) sitting over them, plain solid-white cards everywhere
+else. No gradients on UI surfaces — the aurora blobs are blurred solid
+color, not an authored gradient; that exception is scoped and documented in
+`DESIGN.md`. Icon badges (`CircleIconAvatar`) now carry a soft colored
+shadow + fine ring by default, not a flat tint circle.
+
+**Rollout status: every screen done.** Home, Splash, `MainScaffold` bottom
+nav (now Thai-labeled), Auth (Login/Register), Booking (wizard + status +
+history), Members, Payment, and the full Profile group (Profile/Settings/
+Addresses/Health Info/Personal Info) are all built to Aurora Glass. The
+booking wizard, status page, Members, and Profile also apply the Jewel
+Palette Rule concretely — selected/active elements tint with their own
+service category color (e.g. a selected transport service card renders
+Coral) instead of defaulting to Sapphire everywhere. Booking history was
+deliberately left without an `AuroraBackground` (flat list of equal-weight
+items, no natural glass hero — forcing one would violate DESIGN.md's "glass
+only where it reveals real color behind it" rule); Payment's QR card is
+`elevated`, not `glass`, to protect scan contrast against a frosted
+background. Verified live end-to-end on-device: fresh registration through
+PDPA consent → Home → Booking → Members → Profile → Settings, all rendering
+correctly with no crashes. **Settings page's long-standing "renders blank"
+issue (see Known issues) did not reproduce** — it now shows full content
+(security-level card, toggles, login history) end-to-end.
+`DESIGN.md`'s Do's and Don'ts has the hard rules (e.g. `glass` only where an
+`AuroraBackground` is actually behind the card; category color tabs are a
+small icon chip/tag, never a colored border-left bar above 1px).
+
+A real app icon now exists too: `assets/images/caremate-logo.png` (source)
+→ `tool/crop_icon.dart` crops the mark out of the wordmark → `assets/images/
+app_icon.png` → `flutter_launcher_icons` (dev dependency, config in
+`pubspec.yaml`) generates Android adaptive + legacy mipmaps and the iOS
+`Assets.xcassets` set. Re-run `dart run flutter_launcher_icons` after ever
+replacing `app_icon.png`.
+
+Next planned step: none pending — the design rollout itself is done. Future
+work here is refinement (a finish/polish review pass hasn't been run) or
+new features on top of the now-consistent system.
+
 ## API integration essentials
 - **Auth = one HttpOnly cookie, no bearer token.** `POST /authentication/login` and
   `POST /authentication/register` both set `caremate_session` via `Set-Cookie`.
@@ -112,21 +163,34 @@ one backend.
   scrolls the policy `ListView` to its end (`ScrollController` listener,
   `_scrolledToEnd`); declining (X button or the scroll gate never clearing)
   returns `null` and aborts registration before any API call.
-  **Proposed backend contract, unimplemented — not audited against real Go
-  source like the rest of this section, don't treat as confirmed:**
-  - `GET /legal/pdpa` (public): `{ version, title, sections: [{ title, body }] }`,
-    envelope-wrapped like other endpoints. The dialog calls this on load and
-    falls back to a bundled copy (`_fallbackPolicy` in the same file, version
-    `bundled-2026-08-04`, ~10 sections covering controller identity, data
-    categories, the sensitive-data/health-info carve-out under PDPA s.26,
-    legal basis, third-party disclosure, retention, security, data-subject
-    rights, DPO contact, policy changes) on any failure — including the
-    current 404, since the route doesn't exist yet — so registration is
-    never blocked on it.
+  **`GET /pdpa` is now real** (per the backend team's "PDPA API — Frontend
+  Integration Guide", 2026-08-06 — not independently re-audited against Go
+  source the way the rest of this section is, but treated as ground truth):
+  public, no auth, base path `/api/v1/pdpa` (so `/pdpa` relative to
+  `apiBaseUrl`). Envelope-wrapped `{ id, version, title, content, summary,
+  is_active, effective_date, updated_at }` — `content` is **pre-rendered
+  HTML** (`<h2>...</h2><p>...</p><ul><li>...</li></ul>`), rendered as-is via
+  the `flutter_html` package's `Html` widget in `PdpaConsentDialog`, no
+  markdown parsing. `PdpaPolicy.fromJson` (`pdpa_policy.dart`) matches this
+  shape. `AuthRepository.fetchPdpaPolicy()` calls it; on any failure
+  (network error, or the documented 404 `"no active pdpa document"` if no
+  version has been activated server-side) it falls back to
+  `_fallbackPolicy` (same file, version `bundled-2026-08-04`, same ~10
+  sections as before, now authored as an inline HTML string) — registration
+  is never blocked on this call.
+  - Two more endpoints from the same spec are wired into `AuthRepository`
+    but **not yet called from any screen**: `fetchPdpaPolicyVersion(version)`
+    (`GET /pdpa/:version` — the exact text a user agreed to at signup, even
+    if a newer version is now active) and `fetchPdpaVersions()` (`GET
+    /pdpa/versions` — metadata-only list, no `content`, for a future
+    version-history UI).
   - `POST /authentication/register` gains two optional fields, already being
     sent by `AuthRepository.register()`: `pdpaConsent: true`,
-    `pdpaConsentVersion: "<version the user actually saw>"`. Currently
-    harmless no-ops server-side since the backend ignores unknown fields.
+    `pdpaConsentVersion: "<version the user actually saw>"`. **Still
+    unconfirmed against the register endpoint's real DTO** — this new spec
+    only covers `/pdpa/*`, not `/authentication/register`; currently assumed
+    to be harmless no-ops server-side since the backend ignores unknown
+    fields.
   - Not yet built: no endpoint to persist server-side or to read consent
     status back (e.g. for a future profile/settings display) — would need
     something like `GET /users/pdpa-consent` returning
@@ -134,6 +198,65 @@ one backend.
     calls this yet.
 
 ## Session log (most recent first)
+- **2026-08-06 (latest)**: Wired the real PDPA API (backend team handed over a
+  "PDPA API — Frontend Integration Guide" spec, `GET /pdpa`, `/pdpa/versions`,
+  `/pdpa/:version`, public/no-auth, base path `/api/v1/pdpa`) — see "Backend
+  compatibility notes" above for the full contract. Rewrote `PdpaPolicy`
+  (`pdpa_policy.dart`) from the old proposed `{version, title, sections[]}`
+  shape to the real `{id, version, title, content (HTML), summary, is_active,
+  effective_date, updated_at}` one, added `PdpaVersionSummary` for the
+  `/versions` list endpoint. `AuthRepository` now calls `GET /pdpa` (was
+  `GET /legal/pdpa`, which never existed) plus two new methods,
+  `fetchPdpaPolicyVersion()`/`fetchPdpaVersions()`, for the other two
+  endpoints — neither is wired into a screen yet. Since `content` is
+  pre-rendered HTML, added `flutter_html` (new dependency) and swapped
+  `PdpaConsentDialog`'s manual section-list rendering for an `Html` widget;
+  `_fallbackPolicy` (used on any fetch failure, incl. the documented 404 when
+  no version is active yet) rewritten as an inline HTML string with the same
+  content. `flutter analyze` clean project-wide. Not manually verified
+  on-device against a live backend response yet — only against the fallback
+  path (no backend was running this session).
+- **2026-08-05 (latest)**: Finished the "Aurora Glass" pivot (see "Visual redesign"
+  above) and rolled it out to every remaining screen — Splash, `MainScaffold` bottom
+  nav (Thai-labeled now), Booking (wizard/status/history), Members, Payment, and the
+  full Profile group. Added `AppCard.glass`/`.elevated` variants, `AuroraBackground`,
+  and a colored-shadow-plus-ring upgrade to `CircleIconAvatar`. Also wired a real app
+  icon end-to-end (`tool/crop_icon.dart` + `flutter_launcher_icons`, both platforms).
+  Bulk of the rollout (Booking/Members/Payment/Profile) was done via four parallel
+  background agents, each given the same reference-pattern context and DESIGN.md;
+  all four came back clean on `flutter analyze` with sound, disclosed judgment calls
+  (e.g. Payment's QR card kept opaque for scan contrast, Booking history left
+  aurora-free since it has no natural glass hero). Verified everything together with
+  a full rebuild + live on-device walkthrough: registered a fresh test account
+  through the PDPA flow, then navigated Home → Booking → Members → Profile →
+  Settings — all render correctly, no crashes. Incidentally re-verified and closed
+  the long-standing "Settings page renders blank" known issue (no longer reproduces).
+  **Nothing from this session is committed** — still working-tree only, per the same
+  pattern as the rest of this session.
+- **2026-08-05 (later)**: Ran `/impeccable init` again to reconcile this file — its
+  "Visual redesign" section still described the discarded "Report Book" direction as
+  in-progress, while `DESIGN.md`/`PRODUCT.md` already recorded the pivot to "Premium
+  Clinic Companion" (blue/white Material 3) as pinned. Confirmed against the working
+  tree (no `report*` tokens, no `report_widgets.dart`, `app_colors.dart`/`app_theme.dart`/
+  `home_page.dart`/`app_card.dart` all modified toward the new system, plus a real
+  `caremate-logo.png`/`.svg` added) and rewrote the section to match current code.
+- **2026-08-05**: Started the full-app visual redesign (`/impeccable init` then a
+  new-work direction roll). Wrote `PRODUCT.md` (platform recorded as
+  `adaptive` — Android + iOS both real targets by product intent, though the
+  app is Material-only today; iOS/Cupertino fork is acknowledged debt, not
+  built). Rolled a direction through the concept-seed process (2 rounds,
+  user re-rolled once) and landed on "Report Book": bookings read as stamped,
+  signed entries in an official record, echoing the Thai school
+  progress-report ritual. Built Home as the flagship (see "Visual redesign"
+  section above), verified on-device across two fix rounds — caught and
+  fixed a stray white Material `EmptyState` and a colored-border-left
+  craft-floor violation (now documented as a hard Don't in `DESIGN.md`).
+  Wrote `DESIGN.md` documenting both the new and legacy token systems.
+  Hit the known emulator black-screen bug mid-session (see Known issues);
+  resolved with the documented `emu kill` + `-no-snapshot-load` cold boot,
+  unrelated to the code changes. **Nothing from this session is committed
+  yet** — paused here per explicit instruction to continue tomorrow. Next:
+  review Home, then roll the Report Book system out to the booking wizard.
 - **2026-08-04**: Added a PDPA consent gate to registration, as a full-screen
   modal (`PdpaConsentDialog`) triggered from inside `RegisterPage._register()`
   right after form validation and before the register API call — not a
@@ -165,11 +288,14 @@ one backend.
   render bug (see below).
 
 ## Known issues (open)
-- **Settings page (`/profile/settings`) was blank as of last check** — a real crash
-  there was already fixed (a `ListTile` title `Row`+`Flexible` infinite-width layout
-  assertion), but the page still rendered nothing after that fix, cause not isolated.
-  **Not re-verified in the 2026-08-03 session** — check it before assuming it's still
-  broken or assuming it's fine.
+- ~~Settings page (`/profile/settings`) was blank as of last check~~ — **re-verified
+  2026-08-05, resolved/no longer reproduces.** Navigated to it live on-device
+  (registered account → Profile → ตั้งค่าความปลอดภัย) after the Aurora Glass rollout
+  touched this file and it renders full content correctly (security-level card,
+  toggle rows, login history). The earlier `ListTile` `Row`+`Flexible` crash fix
+  must have actually resolved the blank-render symptom too; cause of the original
+  blank-render was never isolated separately, but it no longer manifests. Re-check
+  if it resurfaces, but stop assuming it's broken.
 - **Emulator black-screen / solid-black render, recurring.** Root cause varies —
   confirmed at least twice this project: (1) a specific 16k-page-size AVD image
   (`sdk gphone16k` API 37)'s GPU passthrough is fundamentally broken on this machine —
@@ -216,6 +342,10 @@ one backend.
 - No env switching for `apiBaseUrl` (see Config section above).
 - Windows desktop platform (`windows/`) was scaffolded as a debugging aid, never
   actually built/used — needs Windows Developer Mode enabled to build at all.
-- Entire session's work as of 2026-08-03 is committed (`414ab98 complete booking
-  flow`) — check `git status` / `git log` before assuming anything is still
-  uncommitted.
+- The 2026-08-03 session's work is committed (`414ab98 complete booking
+  flow`). **Everything from the 2026-08-05 session (PRODUCT.md, DESIGN.md, the
+  full Aurora Glass rollout across every screen, the app icon pipeline) is
+  uncommitted as of this writing** — check `git status` / `git log` before
+  assuming otherwise; don't assume everything below `414ab98` in the log
+  reflects current working-tree state. `report_widgets.dart` never existed in
+  a commit (built and discarded entirely within this uncommitted session).

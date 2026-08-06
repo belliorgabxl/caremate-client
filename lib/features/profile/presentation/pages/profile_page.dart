@@ -7,6 +7,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../shared/models/user_profile.dart';
 import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/aurora_background.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../../shared/widgets/section_header.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
@@ -123,123 +124,173 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       appBar: AppBar(title: const Text('Profile')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-                children: [
-                  AppCard(
-                    padding: const EdgeInsets.all(20),
-                    child: Row(
-                      children: [
-                        const CircleIconAvatar(
-                          icon: Icons.person,
-                          color: AppColors.primary,
-                          radius: 32,
-                          filled: true,
-                          iconSize: 34,
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(user?.displayName ?? '-', style: textTheme.headlineSmall),
-                              const SizedBox(height: 4),
-                              Text(
-                                user?.phone ?? '-',
-                                style: textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const SectionHeader(
-                    title: 'ข้อมูลบัญชี',
-                    icon: Icons.badge_outlined,
-                  ),
-                  const SizedBox(height: 12),
-                  AppCard(
-                    padding: EdgeInsets.zero,
-                    child: Column(
-                      children: [
-                        _InfoRow(label: 'อีเมล', value: profile?.email.isNotEmpty == true ? profile!.email : 'ยังไม่ระบุ'),
-                        const Divider(height: 1),
-                        _InfoRow(label: 'เบอร์โทร', value: user?.phone ?? '-'),
-                        const Divider(height: 1),
-                        _InfoRow(
-                          label: 'กรุ๊ปเลือด',
-                          value: profile?.bloodType.isNotEmpty == true ? profile!.bloodType : 'ยังไม่ระบุ',
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
+          : Stack(
+              children: [
+                const Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: AuroraBackground(),
+                ),
+                RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
                     children: [
-                      Text('เมนูของฉัน', style: textTheme.titleLarge),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: AppColors.infoBg,
-                          borderRadius: BorderRadius.circular(AppRadius.pill),
-                        ),
-                        child: Text(
-                          '${_menuItems.length} รายการ',
-                          style: textTheme.labelMedium?.copyWith(color: AppColors.info),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  ..._menuItems.map(
-                    (item) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: AppCard(
-                        onTap: () => context.go(item.route),
+                      AppCard(
+                        glass: true,
+                        padding: const EdgeInsets.all(20),
                         child: Row(
                           children: [
-                            CircleIconAvatar(icon: item.icon, color: item.color, radius: 24),
-                            const SizedBox(width: 14),
+                            const CircleIconAvatar(
+                              icon: Icons.person,
+                              color: AppColors.primary,
+                              radius: 32,
+                              filled: true,
+                              iconSize: 34,
+                            ),
+                            const SizedBox(width: 16),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(item.title, style: textTheme.titleSmall),
-                                  const SizedBox(height: 3),
-                                  Text(item.subtitle, style: textTheme.bodySmall),
+                                  Text(
+                                    user?.displayName ?? '-',
+                                    style: textTheme.headlineSmall,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    user?.phone ?? '-',
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
-                            const Icon(Icons.chevron_right_rounded, color: AppColors.textTertiary),
                           ],
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  AppCard(
-                    padding: EdgeInsets.zero,
-                    child: ListTile(
-                      leading: const Icon(Icons.logout, color: AppColors.danger),
-                      title: Text(
-                        'Logout',
-                        style: textTheme.bodyLarge?.copyWith(
-                          color: AppColors.danger,
-                          fontWeight: FontWeight.w700,
+                      const SizedBox(height: 20),
+                      const SectionHeader(
+                        title: 'ข้อมูลบัญชี',
+                        icon: Icons.badge_outlined,
+                      ),
+                      const SizedBox(height: 12),
+                      AppCard(
+                        padding: EdgeInsets.zero,
+                        child: Column(
+                          children: [
+                            _InfoRow(
+                              label: 'อีเมล',
+                              value: profile?.email.isNotEmpty == true
+                                  ? profile!.email
+                                  : 'ยังไม่ระบุ',
+                            ),
+                            const Divider(height: 1),
+                            _InfoRow(
+                              label: 'เบอร์โทร',
+                              value: user?.phone ?? '-',
+                            ),
+                            const Divider(height: 1),
+                            _InfoRow(
+                              label: 'กรุ๊ปเลือด',
+                              value: profile?.bloodType.isNotEmpty == true
+                                  ? profile!.bloodType
+                                  : 'ยังไม่ระบุ',
+                            ),
+                          ],
                         ),
                       ),
-                      onTap: () async {
-                        await ref.read(authControllerProvider).logout();
-                      },
-                    ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Text('เมนูของฉัน', style: textTheme.titleLarge),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.infoBg,
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.pill,
+                              ),
+                            ),
+                            child: Text(
+                              '${_menuItems.length} รายการ',
+                              style: textTheme.labelMedium?.copyWith(
+                                color: AppColors.info,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      ..._menuItems.map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: AppCard(
+                            onTap: () => context.go(item.route),
+                            child: Row(
+                              children: [
+                                CircleIconAvatar(
+                                  icon: item.icon,
+                                  color: item.color,
+                                  radius: 24,
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.title,
+                                        style: textTheme.titleSmall,
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        item.subtitle,
+                                        style: textTheme.bodySmall,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: AppColors.textTertiary,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      AppCard(
+                        padding: EdgeInsets.zero,
+                        child: ListTile(
+                          leading: const Icon(
+                            Icons.logout,
+                            color: AppColors.danger,
+                          ),
+                          title: Text(
+                            'Logout',
+                            style: textTheme.bodyLarge?.copyWith(
+                              color: AppColors.danger,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          onTap: () async {
+                            await ref.read(authControllerProvider).logout();
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
     );
   }
@@ -259,9 +310,17 @@ class _InfoRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
-          Text(label, style: textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+          Text(
+            label,
+            style: textTheme.bodyMedium?.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
           const Spacer(),
-          Text(value, style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+          Text(
+            value,
+            style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
         ],
       ),
     );

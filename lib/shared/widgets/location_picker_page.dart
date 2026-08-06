@@ -106,9 +106,14 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
   Future<void> _resolveAddress(LatLng point) async {
     setState(() => _isResolvingAddress = true);
     try {
-      final placemarks = await placemarkFromCoordinates(point.latitude, point.longitude);
+      final placemarks = await placemarkFromCoordinates(
+        point.latitude,
+        point.longitude,
+      );
       if (!mounted) return;
-      final label = placemarks.isEmpty ? null : _formatPlacemark(placemarks.first);
+      final label = placemarks.isEmpty
+          ? null
+          : _formatPlacemark(placemarks.first);
       setState(() {
         _addressLabel = label ?? _formatLatLng(point);
         _isResolvingAddress = false;
@@ -123,9 +128,12 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
   }
 
   String _formatPlacemark(Placemark p) {
-    final parts = [p.street, p.subLocality, p.locality, p.administrativeArea]
-        .where((part) => part != null && part.trim().isNotEmpty)
-        .toList();
+    final parts = [
+      p.street,
+      p.subLocality,
+      p.locality,
+      p.administrativeArea,
+    ].where((part) => part != null && part.trim().isNotEmpty).toList();
     return parts.isEmpty ? _formatLatLng(_center) : parts.join(', ');
   }
 
@@ -140,11 +148,14 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
         permission = await Geolocator.requestPermission();
       }
 
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
         if (!mounted) return;
         setState(() => _isLocating = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('กรุณาอนุญาตการเข้าถึงตำแหน่งเพื่อใช้งานฟีเจอร์นี้')),
+          const SnackBar(
+            content: Text('กรุณาอนุญาตการเข้าถึงตำแหน่งเพื่อใช้งานฟีเจอร์นี้'),
+          ),
         );
         return;
       }
@@ -154,13 +165,17 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
         if (!mounted) return;
         setState(() => _isLocating = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('กรุณาเปิดบริการตำแหน่ง (GPS) ของอุปกรณ์')),
+          const SnackBar(
+            content: Text('กรุณาเปิดบริการตำแหน่ง (GPS) ของอุปกรณ์'),
+          ),
         );
         return;
       }
 
       final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
       final point = LatLng(position.latitude, position.longitude);
 
@@ -208,7 +223,8 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                 _center = position.center;
               },
               onMapEvent: (event) {
-                if (event is MapEventMoveEnd && event.source != MapEventSource.mapController) {
+                if (event is MapEventMoveEnd &&
+                    event.source != MapEventSource.mapController) {
                   _resolveAddress(_center);
                 }
               },
@@ -229,7 +245,11 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
             child: Center(
               child: Padding(
                 padding: EdgeInsets.only(bottom: 40),
-                child: Icon(Icons.location_on, size: 44, color: AppColors.primary),
+                child: Icon(
+                  Icons.location_on,
+                  size: 44,
+                  color: AppColors.primary,
+                ),
               ),
             ),
           ),
@@ -260,16 +280,23 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                       children: [
                         const Padding(
                           padding: EdgeInsets.only(left: 10),
-                          child: Icon(Icons.search_rounded, color: AppColors.textSecondary),
+                          child: Icon(
+                            Icons.search_rounded,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                         Expanded(
                           child: TextField(
                             controller: _searchController,
                             textInputAction: TextInputAction.search,
                             decoration: const InputDecoration(
-                              hintText: 'ค้นหาสถานที่ เช่น ชื่อสถานที่หรือที่อยู่',
+                              hintText:
+                                  'ค้นหาสถานที่ เช่น ชื่อสถานที่หรือที่อยู่',
                               border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                              contentPadding: EdgeInsets.symmetric(
+                                vertical: 14,
+                                horizontal: 10,
+                              ),
                             ),
                             onSubmitted: _searchLocation,
                           ),
@@ -293,17 +320,27 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                           )
                         else
                           IconButton(
-                            icon: const Icon(Icons.arrow_forward_rounded, color: AppColors.primary),
-                            onPressed: () => _searchLocation(_searchController.text),
+                            icon: const Icon(
+                              Icons.arrow_forward_rounded,
+                              color: AppColors.primary,
+                            ),
+                            onPressed: () =>
+                                _searchLocation(_searchController.text),
                           ),
                       ],
                     ),
                     if (_searchError != null)
                       Padding(
-                        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 10),
+                        padding: const EdgeInsets.only(
+                          left: 16,
+                          right: 16,
+                          bottom: 10,
+                        ),
                         child: Text(
                           _searchError!,
-                          style: textTheme.bodySmall?.copyWith(color: AppColors.danger),
+                          style: textTheme.bodySmall?.copyWith(
+                            color: AppColors.danger,
+                          ),
                         ),
                       ),
                   ],
@@ -353,16 +390,25 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.place_rounded, color: AppColors.primary, size: 20),
+                        const Icon(
+                          Icons.place_rounded,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: _isResolvingAddress
-                              ? Text('กำลังค้นหาที่อยู่...', style: textTheme.bodyMedium)
+                              ? Text(
+                                  'กำลังค้นหาที่อยู่...',
+                                  style: textTheme.bodyMedium,
+                                )
                               : Text(
                                   _addressLabel ?? _formatLatLng(_center),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                                  style: textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                         ),
                       ],

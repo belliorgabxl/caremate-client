@@ -9,6 +9,7 @@ import '../../../../shared/models/address.dart';
 import '../../../../shared/models/user_profile.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/aurora_background.dart';
 import '../../../../shared/widgets/location_picker_page.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/section_header.dart';
@@ -107,9 +108,9 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
     if (!mounted) return;
     setState(() => _isSaving = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('บันทึกที่อยู่เรียบร้อยแล้ว')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('บันทึกที่อยู่เรียบร้อยแล้ว')));
     context.go(AppRoutes.profile);
   }
 
@@ -128,98 +129,126 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('ที่อยู่ของฉัน'),
         leading: BackButton(onPressed: () => context.go(AppRoutes.profile)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      body: Stack(
         children: [
-          const SectionHeader(
-            title: 'ที่อยู่หลัก',
-            subtitle: 'ใช้เป็นค่าเริ่มต้นเมื่อจองบริการ',
-            icon: Icons.location_on_rounded,
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: AuroraBackground(height: 320),
           ),
-          const SizedBox(height: 12),
-          AppCard(
-            child: Column(
-              children: [
-                AppTextField(
-                  controller: _addressController,
-                  label: 'รายละเอียดที่อยู่',
-                  hint: 'บ้านเลขที่ ถนน แขวง/ตำบล เขต/อำเภอ',
-                  prefixIcon: Icons.home_outlined,
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 14),
-                InkWell(
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  onTap: _pickOnMap,
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceAlt,
-                      borderRadius: BorderRadius.circular(AppRadius.md),
+          ListView(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              MediaQuery.paddingOf(context).top + 68,
+              20,
+              32,
+            ),
+            children: [
+              const SectionHeader(
+                title: 'ที่อยู่หลัก',
+                subtitle: 'ใช้เป็นค่าเริ่มต้นเมื่อจองบริการ',
+                icon: Icons.location_on_rounded,
+              ),
+              const SizedBox(height: 12),
+              AppCard(
+                child: Column(
+                  children: [
+                    AppTextField(
+                      controller: _addressController,
+                      label: 'รายละเอียดที่อยู่',
+                      hint: 'บ้านเลขที่ ถนน แขวง/ตำบล เขต/อำเภอ',
+                      prefixIcon: Icons.home_outlined,
+                      maxLines: 3,
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.map_rounded, color: AppColors.primary),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('เลือกตำแหน่งบนแผนที่', style: textTheme.titleSmall),
-                              const SizedBox(height: 3),
-                              Text(
-                                _pickedLocation?.hasCoordinates == true
-                                    ? '${_pickedLocation!.latitude!.toStringAsFixed(5)}, ${_pickedLocation!.longitude!.toStringAsFixed(5)}'
-                                    : 'ยังไม่ได้ปักหมุด',
-                                style: textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
+                    const SizedBox(height: 14),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      onTap: _pickOnMap,
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceAlt,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
                         ),
-                        const Icon(Icons.chevron_right_rounded),
-                      ],
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.map_rounded,
+                              color: AppColors.primary,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'เลือกตำแหน่งบนแผนที่',
+                                    style: textTheme.titleSmall,
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    _pickedLocation?.hasCoordinates == true
+                                        ? '${_pickedLocation!.latitude!.toStringAsFixed(5)}, ${_pickedLocation!.longitude!.toStringAsFixed(5)}'
+                                        : 'ยังไม่ได้ปักหมุด',
+                                    style: textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.chevron_right_rounded),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.dangerBg,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                  child: Text(
+                    _error!,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: AppColors.danger,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
               ],
-            ),
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.dangerBg,
-                borderRadius: BorderRadius.circular(AppRadius.md),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Text(
+                  'ที่อยู่นี้จะถูกใช้เป็นจุดรับเริ่มต้นเมื่อคุณสร้างการจองใหม่',
+                  style: textTheme.bodySmall,
+                ),
               ),
-              child: Text(
-                _error!,
-                style: textTheme.bodySmall?.copyWith(color: AppColors.danger, fontWeight: FontWeight.w700),
+              const SizedBox(height: 24),
+              PrimaryButton(
+                label: _isSaving ? 'กำลังบันทึก...' : 'บันทึกที่อยู่',
+                icon: Icons.save_rounded,
+                isLoading: _isSaving,
+                onPressed: _isSaving ? null : _save,
               ),
-            ),
-          ],
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppColors.primaryLight.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(AppRadius.md),
-            ),
-            child: Text(
-              'ที่อยู่นี้จะถูกใช้เป็นจุดรับเริ่มต้นเมื่อคุณสร้างการจองใหม่',
-              style: textTheme.bodySmall,
-            ),
-          ),
-          const SizedBox(height: 24),
-          PrimaryButton(
-            label: _isSaving ? 'กำลังบันทึก...' : 'บันทึกที่อยู่',
-            icon: Icons.save_rounded,
-            isLoading: _isSaving,
-            onPressed: _isSaving ? null : _save,
+            ],
           ),
         ],
       ),

@@ -10,6 +10,7 @@ import '../../../../core/constants/app_radius.dart';
 import '../../../../shared/models/booking.dart';
 import '../../../../shared/models/mission.dart';
 import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/aurora_background.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/section_header.dart';
@@ -57,10 +58,13 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
   }
 
   Future<void> _poll() async {
-    final detail = await ref.read(bookingRepositoryProvider).getMission(widget.bookingId);
+    final detail = await ref
+        .read(bookingRepositoryProvider)
+        .getMission(widget.bookingId);
     if (!mounted) return;
 
-    final merged = _booking?.copyWith(status: detail.booking.status) ?? detail.booking;
+    final merged =
+        _booking?.copyWith(status: detail.booking.status) ?? detail.booking;
 
     if (merged.status == BookingStatus.pending) {
       _pendingSince ??= DateTime.now();
@@ -85,7 +89,8 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
       BookingStatus.pending => const Duration(seconds: 5),
       BookingStatus.matched => const Duration(seconds: 20),
       BookingStatus.inProgress => const Duration(seconds: 20),
-      _ => null, // COMPLETED / CANCELLED / PAYMENT_EXPIRED / AWAITING_PAYMENT: stop polling
+      _ =>
+        null, // COMPLETED / CANCELLED / PAYMENT_EXPIRED / AWAITING_PAYMENT: stop polling
     };
 
     if (interval == null) return;
@@ -94,7 +99,8 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
 
   bool get _isTakingLong {
     final since = _pendingSince;
-    return since != null && DateTime.now().difference(since) > const Duration(minutes: 10);
+    return since != null &&
+        DateTime.now().difference(since) > const Duration(minutes: 10);
   }
 
   @override
@@ -114,51 +120,77 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
         title: const Text('สถานะการจอง'),
         leading: BackButton(onPressed: () => context.go(AppRoutes.home)),
       ),
-      body: RefreshIndicator(
-        onRefresh: _poll,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-          children: [
-            AppCard(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                children: [
-                  Row(
+      body: Stack(
+        children: [
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: AuroraBackground(height: 260),
+          ),
+          RefreshIndicator(
+            onRefresh: _poll,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+              children: [
+                AppCard(
+                  glass: true,
+                  padding: const EdgeInsets.all(22),
+                  child: Column(
                     children: [
-                      CircleIconAvatar(icon: booking.serviceIcon, color: booking.serviceColor),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(booking.serviceTitle, style: textTheme.titleMedium),
-                            const SizedBox(height: 2),
-                            Text('อ้างอิง ${booking.reference}', style: textTheme.bodySmall),
-                          ],
-                        ),
+                      Row(
+                        children: [
+                          CircleIconAvatar(
+                            icon: booking.serviceIcon,
+                            color: booking.serviceColor,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  booking.serviceTitle,
+                                  style: textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'อ้างอิง ${booking.reference}',
+                                  style: textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                          StatusBadge(
+                            text: booking.status.label,
+                            color: booking.status.color,
+                          ),
+                        ],
                       ),
-                      StatusBadge(text: booking.status.label, color: booking.status.color),
                     ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 20),
+                const SectionHeader(
+                  title: 'รายละเอียดการจอง',
+                  icon: Icons.receipt_long_rounded,
+                ),
+                const SizedBox(height: 12),
+                _BookingDetailCard(booking: booking),
+                const SizedBox(height: 20),
+                _buildStatusBody(booking, textTheme),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => context.go(AppRoutes.home),
+                    child: const Text('กลับหน้าหลัก'),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 20),
-            const SectionHeader(title: 'รายละเอียดการจอง', icon: Icons.receipt_long_rounded),
-            const SizedBox(height: 12),
-            _BookingDetailCard(booking: booking),
-            const SizedBox(height: 20),
-            _buildStatusBody(booking, textTheme),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () => context.go(AppRoutes.home),
-                child: const Text('กลับหน้าหลัก'),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -172,9 +204,16 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
               child: Column(
                 children: [
                   SizedBox(height: 8),
-                  SizedBox(width: 32, height: 32, child: CircularProgressIndicator(strokeWidth: 3)),
+                  SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: CircularProgressIndicator(strokeWidth: 3),
+                  ),
                   SizedBox(height: 14),
-                  Text('กำลังค้นหาผู้ดูแลใกล้คุณ', style: TextStyle(fontWeight: FontWeight.w700)),
+                  Text(
+                    'กำลังค้นหาผู้ดูแลใกล้คุณ',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
                   SizedBox(height: 4),
                   Text(
                     'ระบบกำลังจับคู่กับพาร์ทเนอร์ที่เหมาะสม โปรดรอสักครู่',
@@ -192,16 +231,23 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
                 decoration: BoxDecoration(
                   color: AppColors.warning.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(AppRadius.md),
-                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
+                  border: Border.all(
+                    color: AppColors.warning.withValues(alpha: 0.4),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline_rounded, color: AppColors.warning),
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      color: AppColors.warning,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         'การค้นหาผู้ดูแลใช้เวลานานกว่าปกติ หากรอนานผิดปกติ กรุณาติดต่อฝ่ายบริการลูกค้า',
-                        style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                        style: textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
@@ -217,12 +263,19 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (_partner != null) ...[
-              const SectionHeader(title: 'พาร์ทเนอร์ผู้ดูแล', icon: Icons.badge_rounded),
+              const SectionHeader(
+                title: 'พาร์ทเนอร์ผู้ดูแล',
+                icon: Icons.badge_rounded,
+              ),
               const SizedBox(height: 12),
               AppCard(
                 child: Row(
                   children: [
-                    const CircleIconAvatar(icon: Icons.person_rounded, color: AppColors.primary, filled: true),
+                    const CircleIconAvatar(
+                      icon: Icons.person_rounded,
+                      color: AppColors.primary,
+                      filled: true,
+                    ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
@@ -235,9 +288,16 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
                       ),
                     ),
                     if (_partner!.ratingAvg != null) ...[
-                      const Icon(Icons.star_rounded, color: AppColors.badgeDefault, size: 18),
+                      const Icon(
+                        Icons.star_rounded,
+                        color: AppColors.badgeDefault,
+                        size: 18,
+                      ),
                       const SizedBox(width: 2),
-                      Text(_partner!.ratingAvg!.toStringAsFixed(1), style: textTheme.bodySmall),
+                      Text(
+                        _partner!.ratingAvg!.toStringAsFixed(1),
+                        style: textTheme.bodySmall,
+                      ),
                     ],
                   ],
                 ),
@@ -245,7 +305,10 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
               const SizedBox(height: 20),
             ],
             if (_mission != null && _mission!.checkpoints.isNotEmpty) ...[
-              const SectionHeader(title: 'ความคืบหน้างาน', icon: Icons.checklist_rounded),
+              const SectionHeader(
+                title: 'ความคืบหน้างาน',
+                icon: Icons.checklist_rounded,
+              ),
               const SizedBox(height: 12),
               AppCard(
                 child: Column(
@@ -256,16 +319,24 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
                         child: Row(
                           children: [
                             Icon(
-                              checkpoint.isDone ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                              color: checkpoint.isDone ? AppColors.success : AppColors.border,
+                              checkpoint.isDone
+                                  ? Icons.check_circle_rounded
+                                  : Icons.radio_button_unchecked_rounded,
+                              color: checkpoint.isDone
+                                  ? AppColors.success
+                                  : AppColors.border,
                               size: 22,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                checkpoint.labelTh.isNotEmpty ? checkpoint.labelTh : checkpoint.labelEn,
+                                checkpoint.labelTh.isNotEmpty
+                                    ? checkpoint.labelTh
+                                    : checkpoint.labelEn,
                                 style: textTheme.bodyMedium?.copyWith(
-                                  fontWeight: checkpoint.isDone ? FontWeight.w700 : FontWeight.w400,
+                                  fontWeight: checkpoint.isDone
+                                      ? FontWeight.w700
+                                      : FontWeight.w400,
                                 ),
                               ),
                             ),
@@ -276,7 +347,9 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
                 ),
               ),
             ] else
-              const AppCard(child: Text('พาร์ทเนอร์รับงานแล้ว กำลังเตรียมเดินทาง')),
+              const AppCard(
+                child: Text('พาร์ทเนอร์รับงานแล้ว กำลังเตรียมเดินทาง'),
+              ),
           ],
         );
 
@@ -284,11 +357,21 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
         return const AppCard(
           child: Column(
             children: [
-              Icon(Icons.check_circle_rounded, color: AppColors.success, size: 40),
+              Icon(
+                Icons.check_circle_rounded,
+                color: AppColors.success,
+                size: 40,
+              ),
               SizedBox(height: 10),
-              Text('งานเสร็จสิ้นแล้ว', style: TextStyle(fontWeight: FontWeight.w700)),
+              Text(
+                'งานเสร็จสิ้นแล้ว',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
               SizedBox(height: 4),
-              Text('ขอบคุณที่ใช้บริการ CareMate', style: TextStyle(color: AppColors.textSecondary)),
+              Text(
+                'ขอบคุณที่ใช้บริการ CareMate',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
             ],
           ),
         );
@@ -300,9 +383,16 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
             const AppCard(
               child: Column(
                 children: [
-                  Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 40),
+                  Icon(
+                    Icons.error_outline_rounded,
+                    color: AppColors.danger,
+                    size: 40,
+                  ),
                   SizedBox(height: 10),
-                  Text('การชำระเงินหมดอายุ', style: TextStyle(fontWeight: FontWeight.w700)),
+                  Text(
+                    'การชำระเงินหมดอายุ',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
                   SizedBox(height: 4),
                   Text(
                     'รายการนี้ไม่สามารถดำเนินการต่อได้ กรุณาทำรายการจองใหม่',
@@ -368,7 +458,9 @@ class _BookingDetailCard extends StatelessWidget {
           const Divider(height: 24),
           _DetailRow(
             icon: Icons.location_on_outlined,
-            label: booking.destinationAddress == null ? 'สถานที่รับบริการ' : 'จุดรับ → จุดหมาย',
+            label: booking.destinationAddress == null
+                ? 'สถานที่รับบริการ'
+                : 'จุดรับ → จุดหมาย',
             value: booking.destinationAddress == null
                 ? booking.pickupAddress
                 : '${booking.pickupAddress} → ${booking.destinationAddress}',
@@ -386,12 +478,17 @@ class _BookingDetailCard extends StatelessWidget {
             children: [
               Text(
                 'ยอดชำระ',
-                style: textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                style: textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
               const Spacer(),
               Text(
                 '฿${booking.totalAmount.toStringAsFixed(0)}',
-                style: textTheme.titleMedium?.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700),
+                style: textTheme.titleMedium?.copyWith(
+                  color: booking.serviceColor,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
@@ -402,8 +499,18 @@ class _BookingDetailCard extends StatelessWidget {
 
   String _formatDateTime(DateTime dateTime) {
     const months = [
-      'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
-      'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.',
+      'ม.ค.',
+      'ก.พ.',
+      'มี.ค.',
+      'เม.ย.',
+      'พ.ค.',
+      'มิ.ย.',
+      'ก.ค.',
+      'ส.ค.',
+      'ก.ย.',
+      'ต.ค.',
+      'พ.ย.',
+      'ธ.ค.',
     ];
     final hour = dateTime.hour.toString().padLeft(2, '0');
     final minute = dateTime.minute.toString().padLeft(2, '0');
@@ -412,7 +519,11 @@ class _BookingDetailCard extends StatelessWidget {
 }
 
 class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.icon, required this.label, required this.value});
+  const _DetailRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
   final IconData icon;
   final String label;
@@ -431,9 +542,19 @@ class _DetailRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: textTheme.labelMedium?.copyWith(color: AppColors.textSecondary)),
+              Text(
+                label,
+                style: textTheme.labelMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
               const SizedBox(height: 2),
-              Text(value, style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+              Text(
+                value,
+                style: textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ),
