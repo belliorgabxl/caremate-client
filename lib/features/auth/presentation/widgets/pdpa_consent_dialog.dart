@@ -243,14 +243,18 @@ class _PdpaConsentDialogState extends ConsumerState<PdpaConsentDialog> {
                         AppCard(
                           color: AppColors.surfaceAlt,
                           padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: CheckboxListTile(
-                            value: _accepted,
-                            onChanged: _scrolledToEnd
-                                ? (v) => setState(() => _accepted = v ?? false)
-                                : null,
-                            controlAffinity: ListTileControlAffinity.leading,
-                            title: const Text(
-                              'ข้าพเจ้าได้อ่านและยินยอมให้ CareMate เก็บรวบรวม ใช้ และเปิดเผยข้อมูลส่วนบุคคล (รวมถึงข้อมูลสุขภาพ) ของข้าพเจ้าตามนโยบายข้างต้น',
+                          child: Material(
+                            type: MaterialType.transparency,
+                            child: CheckboxListTile(
+                              value: _accepted,
+                              onChanged: _scrolledToEnd
+                                  ? (v) =>
+                                      setState(() => _accepted = v ?? false)
+                                  : null,
+                              controlAffinity: ListTileControlAffinity.leading,
+                              title: const Text(
+                                'ข้าพเจ้าได้อ่านและยินยอมให้ CareMate เก็บรวบรวม ใช้ และเปิดเผยข้อมูลส่วนบุคคล (รวมถึงข้อมูลสุขภาพ) ของข้าพเจ้าตามนโยบายข้างต้น',
+                              ),
                             ),
                           ),
                         ),

@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../shared/models/booking.dart';
@@ -118,7 +118,7 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('สถานะการจอง'),
-        leading: BackButton(onPressed: () => context.go(AppRoutes.home)),
+        leading: BackButton(onPressed: () => context.goBack(AppRoutes.home)),
       ),
       body: Stack(
         children: [
@@ -183,7 +183,7 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton(
-                    onPressed: () => context.go(AppRoutes.home),
+                    onPressed: () => context.goBack(AppRoutes.home),
                     child: const Text('กลับหน้าหลัก'),
                   ),
                 ),
@@ -406,7 +406,7 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
             PrimaryButton(
               label: 'จองใหม่',
               icon: Icons.add,
-              onPressed: () => context.go(AppRoutes.booking),
+              onPressed: () => context.goForward(AppRoutes.booking),
             ),
           ],
         );
@@ -420,7 +420,7 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
             PrimaryButton(
               label: 'ชำระเงิน',
               icon: Icons.payment_rounded,
-              onPressed: () => context.go(AppRoutes.payment),
+              onPressed: () => context.goForward(AppRoutes.payment),
             ),
           ],
         );

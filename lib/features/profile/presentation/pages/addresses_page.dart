@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../shared/models/address.dart';
@@ -111,7 +111,7 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('บันทึกที่อยู่เรียบร้อยแล้ว')));
-    context.go(AppRoutes.profile);
+    context.goBack(AppRoutes.profile);
   }
 
   @override
@@ -120,7 +120,7 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('ที่อยู่ของฉัน'),
-          leading: BackButton(onPressed: () => context.go(AppRoutes.profile)),
+          leading: BackButton(onPressed: () => context.goBack(AppRoutes.profile)),
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -132,7 +132,7 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('ที่อยู่ของฉัน'),
-        leading: BackButton(onPressed: () => context.go(AppRoutes.profile)),
+        leading: BackButton(onPressed: () => context.goBack(AppRoutes.profile)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,

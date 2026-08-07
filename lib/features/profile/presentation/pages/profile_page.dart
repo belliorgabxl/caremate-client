@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../shared/models/user_profile.dart';
@@ -121,7 +121,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final profile = _profile;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(title: const Text('โปรไฟล์')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Stack(
@@ -232,7 +232,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         (item) => Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: AppCard(
-                            onTap: () => context.go(item.route),
+                            onTap: () => context.goForward(item.route),
                             child: Row(
                               children: [
                                 CircleIconAvatar(
@@ -269,22 +269,21 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       ),
                       const SizedBox(height: 8),
                       AppCard(
-                        padding: EdgeInsets.zero,
-                        child: ListTile(
-                          leading: const Icon(
-                            Icons.logout,
-                            color: AppColors.danger,
-                          ),
-                          title: Text(
-                            'Logout',
-                            style: textTheme.bodyLarge?.copyWith(
-                              color: AppColors.danger,
-                              fontWeight: FontWeight.w700,
+                        onTap: () async {
+                          await ref.read(authControllerProvider).logout();
+                        },
+                        child: Row(
+                          children: [
+                            const Icon(Icons.logout, color: AppColors.danger),
+                            const SizedBox(width: 14),
+                            Text(
+                              'ออกจากระบบ',
+                              style: textTheme.bodyLarge?.copyWith(
+                                color: AppColors.danger,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                          ),
-                          onTap: () async {
-                            await ref.read(authControllerProvider).logout();
-                          },
+                          ],
                         ),
                       ),
                     ],

@@ -96,7 +96,7 @@ class _MembersPageState extends ConsumerState<MembersPage> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Members')),
+        appBar: AppBar(title: const Text('สมาชิก')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -105,7 +105,7 @@ class _MembersPageState extends ConsumerState<MembersPage> {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Members')),
+      appBar: AppBar(title: const Text('สมาชิก')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showMemberFormSheet(),
         icon: const Icon(Icons.add),

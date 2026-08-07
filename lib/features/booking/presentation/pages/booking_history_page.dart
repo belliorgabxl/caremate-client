@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../core/network/api_client.dart';
@@ -80,7 +80,7 @@ class _BookingHistoryPageState extends ConsumerState<BookingHistoryPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('ประวัติการจอง'),
-        leading: BackButton(onPressed: () => context.go(AppRoutes.profile)),
+        leading: BackButton(onPressed: () => context.goBack(AppRoutes.profile)),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -115,7 +115,8 @@ class _BookingHistoryPageState extends ConsumerState<BookingHistoryPage> {
                             label: 'จองบริการ',
                             icon: Icons.add,
                             expanded: false,
-                            onPressed: () => context.go(AppRoutes.booking),
+                            onPressed: () =>
+                                context.goForward(AppRoutes.booking),
                           ),
                         ),
                       ],
@@ -130,7 +131,7 @@ class _BookingHistoryPageState extends ConsumerState<BookingHistoryPage> {
                         final textTheme = Theme.of(context).textTheme;
 
                         return AppCard(
-                          onTap: () => context.go(
+                          onTap: () => context.goForward(
                             AppRoutes.bookingStatusPath(booking.id),
                             extra: booking,
                           ),

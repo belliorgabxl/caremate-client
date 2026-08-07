@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/router/app_routes.dart';
+import '../../app/router/nav_direction.dart';
 
 class MainScaffold extends StatelessWidget {
   const MainScaffold({super.key, required this.child});
@@ -16,6 +17,12 @@ class MainScaffold extends StatelessWidget {
   }
 
   void _onTap(BuildContext context, int index) {
+    final currentIndex = _getCurrentIndex(
+      GoRouterState.of(context).uri.toString(),
+    );
+    navDirection.value = index >= currentIndex
+        ? NavDirection.forward
+        : NavDirection.back;
     switch (index) {
       case 0:
         context.go(AppRoutes.home);
@@ -38,6 +45,13 @@ class MainScaffold extends StatelessWidget {
     final currentIndex = _getCurrentIndex(location);
 
     return Scaffold(
+      // `child` here is the ShellRoute's own Navigator (same GlobalKey on
+      // every rebuild — see DESIGN.md / router notes), so the actual slide
+      // transition between tabs lives in that Navigator's page transitions
+      // (each tab route's `pageBuilder` in app_router.dart), not here. An
+      // AnimatedSwitcher wrapped around `child` was tried first and never
+      // animated anything, because `child`'s identity never changes for
+      // Flutter to detect a swap.
       body: child,
       bottomNavigationBar: NavigationBar(
         selectedIndex: currentIndex,

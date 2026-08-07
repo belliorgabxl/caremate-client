@@ -4,9 +4,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/router/nav_direction.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/storage/local_storage.dart';
@@ -133,7 +133,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('สมัครสมาชิก'),
-        leading: BackButton(onPressed: () => context.go(AppRoutes.login)),
+        leading: BackButton(onPressed: () => context.goBack(AppRoutes.login)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,

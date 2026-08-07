@@ -41,8 +41,8 @@ class AppCard extends StatelessWidget {
   final bool glass;
 
   static const _liftShadow = [
-    BoxShadow(color: Color(0x1A10233F), offset: Offset(0, 1), blurRadius: 2),
-    BoxShadow(color: Color(0x0F10233F), offset: Offset(0, 8), blurRadius: 24),
+    BoxShadow(color: Color(0x1A0F2A2E), offset: Offset(0, 1), blurRadius: 2),
+    BoxShadow(color: Color(0x0F0F2A2E), offset: Offset(0, 8), blurRadius: 24),
   ];
 
   @override
@@ -79,7 +79,7 @@ class AppCard extends StatelessWidget {
                   ? _liftShadow
                   : const [
                       BoxShadow(
-                        color: Color(0x0D10233F),
+                        color: Color(0x0D0F2A2E),
                         offset: Offset(0, 2),
                         blurRadius: 8,
                       ),
