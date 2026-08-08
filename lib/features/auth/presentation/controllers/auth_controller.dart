@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../../../../core/notifications/push_service.dart';
 import '../../data/auth_repository.dart';
 import '../../data/models/app_user.dart';
 
 enum AuthStep { checking, loggedOut, authenticated }
 
 class AuthController extends ChangeNotifier {
-  AuthController(this._repo);
+  AuthController(this._repo, this._pushService);
 
   final AuthRepository _repo;
+  final PushService _pushService;
 
   AuthStep _step = AuthStep.checking;
   AppUser? _user;
@@ -28,6 +30,7 @@ class AuthController extends ChangeNotifier {
     final user = await _repo.restoreSession();
     _user = user;
     _step = user != null ? AuthStep.authenticated : AuthStep.loggedOut;
+    if (_step == AuthStep.authenticated) _registerDeviceForPush();
     notifyListeners();
   }
 
@@ -38,6 +41,7 @@ class AuthController extends ChangeNotifier {
     try {
       _user = await _repo.login(phone);
       _step = AuthStep.authenticated;
+      _registerDeviceForPush();
     } finally {
       _isSubmitting = false;
       notifyListeners();
@@ -69,6 +73,7 @@ class AuthController extends ChangeNotifier {
         pdpaConsentVersion: pdpaConsentVersion,
       );
       _step = AuthStep.authenticated;
+      _registerDeviceForPush();
     } finally {
       _isSubmitting = false;
       notifyListeners();
@@ -81,13 +86,25 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    await _pushService.unregisterCurrentDevice();
     await _repo.logout();
     _user = null;
     _step = AuthStep.loggedOut;
     notifyListeners();
   }
+
+  // Fire-and-forget: called at the exact moment auth state actually flips to
+  // authenticated (session restore, login, or register alike), so there's no
+  // separate listener trying to infer that transition after the fact and
+  // racing the widget tree's build order to do it.
+  void _registerDeviceForPush() {
+    _pushService.init().then((_) => _pushService.registerCurrentDevice());
+  }
 }
 
 final authControllerProvider = ChangeNotifierProvider<AuthController>((ref) {
-  return AuthController(ref.read(authRepositoryProvider));
+  return AuthController(
+    ref.read(authRepositoryProvider),
+    ref.read(pushServiceProvider),
+  );
 });
