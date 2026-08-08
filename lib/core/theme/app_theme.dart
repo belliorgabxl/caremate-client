@@ -4,12 +4,14 @@ import 'package:google_fonts/google_fonts.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_radius.dart';
 
-/// "Aurora Glass" Material 3 theme — cool-white ground, jewel-tone brand
-/// colors at full weight, frosted-glass hero surfaces over blurred color.
-/// Pinned direction, see PRODUCT.md Brand Commitments.
+/// "Tidewater" Material 3 theme — cool mist-white ground, teal→blue brand
+/// identity, soft tide-wash hero surfaces. Pinned direction, see DESIGN.md.
 class AppTheme {
   static ThemeData get light {
-    final baseTextTheme = GoogleFonts.manropeTextTheme(
+    // IBM Plex Sans Thai (matches the sibling Partner app) — Manrope, the
+    // previous choice, has no Thai glyph coverage and every Thai string in
+    // this app was silently falling back to the system font under it.
+    final baseTextTheme = GoogleFonts.ibmPlexSansThaiTextTheme(
       ThemeData.light().textTheme,
     );
 
@@ -147,7 +149,7 @@ class AppTheme {
           textStyle: textTheme.labelLarge,
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.md),
+            borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
         ),
       ),
@@ -159,7 +161,7 @@ class AppTheme {
           minimumSize: const Size.fromHeight(56),
           textStyle: textTheme.labelLarge,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.md),
+            borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
         ),
       ),
@@ -170,7 +172,7 @@ class AppTheme {
           minimumSize: const Size.fromHeight(56),
           textStyle: textTheme.labelLarge,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.md),
+            borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
         ),
       ),

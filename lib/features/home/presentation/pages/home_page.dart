@@ -1,9 +1,13 @@
+// "Aurora Glass" home — cool-white ground, jewel-tone brand colors, blurred
+// aurora blobs behind frosted-glass hero cards. See DESIGN.md for the full
+// system (pinned 2026-08-05, supersedes "Premium Clinic Companion"'s One
+// Blue Rule, which itself superseded the discarded "Report Book" world).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../core/network/api_client.dart';
@@ -47,6 +51,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     try {
       final members = await ref.read(memberRepositoryProvider).list();
+      if (!mounted) return;
       final bookings = await ref
           .read(bookingRepositoryProvider)
           .getActiveBookings();
@@ -79,17 +84,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     final hasActiveBooking = _activeBookings.isNotEmpty;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('CareMate'),
-        actions: [
-          IconButton(
-            onPressed: () => context.go(AppRoutes.bookingHistory),
-            icon: const Icon(Icons.history_rounded),
-            tooltip: 'ประวัติการจอง',
-          ),
-          const SizedBox(width: 6),
-        ],
-      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -115,20 +109,61 @@ class _HomePageState extends ConsumerState<HomePage> {
                   top: 0,
                   left: 0,
                   right: 0,
-                  child: AuroraBackground(),
+                  child: AuroraBackground(height: 320),
                 ),
                 RefreshIndicator(
                   onRefresh: _load,
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 110),
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 110),
                     children: [
+                      SafeArea(
+                        bottom: false,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 4, bottom: 18),
+                          child: Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(9),
+                                child: Image.asset(
+                                  'assets/images/app_icon.png',
+                                  width: 26,
+                                  height: 26,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'CareMate',
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.2,
+                                    ),
+                              ),
+                              const Spacer(),
+                              _NotificationButton(
+                                onTap: () {
+                                  ScaffoldMessenger.of(
+                                    context,
+                                  ).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'ยังไม่มี Notification จริงในโหมดจำลอง',
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                       Text(
-                        'สวัสดี, ${user?.displayName ?? 'ผู้ใช้งาน'}',
+                        'สวัสดีครับ, ${user?.displayName ?? 'ผู้ใช้งาน'}',
                         style: Theme.of(context).textTheme.headlineMedium,
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'วันนี้อยากให้ CareMate ดูแลด้านไหนดี?',
+                        'วันนี้ต้องการให้ CareMate ช่วยดูแลอะไรครับ?',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -138,29 +173,22 @@ class _HomePageState extends ConsumerState<HomePage> {
                         children: [
                           Expanded(
                             child: FilledButton.icon(
-                              style: FilledButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(AppRadius.sm,),
-                                ),
-                              ),
-                              onPressed: () => context.go(AppRoutes.booking),
+                              onPressed: () => context.goForward(AppRoutes.booking),
                               icon: const Icon(Icons.add_circle_rounded),
                               label: const Text('จองบริการ'),
                             ),
                           ),
                           const SizedBox(width: 12),
-
                           IconButton.filled(
-                            onPressed: () => context.go(AppRoutes.members),
+                            onPressed: () => context.goForward(AppRoutes.members),
                             icon: const Icon(Icons.groups_rounded),
-                            tooltip: 'สมาชิกที่ดูแล',
                             style: IconButton.styleFrom(
                               backgroundColor: AppColors.primaryLight,
                               foregroundColor: AppColors.onPrimaryContainer,
                               minimumSize: const Size(56, 56),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(
-                                  AppRadius.sm,
+                                  AppRadius.md,
                                 ),
                               ),
                             ),
@@ -181,7 +209,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           title: 'การชำระเงิน',
                           subtitle: 'สรุปรายการชำระเงินล่าสุด',
                           actionText: 'ดูเพิ่ม',
-                          onActionTap: () => context.go(AppRoutes.payment),
+                          onActionTap: () => context.goForward(AppRoutes.payment),
                         ),
                         const SizedBox(height: 12),
                         _PaymentSummaryCard(pendingBookings: pendingPayments),
@@ -192,17 +220,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                           title: 'นัดหมายล่าสุด',
                           subtitle: 'รายการจองที่กำลังจะมาถึง',
                           actionText: 'ดูรายการ',
-                          onActionTap: () => context.go(AppRoutes.booking),
+                          onActionTap: () => context.goForward(AppRoutes.booking),
                         ),
                         const SizedBox(height: 12),
-                        _UpcomingBookingCard(
-                          booking: _activeBookings.first,
-                          // Only glass when it's the first hero card below
-                          // the stats card — with a pending payment above
-                          // it, this card sits past the AuroraBackground's
-                          // fixed extent and would frost plain background.
-                          glass: !hasPendingPayment,
-                        ),
+                        _UpcomingBookingCard(booking: _activeBookings.first),
                         const SizedBox(height: 28),
                       ] else ...[
                         SectionHeader(
@@ -215,7 +236,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           title: 'ยังไม่มีนัดหมาย',
                           message: 'จองบริการใหม่เพื่อเริ่มดูแลคนที่คุณรัก',
                           action: FilledButton.icon(
-                            onPressed: () => context.go(AppRoutes.booking),
+                            onPressed: () => context.goForward(AppRoutes.booking),
                             icon: const Icon(Icons.add),
                             label: const Text('จองบริการ'),
                           ),
@@ -240,7 +261,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                         title: 'บริการด่วน',
                         subtitle: 'เลือกสิ่งที่ต้องการให้ CareMate ช่วยดูแล',
                         actionText: 'ทั้งหมด',
-                        onActionTap: () => context.go(AppRoutes.booking),
+                        onActionTap: () => context.goForward(AppRoutes.booking),
                       ),
                       const SizedBox(height: 12),
                       const _QuickActionsGrid(),
@@ -250,7 +271,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                         title: 'สมาชิกที่ดูแล',
                         subtitle: 'เลือกสมาชิกเพื่อจองบริการอย่างรวดเร็ว',
                         actionText: 'จัดการ',
-                        onActionTap: () => context.go(AppRoutes.members),
+                        onActionTap: () => context.goForward(AppRoutes.members),
                       ),
                       const SizedBox(height: 12),
                       _FamilyPreview(members: _members),
@@ -405,7 +426,7 @@ class _QuickActionsGrid extends StatelessWidget {
         final textTheme = Theme.of(context).textTheme;
 
         return AppCard(
-          onTap: () => context.go(action.route),
+          onTap: () => context.goForward(action.route),
           padding: const EdgeInsets.all(18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -438,18 +459,16 @@ class _QuickActionsGrid extends StatelessWidget {
 }
 
 class _UpcomingBookingCard extends StatelessWidget {
-  const _UpcomingBookingCard({required this.booking, this.glass = true});
+  const _UpcomingBookingCard({required this.booking});
 
   final Booking booking;
-  final bool glass;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
     return AppCard(
-      glass: glass,
-      elevated: !glass,
+      glass: true,
       padding: const EdgeInsets.all(22),
       child: Column(
         children: [
@@ -514,7 +533,7 @@ class _UpcomingBookingCard extends StatelessWidget {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => context.go(
+                  onPressed: () => context.goForward(
                     AppRoutes.bookingStatusPath(booking.id),
                     extra: booking,
                   ),
@@ -526,12 +545,12 @@ class _UpcomingBookingCard extends StatelessWidget {
               Expanded(
                 child: booking.status == BookingStatus.awaitingPayment
                     ? FilledButton.icon(
-                        onPressed: () => context.go(AppRoutes.payment),
+                        onPressed: () => context.goForward(AppRoutes.payment),
                         icon: const Icon(Icons.payment_rounded),
                         label: const Text('ชำระเงิน'),
                       )
                     : FilledButton.icon(
-                        onPressed: () => context.go(AppRoutes.booking),
+                        onPressed: () => context.goForward(AppRoutes.booking),
                         icon: const Icon(Icons.add),
                         label: const Text('จองเพิ่ม'),
                       ),
@@ -591,7 +610,7 @@ class _FamilyPreview extends StatelessWidget {
           final member = members[index];
 
           return GestureDetector(
-            onTap: () => context.go(AppRoutes.members),
+            onTap: () => context.goForward(AppRoutes.members),
             child: SizedBox(
               width: 76,
               child: Column(
@@ -669,7 +688,7 @@ class _PaymentSummaryCard extends StatelessWidget {
             ),
           ),
           FilledButton(
-            onPressed: () => context.go(AppRoutes.payment),
+            onPressed: () => context.goForward(AppRoutes.payment),
             style: FilledButton.styleFrom(
               minimumSize: const Size(0, 44),
               padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -743,4 +762,51 @@ class _HomeAction {
   final String subtitle;
   final Color color;
   final String route;
+}
+
+/// Header notification bell — real depth (soft colored shadow + fine ring)
+/// instead of the flat tinted-square default `IconButton`, matching the
+/// rest of the app's icon-badge language (see [CircleIconAvatar]'s own
+/// doc). Custom rather than [CircleIconAvatar] itself since this one needs
+/// a tap target.
+class _NotificationButton extends StatelessWidget {
+  const _NotificationButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.surface,
+            border: Border.all(
+              color: AppColors.primary.withValues(alpha: 0.16),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.18),
+                offset: const Offset(0, 4),
+                blurRadius: 14,
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.notifications_none_rounded,
+            color: AppColors.primary,
+            size: 20,
+          ),
+        ),
+      ),
+    );
+  }
 }

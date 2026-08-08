@@ -4,9 +4,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/router/nav_direction.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../shared/widgets/app_card.dart';
@@ -122,7 +122,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         TextButton(
                           onPressed: auth.isSubmitting
                               ? null
-                              : () => context.go(AppRoutes.register),
+                              : () => context.goForward(AppRoutes.register),
                           child: const Text('ยังไม่มีบัญชี? สมัครสมาชิก'),
                         ),
                         if (_error != null) ...[

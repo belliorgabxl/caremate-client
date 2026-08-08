@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../shared/models/user_profile.dart';
 import '../../../../shared/widgets/app_card.dart';
@@ -114,7 +114,7 @@ class _PersonalInformationPageState
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('บันทึกข้อมูลส่วนตัวเรียบร้อยแล้ว')),
     );
-    context.go(AppRoutes.profile);
+    context.goBack(AppRoutes.profile);
   }
 
   String _formatDate(DateTime date) {
@@ -127,7 +127,7 @@ class _PersonalInformationPageState
       return Scaffold(
         appBar: AppBar(
           title: const Text('ข้อมูลส่วนตัว'),
-          leading: BackButton(onPressed: () => context.go(AppRoutes.profile)),
+          leading: BackButton(onPressed: () => context.goBack(AppRoutes.profile)),
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -139,7 +139,7 @@ class _PersonalInformationPageState
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('ข้อมูลส่วนตัว'),
-        leading: BackButton(onPressed: () => context.go(AppRoutes.profile)),
+        leading: BackButton(onPressed: () => context.goBack(AppRoutes.profile)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,

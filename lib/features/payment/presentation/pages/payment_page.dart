@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../shared/models/booking.dart';
 import '../../../../shared/models/payment.dart';
@@ -379,7 +379,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                 icon: Icons.track_changes_rounded,
                 onPressed: () {
                   Navigator.pop(context);
-                  context.go(
+                  context.goForward(
                     AppRoutes.bookingStatusPath(booking.id),
                     extra: booking,
                   );
@@ -392,7 +392,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                 child: OutlinedButton(
                   onPressed: () {
                     Navigator.pop(context);
-                    context.go(AppRoutes.home);
+                    context.goBack(AppRoutes.home);
                   },
                   child: const Text('กลับหน้าหลัก'),
                 ),

@@ -2,9 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../shared/models/address.dart';
@@ -146,7 +146,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     setState(() => _isLoading = true);
 
     final services = await ref.read(bookingRepositoryProvider).getServices();
+    if (!mounted) return;
     final members = await ref.read(memberRepositoryProvider).list();
+    if (!mounted) return;
     final paymentMethods = await ref
         .read(paymentRepositoryProvider)
         .getMethods();
@@ -177,7 +179,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Booking')),
+        appBar: AppBar(title: const Text('จองบริการ')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -193,7 +195,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     final member = _selectedMember;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Booking')),
+      appBar: AppBar(title: const Text('จองบริการ')),
       bottomNavigationBar: _buildBottomBar(),
       body: Stack(
         children: [
@@ -286,7 +288,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                   PrimaryButton(
                     label: 'เพิ่มสมาชิก',
                     icon: Icons.person_add_alt_1_rounded,
-                    onPressed: () => context.go(AppRoutes.members),
+                    onPressed: () => context.goForward(AppRoutes.members),
                   ),
                 ],
               ),
@@ -1070,7 +1072,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('สร้างรายการจองสำเร็จ กรุณาชำระเงิน')),
     );
-    context.go(AppRoutes.payment);
+    context.goForward(AppRoutes.payment);
   }
 
   String _formatDate(DateTime date) {

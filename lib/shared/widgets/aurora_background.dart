@@ -1,47 +1,48 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
 
-/// Soft, blurred jewel-tone blobs anchored behind a screen's hero region.
-/// This exists to be sampled by [AppCard]'s `glass` variant via
-/// BackdropFilter — it is a color source for frosted glass, not standalone
-/// decoration, so keep it behind glass cards rather than bare content.
+/// "Tide wash" background — vertical mist-white gradient with 2 soft radial
+/// teal/blue blobs fading to transparent. Same family instinct as the
+/// sibling Partner app's `CmBackground` (soft wash behind hero content),
+/// re-tinted to this app's own teal→blue identity. Deliberately no
+/// `BackdropFilter` blur and deliberately few stacked alpha layers — an
+/// earlier version piled a dot-grid texture and a second fade gradient on
+/// top of the blobs, and the combination of many low-alpha layers over a
+/// near-white base produced visible gradient banding on-device. Purely
+/// decorative; place behind foreground content in a [Stack] (e.g. behind a
+/// frosted-glass hero card). See DESIGN.md.
 class AuroraBackground extends StatelessWidget {
-  const AuroraBackground({super.key, this.height = 460});
+  const AuroraBackground({super.key, this.height = 280});
 
   final double height;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
-      width: double.infinity,
+    return IgnorePointer(
       child: ClipRect(
-        child: ImageFiltered(
-          imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
+        child: SizedBox(
+          height: height,
+          width: double.infinity,
           child: Stack(
+            fit: StackFit.expand,
             children: [
-              Positioned(
-                top: -70,
-                left: -90,
-                child: _blob(AppColors.primary, 260),
+              const DecoratedBox(
+                decoration: BoxDecoration(color: AppColors.background),
               ),
-              Positioned(
-                top: -30,
-                right: -100,
-                child: _blob(AppColors.serviceMedication, 230),
+              _blob(
+                top: -height * 0.35,
+                left: -height * 0.2,
+                size: height * 1.05,
+                color: AppColors.accentGradientStart,
+                alpha: 0.26,
               ),
-              Positioned(
-                top: height * 0.35,
-                left: -70,
-                child: _blob(AppColors.serviceHomeCare, 220),
-              ),
-              Positioned(
-                top: height * 0.3,
-                right: -80,
-                child: _blob(AppColors.serviceTransport, 200),
+              _blob(
+                top: -height * 0.2,
+                right: -height * 0.35,
+                size: height * 0.9,
+                color: AppColors.accentGradientEnd,
+                alpha: 0.20,
               ),
             ],
           ),
@@ -50,13 +51,29 @@ class AuroraBackground extends StatelessWidget {
     );
   }
 
-  Widget _blob(Color color, double size) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color.withValues(alpha: 0.5),
+  Widget _blob({
+    double? top,
+    double? left,
+    double? right,
+    double? bottom,
+    required double size,
+    required Color color,
+    required double alpha,
+  }) {
+    return Positioned(
+      top: top,
+      left: left,
+      right: right,
+      bottom: bottom,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [color.withValues(alpha: alpha), Colors.transparent],
+          ),
+        ),
       ),
     );
   }
