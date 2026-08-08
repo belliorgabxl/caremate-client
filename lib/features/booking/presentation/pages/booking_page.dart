@@ -182,6 +182,13 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       );
     }
 
+    if (_members.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Booking')),
+        body: _buildNoMemberGate(),
+      );
+    }
+
     final service = _selectedService;
     final member = _selectedMember;
 
@@ -228,6 +235,65 @@ class _BookingPageState extends ConsumerState<BookingPage> {
           ),
         ],
       ),
+    );
+  }
+
+  /// A booking always needs a care recipient, so an account with no members
+  /// can't start the wizard at all — gate the whole page on adding one rather
+  /// than letting the user fill three steps and hit a wall at the recipient
+  /// step (which is what the `_goToNextStep` guard below used to do alone).
+  Widget _buildNoMemberGate() {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Stack(
+      children: [
+        const Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: AuroraBackground(height: 340),
+        ),
+        ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          children: [
+            _buildHeroCard(),
+            const SizedBox(height: 16),
+            AppCard(
+              glass: true,
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                children: [
+                  const CircleIconAvatar(
+                    icon: Icons.group_add_rounded,
+                    color: AppColors.primary,
+                    radius: 32,
+                    iconSize: 36,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'ยังไม่มีผู้รับบริการ',
+                    textAlign: TextAlign.center,
+                    style: textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'การจองต้องระบุว่าจองให้ใคร '
+                    'กรุณาเพิ่มสมาชิกที่ต้องการให้ดูแลก่อน จึงจะเริ่มจองบริการได้',
+                    textAlign: TextAlign.center,
+                    style: textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 20),
+                  PrimaryButton(
+                    label: 'เพิ่มสมาชิก',
+                    icon: Icons.person_add_alt_1_rounded,
+                    onPressed: () => context.go(AppRoutes.members),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

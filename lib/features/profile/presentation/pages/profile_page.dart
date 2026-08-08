@@ -113,6 +113,36 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     });
   }
 
+  /// Mirrors `SettingsPage._confirmSignOutAllDevices` so both logout paths ask
+  /// the same way — this one used to sign the user out on a single stray tap.
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ออกจากระบบ'),
+        content: const Text(
+          'คุณต้องการออกจากระบบใช่หรือไม่? คุณจะต้องเข้าสู่ระบบใหม่อีกครั้ง',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'ออกจากระบบ',
+              style: TextStyle(color: AppColors.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    await ref.read(authControllerProvider).logout();
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
@@ -282,9 +312,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          onTap: () async {
-                            await ref.read(authControllerProvider).logout();
-                          },
+                          onTap: _confirmLogout,
                         ),
                       ),
                     ],

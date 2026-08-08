@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
+import 'package:google_places_sdk_plus/google_places_sdk_plus.dart' as places;
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_radius.dart';
 import '../models/address.dart';
@@ -29,9 +32,17 @@ class LocationPickerPage extends StatefulWidget {
 }
 
 class _LocationPickerPageState extends State<LocationPickerPage> {
-  final MapController _mapController = MapController();
+  GoogleMapController? _mapController;
   final TextEditingController _searchController = TextEditingController();
   late LatLng _center;
+
+  /// Last point [_resolveAddress] ran for. `onCameraIdle` fires for both user
+  /// gestures and programmatic `animateCamera` calls (unlike flutter_map's
+  /// `MapEventSource`, which could tell them apart), so this is what stops a
+  /// search / "my location" move from geocoding the same point twice — and
+  /// stops the first idle after load from clobbering a label the caller
+  /// already passed in via [LocationPickerPage.initialAddress].
+  LatLng? _lastResolvedPoint;
 
   String? _addressLabel;
   bool _isResolvingAddress = false;
@@ -39,10 +50,31 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
   bool _isSearching = false;
   String? _searchError;
 
+  /// Places Autocomplete. Uses the *native* Places SDK rather than the HTTP
+  /// web service, so the same key the map uses works here — an Android
+  /// application restriction (package + SHA-1) can't be satisfied by a plain
+  /// REST call, which would come back REQUEST_DENIED.
+  late final places.FlutterGooglePlacesSdk _places;
+  final FocusNode _searchFocus = FocusNode();
+  Timer? _debounce;
+
+  List<places.AutocompletePrediction> _predictions = const [];
+  bool _isPredicting = false;
+
+  /// Autocomplete is billed per session: all keystrokes leading to one
+  /// [_selectPrediction] count as a single session, so a new token is only
+  /// requested at the start of each one.
+  bool _startNewSession = true;
+
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(() => setState(() {}));
+    _places = places.FlutterGooglePlacesSdk(
+      AppConfig.googlePlacesApiKey,
+      locale: const Locale('th'),
+    );
+    _searchController.addListener(_onSearchChanged);
+    _searchFocus.addListener(() => setState(() {}));
     final initialAddress = widget.initialAddress;
     _center = initialAddress?.hasCoordinates == true
         ? LatLng(initialAddress!.latitude!, initialAddress.longitude!)
@@ -51,21 +83,156 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
 
     if (_addressLabel == null || _addressLabel!.isEmpty) {
       _resolveAddress(_center);
+    } else {
+      _lastResolvedPoint = _center;
     }
+  }
+
+  /// Treats points within ~0.1m as the same, so float noise from the camera
+  /// doesn't trigger a redundant geocode.
+  bool _isSamePoint(LatLng a, LatLng b) =>
+      (a.latitude - b.latitude).abs() < 1e-6 &&
+      (a.longitude - b.longitude).abs() < 1e-6;
+
+  void _onCameraIdle() {
+    final last = _lastResolvedPoint;
+    if (last != null && _isSamePoint(last, _center)) return;
+    _resolveAddress(_center);
+  }
+
+  Future<void> _moveCamera(LatLng point) async {
+    setState(() => _center = point);
+    final controller = _mapController;
+    if (controller == null) {
+      // Map isn't created yet, so no camera idle will fire to resolve for us.
+      await _resolveAddress(point);
+      return;
+    }
+    await controller.animateCamera(CameraUpdate.newLatLngZoom(point, 16));
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
+    _searchFocus.dispose();
     _searchController.dispose();
+    _mapController?.dispose();
     super.dispose();
   }
 
-  /// Forward geocoding (place name/address -> coordinates) via the
-  /// `geocoding` package, which resolves through the device's native
+  /// Debounced so a query goes out per pause in typing, not per keystroke —
+  /// Places bills per session but the native SDK still round-trips each call.
+  void _onSearchChanged() {
+    setState(() {});
+
+    _debounce?.cancel();
+    final query = _searchController.text.trim();
+    if (query.length < 2) {
+      setState(() {
+        _predictions = const [];
+        _isPredicting = false;
+      });
+      return;
+    }
+
+    _debounce = Timer(
+      const Duration(milliseconds: 350),
+      () => _requestPredictions(query),
+    );
+  }
+
+  Future<void> _requestPredictions(String query) async {
+    setState(() {
+      _isPredicting = true;
+      _searchError = null;
+    });
+
+    try {
+      final result = await _places.findAutocompletePredictions(
+        query,
+        countries: AppConfig.placesCountries,
+        newSessionToken: _startNewSession,
+        // Bias toward what the user is currently looking at, so nearby places
+        // outrank same-named ones on the other side of the country.
+        origin: places.LatLng(lat: _center.latitude, lng: _center.longitude),
+      );
+      if (!mounted) return;
+
+      _startNewSession = false;
+      setState(() {
+        _predictions = result.predictions;
+        _isPredicting = false;
+      });
+    } catch (error, stack) {
+      if (!mounted) return;
+      // Autocomplete needs the Places API enabled on the key; if it isn't (or
+      // the call fails), fall back to the submit-and-resolve geocoder search
+      // rather than leaving the user with a dead search box.
+      debugPrint('CAREMATE_PLACES autocomplete failed: $error\n$stack');
+      setState(() {
+        _predictions = const [];
+        _isPredicting = false;
+      });
+    }
+  }
+
+  Future<void> _selectPrediction(places.AutocompletePrediction prediction) async {
+    // Every field on the fork's prediction is nullable; without a place id
+    // there's nothing to look up.
+    final placeId = prediction.placeId;
+    if (placeId == null) return;
+
+    _searchFocus.unfocus();
+    setState(() {
+      _predictions = const [];
+      _isSearching = true;
+      _searchError = null;
+    });
+
+    try {
+      final result = await _places.fetchPlace(
+        placeId,
+        fields: const [places.PlaceField.Location],
+      );
+      final latLng = result.place?.latLng;
+      if (!mounted) return;
+
+      // Selecting a place closes the billing session; the next keystroke
+      // starts a fresh one.
+      _startNewSession = true;
+
+      if (latLng == null) {
+        setState(() {
+          _isSearching = false;
+          _searchError = 'ไม่สามารถระบุพิกัดของสถานที่นี้ได้';
+        });
+        return;
+      }
+
+      final point = LatLng(latLng.lat, latLng.lng);
+      setState(() {
+        _isSearching = false;
+        // Keep the name the user actually tapped ("สยามพารากอน") instead of
+        // the street address reverse-geocoding would produce. Marking the
+        // point resolved is what stops `onCameraIdle` overwriting it.
+        _addressLabel = prediction.fullText ?? prediction.primaryText;
+        _lastResolvedPoint = point;
+      });
+      await _moveCamera(point);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isSearching = false;
+        _searchError = 'เลือกสถานที่ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+      });
+    }
+  }
+
+  /// Submit-and-resolve fallback behind [_requestPredictions]: forward
+  /// geocoding via the `geocoding` package, which uses the device's native
   /// geocoder (Android `Geocoder` / iOS `CLGeocoder`) — free, no API key or
-  /// billing, same as the reverse-geocoding already used in
-  /// [_resolveAddress]. Unlike Google Places Autocomplete this has no
-  /// autocomplete-as-you-type suggestions, just a submit-and-resolve search.
+  /// billing. Still reachable by pressing enter, so search keeps working if
+  /// the Places API isn't enabled on the key or autocomplete returns nothing.
   Future<void> _searchLocation(String query) async {
     final trimmed = query.trim();
     if (trimmed.isEmpty) return;
@@ -88,12 +255,8 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
       }
 
       final point = LatLng(results.first.latitude, results.first.longitude);
-      setState(() {
-        _center = point;
-        _isSearching = false;
-      });
-      _mapController.move(point, 16);
-      await _resolveAddress(point);
+      setState(() => _isSearching = false);
+      await _moveCamera(point);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -104,6 +267,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
   }
 
   Future<void> _resolveAddress(LatLng point) async {
+    _lastResolvedPoint = point;
     setState(() => _isResolvingAddress = true);
     try {
       final placemarks = await placemarkFromCoordinates(
@@ -180,12 +344,8 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
       final point = LatLng(position.latitude, position.longitude);
 
       if (!mounted) return;
-      setState(() {
-        _center = point;
-        _isLocating = false;
-      });
-      _mapController.move(point, 16);
-      await _resolveAddress(point);
+      setState(() => _isLocating = false);
+      await _moveCamera(point);
     } catch (_) {
       if (!mounted) return;
       setState(() => _isLocating = false);
@@ -205,6 +365,74 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
     );
   }
 
+  Widget _buildPredictionList() {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 300),
+      margin: const EdgeInsets.only(top: 2),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
+      child: ListView.separated(
+        shrinkWrap: true,
+        padding: EdgeInsets.zero,
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        itemCount: _predictions.length,
+        separatorBuilder: (_, _) =>
+            const Divider(height: 1, color: AppColors.border),
+        itemBuilder: (context, index) {
+          final prediction = _predictions[index];
+          final secondary = prediction.secondaryText;
+
+          return InkWell(
+            onTap: () => _selectPrediction(prediction),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.place_outlined,
+                    size: 20,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          prediction.primaryText ?? prediction.fullText ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        if (secondary != null && secondary.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            secondary,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: textTheme.bodySmall,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -213,33 +441,17 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
       appBar: AppBar(title: Text(widget.title)),
       body: Stack(
         children: [
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: _center,
-              initialZoom: 15,
-              onPositionChanged: (position, hasGesture) {
-                if (!hasGesture) return;
-                _center = position.center;
-              },
-              onMapEvent: (event) {
-                if (event is MapEventMoveEnd &&
-                    event.source != MapEventSource.mapController) {
-                  _resolveAddress(_center);
-                }
-              },
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.caremate.client_app',
-              ),
-              const RichAttributionWidget(
-                attributions: [
-                  TextSourceAttribution('OpenStreetMap contributors'),
-                ],
-              ),
-            ],
+          GoogleMap(
+            initialCameraPosition: CameraPosition(target: _center, zoom: 15),
+            onMapCreated: (controller) => _mapController = controller,
+            onCameraMove: (position) => _center = position.target,
+            onCameraIdle: _onCameraIdle,
+            // The pin is the fixed overlay below, not a map marker, so the
+            // map's own controls would only get in its way.
+            myLocationEnabled: false,
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
+            mapToolbarEnabled: false,
           ),
           const IgnorePointer(
             child: Center(
@@ -288,6 +500,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                         Expanded(
                           child: TextField(
                             controller: _searchController,
+                            focusNode: _searchFocus,
                             textInputAction: TextInputAction.search,
                             decoration: const InputDecoration(
                               hintText:
@@ -301,7 +514,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                             onSubmitted: _searchLocation,
                           ),
                         ),
-                        if (_isSearching)
+                        if (_isSearching || _isPredicting)
                           const Padding(
                             padding: EdgeInsets.all(12),
                             child: SizedBox(
@@ -316,6 +529,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                             onPressed: () => setState(() {
                               _searchController.clear();
                               _searchError = null;
+                              _predictions = const [];
                             }),
                           )
                         else
@@ -343,6 +557,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                           ),
                         ),
                       ),
+                    if (_predictions.isNotEmpty) _buildPredictionList(),
                   ],
                 ),
               ),

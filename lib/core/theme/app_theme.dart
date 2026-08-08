@@ -178,6 +178,7 @@ class AppTheme {
         style: TextButton.styleFrom(
           foregroundColor: AppColors.primary,
           textStyle: textTheme.labelLarge,
+          minimumSize: const Size(48, 48),
         ),
       ),
       iconButtonTheme: IconButtonThemeData(

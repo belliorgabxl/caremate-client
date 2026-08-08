@@ -39,8 +39,8 @@ dependencies:
   dio: ^5.10.0
   shared_preferences: ^2.5.5
   google_fonts: ^6.2.1
-  flutter_map: ^8.2.2
-  latlong2: ^0.9.1
+  google_maps_flutter: ^2.9.0
+  google_places_sdk_plus: ^1.1.0
   geolocator: ^14.0.2
   geocoding: ^4.0.0
   qr_flutter: ^4.1.0

@@ -1,8 +1,22 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// Google Maps key lives in `android/local.properties` (gitignored) rather than
+// in the manifest, so it isn't committed. It still ships inside the APK — a
+// Maps client key always does — so the real protection is the Application +
+// API restrictions set on the key in Google Cloud Console, not this.
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
+}
+val googleMapsApiKey: String = localProperties.getProperty("googleMapsApiKey") ?: ""
 
 android {
     namespace = "com.caremate.client_app"
@@ -23,6 +37,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        manifestPlaceholders["googleMapsApiKey"] = googleMapsApiKey
     }
 
     buildTypes {

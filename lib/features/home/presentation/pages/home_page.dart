@@ -1,7 +1,3 @@
-// "Aurora Glass" home — cool-white ground, jewel-tone brand colors, blurred
-// aurora blobs behind frosted-glass hero cards. See DESIGN.md for the full
-// system (pinned 2026-08-05, supersedes "Premium Clinic Companion"'s One
-// Blue Rule, which itself superseded the discarded "Report Book" world).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,12 +6,14 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../shared/models/booking.dart';
 import '../../../../shared/models/care_member.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/aurora_background.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/section_header.dart';
 import '../../../../shared/widgets/status_badge.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
@@ -31,6 +29,7 @@ class HomePage extends ConsumerStatefulWidget {
 
 class _HomePageState extends ConsumerState<HomePage> {
   bool _isLoading = true;
+  String? _error;
   List<CareMember> _members = const [];
   List<Booking> _activeBookings = const [];
 
@@ -41,19 +40,30 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Future<void> _load() async {
-    setState(() => _isLoading = true);
-
-    final members = await ref.read(memberRepositoryProvider).list();
-    final bookings = await ref
-        .read(bookingRepositoryProvider)
-        .getActiveBookings();
-
-    if (!mounted) return;
     setState(() {
-      _members = members;
-      _activeBookings = bookings;
-      _isLoading = false;
+      _isLoading = true;
+      _error = null;
     });
+
+    try {
+      final members = await ref.read(memberRepositoryProvider).list();
+      final bookings = await ref
+          .read(bookingRepositoryProvider)
+          .getActiveBookings();
+
+      if (!mounted) return;
+      setState(() {
+        _members = members;
+        _activeBookings = bookings;
+        _isLoading = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.message;
+        _isLoading = false;
+      });
+    }
   }
 
   List<Booking> get _pendingPaymentBookings => _activeBookings
@@ -73,20 +83,32 @@ class _HomePageState extends ConsumerState<HomePage> {
         title: const Text('CareMate'),
         actions: [
           IconButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('ยังไม่มี Notification จริงในโหมดจำลอง'),
-                ),
-              );
-            },
-            icon: const Icon(Icons.notifications_none_rounded),
+            onPressed: () => context.go(AppRoutes.bookingHistory),
+            icon: const Icon(Icons.history_rounded),
+            tooltip: 'ประวัติการจอง',
           ),
           const SizedBox(width: 6),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? ListView(
+              padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
+              children: [
+                EmptyState(
+                  icon: Icons.error_outline_rounded,
+                  title: 'โหลดข้อมูลไม่สำเร็จ',
+                  message: _error!,
+                  action: PrimaryButton(
+                    label: 'ลองอีกครั้ง',
+                    icon: Icons.refresh_rounded,
+                    expanded: false,
+                    onPressed: _load,
+                  ),
+                ),
+              ],
+            )
           : Stack(
               children: [
                 const Positioned(
@@ -101,12 +123,12 @@ class _HomePageState extends ConsumerState<HomePage> {
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 110),
                     children: [
                       Text(
-                        'สวัสดีครับ, ${user?.displayName ?? 'ผู้ใช้งาน'}',
+                        'สวัสดี, ${user?.displayName ?? 'ผู้ใช้งาน'}',
                         style: Theme.of(context).textTheme.headlineMedium,
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'วันนี้ต้องการให้ CareMate ช่วยดูแลอะไรครับ?',
+                        'วันนี้อยากให้ CareMate ดูแลด้านไหนดี?',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -116,22 +138,29 @@ class _HomePageState extends ConsumerState<HomePage> {
                         children: [
                           Expanded(
                             child: FilledButton.icon(
+                              style: FilledButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(AppRadius.sm,),
+                                ),
+                              ),
                               onPressed: () => context.go(AppRoutes.booking),
                               icon: const Icon(Icons.add_circle_rounded),
                               label: const Text('จองบริการ'),
                             ),
                           ),
                           const SizedBox(width: 12),
+
                           IconButton.filled(
                             onPressed: () => context.go(AppRoutes.members),
                             icon: const Icon(Icons.groups_rounded),
+                            tooltip: 'สมาชิกที่ดูแล',
                             style: IconButton.styleFrom(
                               backgroundColor: AppColors.primaryLight,
                               foregroundColor: AppColors.onPrimaryContainer,
                               minimumSize: const Size(56, 56),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(
-                                  AppRadius.md,
+                                  AppRadius.sm,
                                 ),
                               ),
                             ),
@@ -166,7 +195,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                           onActionTap: () => context.go(AppRoutes.booking),
                         ),
                         const SizedBox(height: 12),
-                        _UpcomingBookingCard(booking: _activeBookings.first),
+                        _UpcomingBookingCard(
+                          booking: _activeBookings.first,
+                          // Only glass when it's the first hero card below
+                          // the stats card — with a pending payment above
+                          // it, this card sits past the AuroraBackground's
+                          // fixed extent and would frost plain background.
+                          glass: !hasPendingPayment,
+                        ),
                         const SizedBox(height: 28),
                       ] else ...[
                         SectionHeader(
@@ -402,16 +438,18 @@ class _QuickActionsGrid extends StatelessWidget {
 }
 
 class _UpcomingBookingCard extends StatelessWidget {
-  const _UpcomingBookingCard({required this.booking});
+  const _UpcomingBookingCard({required this.booking, this.glass = true});
 
   final Booking booking;
+  final bool glass;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
     return AppCard(
-      glass: true,
+      glass: glass,
+      elevated: !glass,
       padding: const EdgeInsets.all(22),
       child: Column(
         children: [
