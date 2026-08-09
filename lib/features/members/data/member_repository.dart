@@ -33,7 +33,8 @@ class MemberRepository {
   }
 
   Future<CareMember> create({
-    required String fullName,
+    required String firstName,
+    required String lastName,
     required String nickname,
     required String relationship,
     required String phone,
@@ -48,15 +49,14 @@ class MemberRepository {
       throw const MaxRelativesReachedException();
     }
 
-    final nameParts = fullName.trim().split(RegExp(r'\s+'));
     final now = DateTime.now();
     final approxDateOfBirth = DateTime(now.year - age, now.month, now.day);
     final dateOfBirthIso = approxDateOfBirth.toIso8601String().split('T').first;
 
     try {
       final response = await _api.dio.post('/user-relatives', data: {
-        'firstName': nameParts.isNotEmpty ? nameParts.first : fullName,
-        'lastName': nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '',
+        'firstName': firstName.trim(),
+        'lastName': lastName.trim(),
         'phone': phone,
         'email': null,
         'dateOfBirth': dateOfBirthIso,
@@ -94,7 +94,8 @@ class MemberRepository {
 
   Future<void> update({
     required String id,
-    required String fullName,
+    required String firstName,
+    required String lastName,
     required String nickname,
     required String relationship,
     required String phone,
@@ -103,14 +104,13 @@ class MemberRepository {
     required String bloodType,
     required String careNote,
   }) async {
-    final nameParts = fullName.trim().split(RegExp(r'\s+'));
     final now = DateTime.now();
     final approxDateOfBirth = DateTime(now.year - age, now.month, now.day);
 
     try {
       await _api.dio.patch('/user-relatives/$id', data: {
-        'firstName': nameParts.isNotEmpty ? nameParts.first : fullName,
-        'lastName': nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '',
+        'firstName': firstName.trim(),
+        'lastName': lastName.trim(),
         'nickname': nickname,
         'relationship': relationship,
         'phone': phone,

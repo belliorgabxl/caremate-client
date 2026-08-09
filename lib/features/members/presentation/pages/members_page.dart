@@ -354,8 +354,11 @@ class _MembersPageState extends ConsumerState<MembersPage> {
   void _showMemberFormSheet({CareMember? member}) {
     final isEditing = member != null;
     final formKey = GlobalKey<FormState>();
-    final fullNameController = TextEditingController(
-      text: member?.fullName ?? '',
+    final firstNameController = TextEditingController(
+      text: member?.firstName ?? '',
+    );
+    final lastNameController = TextEditingController(
+      text: member?.lastName ?? '',
     );
     final nicknameController = TextEditingController(
       text: member?.nickname ?? '',
@@ -417,11 +420,22 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                       ),
                       const SizedBox(height: 18),
                       AppTextField(
-                        controller: fullNameController,
-                        label: 'ชื่อ-นามสกุล',
+                        controller: firstNameController,
+                        label: 'ชื่อจริง',
+                        hint: 'เช่น สมชาย',
                         prefixIcon: Icons.badge_outlined,
                         validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'กรุณากรอกชื่อ-นามสกุล'
+                            ? 'กรุณากรอกชื่อจริง'
+                            : null,
+                      ),
+                      const SizedBox(height: 12),
+                      AppTextField(
+                        controller: lastNameController,
+                        label: 'นามสกุล',
+                        hint: 'เช่น ใจดี',
+                        prefixIcon: Icons.badge_outlined,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'กรุณากรอกนามสกุล'
                             : null,
                       ),
                       const SizedBox(height: 12),
@@ -541,7 +555,9 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                                   if (isEditing) {
                                     await repo.update(
                                       id: member.id,
-                                      fullName: fullNameController.text.trim(),
+                                      firstName: firstNameController.text
+                                          .trim(),
+                                      lastName: lastNameController.text.trim(),
                                       nickname: nicknameController.text.trim(),
                                       relationship: relationshipController.text
                                           .trim(),
@@ -557,7 +573,9 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                                     );
                                   } else {
                                     await repo.create(
-                                      fullName: fullNameController.text.trim(),
+                                      firstName: firstNameController.text
+                                          .trim(),
+                                      lastName: lastNameController.text.trim(),
                                       nickname: nicknameController.text.trim(),
                                       relationship: relationshipController.text
                                           .trim(),

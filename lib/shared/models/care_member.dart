@@ -14,7 +14,8 @@ const _memberIcons = [
 class CareMember {
   const CareMember({
     required this.id,
-    required this.fullName,
+    required this.firstName,
+    required this.lastName,
     required this.nickname,
     required this.relationship,
     required this.phone,
@@ -35,7 +36,8 @@ class CareMember {
   });
 
   final String id;
-  final String fullName;
+  final String firstName;
+  final String lastName;
   final String nickname;
   final String relationship;
   final String phone;
@@ -54,15 +56,27 @@ class CareMember {
   final String emergencyContactPhone;
   final String emergencyContactRelationship;
 
+  /// Display-only join of the two stored name parts — the backend keeps
+  /// `firstName`/`lastName` separate and so do we, so a name with a space in
+  /// it (e.g. a two-word given name) never gets re-split on the way back.
+  String get fullName => '$firstName $lastName'.trim();
+
   /// Maps a backend `RelativeMember`/`RelativeByIDMember` JSON object. The
   /// backend has no concept of a display color/icon/tags — those stay
   /// client-side presentational touches, assigned deterministically by seq.
   factory CareMember.fromJson(Map<String, dynamic> json, {int seq = 0}) {
-    final firstName = json['firstName'] as String? ?? '';
-    final lastName = json['lastName'] as String? ?? '';
-    final fullName = (json['fullName'] as String?)?.trim().isNotEmpty == true
-        ? json['fullName'] as String
-        : '$firstName $lastName'.trim();
+    var firstName = (json['firstName'] as String? ?? '').trim();
+    var lastName = (json['lastName'] as String? ?? '').trim();
+    // Only endpoints that return a pre-joined `fullName` (and no name parts)
+    // need splitting — the split is a last resort, not the normal path.
+    if (firstName.isEmpty && lastName.isEmpty) {
+      final fullName = (json['fullName'] as String? ?? '').trim();
+      if (fullName.isNotEmpty) {
+        final parts = fullName.split(RegExp(r'\s+'));
+        firstName = parts.first;
+        lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+      }
+    }
     final relationship = json['relationship'] as String? ?? '';
     final registerAs = json['registerAs'] as String? ?? '';
     final isSelf = registerAs.toLowerCase() == 'self' || relationship == 'ตัวเอง';
@@ -81,10 +95,11 @@ class CareMember {
 
     return CareMember(
       id: json['id'] as String? ?? '',
-      fullName: fullName,
+      firstName: firstName,
+      lastName: lastName,
       nickname: (json['nickname'] as String?)?.trim().isNotEmpty == true
           ? json['nickname'] as String
-          : (firstName.isNotEmpty ? firstName : fullName),
+          : (firstName.isNotEmpty ? firstName : lastName),
       relationship: relationship,
       phone: json['phone'] as String? ?? '',
       age: age,
@@ -105,7 +120,8 @@ class CareMember {
   }
 
   CareMember copyWith({
-    String? fullName,
+    String? firstName,
+    String? lastName,
     String? nickname,
     String? relationship,
     String? phone,
@@ -123,7 +139,8 @@ class CareMember {
   }) {
     return CareMember(
       id: id,
-      fullName: fullName ?? this.fullName,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
       nickname: nickname ?? this.nickname,
       relationship: relationship ?? this.relationship,
       phone: phone ?? this.phone,
