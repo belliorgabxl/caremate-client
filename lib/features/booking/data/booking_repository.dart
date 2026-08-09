@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../shared/models/address.dart';
 import '../../../shared/models/booking.dart';
+import '../../../shared/models/booking_cancellation.dart';
 import '../../../shared/models/care_member.dart';
 import '../../../shared/models/care_service.dart';
 import '../../../shared/models/mission.dart';
@@ -166,6 +167,41 @@ class BookingRepository {
         mission: missionJson == null ? null : Mission.fromJson(missionJson),
         partner: partnerJson == null ? null : Partner.fromJson(partnerJson),
       );
+    } on DioException catch (e) {
+      _api.throwApiException(e);
+    }
+  }
+
+  /// `POST /bookings/:bookingID/cancel` — only valid while the booking is
+  /// `AWAITING_PAYMENT`, `PENDING` or `MATCHED` (see
+  /// [BookingStatusX.isCancellableByUser]); the backend answers `409
+  /// BOOKING_NOT_CANCELLABLE` for anything else, `IN_PROGRESS` included —
+  /// a partner is already out on the job by then, so that path goes through
+  /// support instead.
+  ///
+  /// Cancelling drops the booking out of `GET /bookings` and into
+  /// `GET /bookings/history`, and the backend clears its own payment-expiry
+  /// timer — so any client-side countdown for this booking should stop too,
+  /// hence the [clearPendingPayment] below.
+  Future<BookingCancellation> cancelBooking({
+    required String bookingId,
+    String? reason,
+  }) async {
+    final trimmedReason = reason?.trim();
+
+    try {
+      final response = await _api.dio.post(
+        '/bookings/$bookingId/cancel',
+        data: {
+          if (trimmedReason != null && trimmedReason.isNotEmpty) 'reason': trimmedReason,
+        },
+      );
+      final data = _api.unwrap(response.data) as Map<String, dynamic>;
+      final cancellation = BookingCancellation.fromJson(data);
+
+      if (_pendingBooking?.id == bookingId) clearPendingPayment();
+
+      return cancellation;
     } on DioException catch (e) {
       _api.throwApiException(e);
     }

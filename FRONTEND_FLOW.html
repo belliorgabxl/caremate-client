@@ -1,0 +1,1766 @@
+<title>CareMate — Frontend Flow Reference</title>
+
+<style>
+  /* ============================================================
+     TOKENS — light is the bare :root; dark redefines tokens only.
+     Palette is derived from the app itself: the teal of the shipped
+     theme, plus the seven literal BookingStatus colours from
+     lib/shared/models/booking.dart.
+     ============================================================ */
+  :root {
+    --ground:        #F6FAF9;
+    --surface:       #FFFFFF;
+    --surface-sunk:  #EDF4F3;
+    --ink:           #0E1F1D;
+    --ink-soft:      #40605C;
+    --ink-faint:     #7E9995;
+    --rule:          #D7E6E3;
+    --rule-soft:     #E7F0EF;
+
+    --teal:          #0F766E;
+    --teal-bright:   #12938A;
+    --teal-wash:     #E2F1EF;
+
+    /* BookingStatus — real values from the Dart enum extension */
+    --st-awaiting:   #D97706;
+    --st-pending:    #5B6B6A;
+    --st-matched:    #2563EB;
+    --st-progress:   #0F766E;
+    --st-completed:  #16A34A;
+    --st-cancelled:  #DC2626;
+    --st-expired:    #9333EA;
+
+    --lane-client:   #0F766E;
+    --lane-backend:  #2563EB;
+    --lane-partner:  #9333EA;
+
+    --shadow: 0 1px 2px rgba(14, 31, 29, .05), 0 8px 24px -16px rgba(14, 31, 29, .28);
+
+    --font-sans: "Leelawadee UI", "Noto Sans Thai", "IBM Plex Sans Thai", "Sukhumvit Set", Thonburi, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", "Cascadia Mono", "SF Mono", "Roboto Mono", Consolas, "Courier New", monospace;
+
+    --step: clamp(.5rem, .4rem + .5vw, .9rem);
+    --measure: 70ch;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:       #0A1413;
+      --surface:      #101E1D;
+      --surface-sunk: #162A28;
+      --ink:          #E8F2F0;
+      --ink-soft:     #A2BDB9;
+      --ink-faint:    #6B8783;
+      --rule:         #233936;
+      --rule-soft:    #1B2E2C;
+
+      --teal:         #4FD1C5;
+      --teal-bright:  #6EE7DB;
+      --teal-wash:    #16302E;
+
+      --st-awaiting:  #FBBF24;
+      --st-pending:   #94A9A7;
+      --st-matched:   #7DA6FF;
+      --st-progress:  #4FD1C5;
+      --st-completed: #5CD98A;
+      --st-cancelled: #FF8A80;
+      --st-expired:   #C79BF5;
+
+      --lane-client:  #4FD1C5;
+      --lane-backend: #7DA6FF;
+      --lane-partner: #C79BF5;
+
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 28px -18px rgba(0, 0, 0, .9);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:       #0A1413;
+    --surface:      #101E1D;
+    --surface-sunk: #162A28;
+    --ink:          #E8F2F0;
+    --ink-soft:     #A2BDB9;
+    --ink-faint:    #6B8783;
+    --rule:         #233936;
+    --rule-soft:    #1B2E2C;
+
+    --teal:         #4FD1C5;
+    --teal-bright:  #6EE7DB;
+    --teal-wash:    #16302E;
+
+    --st-awaiting:  #FBBF24;
+    --st-pending:   #94A9A7;
+    --st-matched:   #7DA6FF;
+    --st-progress:  #4FD1C5;
+    --st-completed: #5CD98A;
+    --st-cancelled: #FF8A80;
+    --st-expired:   #C79BF5;
+
+    --lane-client:  #4FD1C5;
+    --lane-backend: #7DA6FF;
+    --lane-partner: #C79BF5;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 28px -18px rgba(0, 0, 0, .9);
+  }
+
+  /* ============================================================
+     BASE
+     ============================================================ */
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--teal); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible,
+  button:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; border-radius: 3px; }
+
+  code, .mono { font-family: var(--font-mono); font-size: .86em; font-variant-ligatures: none; }
+
+  code {
+    background: var(--surface-sunk);
+    border: 1px solid var(--rule-soft);
+    border-radius: 4px;
+    padding: .08em .38em;
+    color: var(--ink);
+    word-break: break-word;
+  }
+
+  h1, h2, h3, h4 { text-wrap: balance; margin: 0; line-height: 1.25; font-weight: 700; }
+
+  /* ============================================================
+     SHELL
+     ============================================================ */
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 clamp(1rem, 3vw, 2.5rem) 6rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  @media (min-width: 1040px) {
+    .shell {
+      grid-template-columns: 232px minmax(0, 1fr);
+      column-gap: 3.5rem;
+      align-items: start;
+    }
+    .masthead { grid-column: 1 / -1; }
+  }
+
+  /* ---- masthead ---- */
+  .masthead {
+    border-bottom: 1px solid var(--rule);
+    padding: 3.5rem 0 2rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: .7rem;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin: 0 0 1rem;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    flex-wrap: wrap;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 26px; height: 2px;
+    background: var(--teal);
+    display: inline-block;
+  }
+
+  .masthead h1 {
+    font-size: clamp(1.9rem, 1.3rem + 2.4vw, 3rem);
+    letter-spacing: -.02em;
+    margin-bottom: .75rem;
+  }
+
+  .masthead .lede {
+    color: var(--ink-soft);
+    max-width: var(--measure);
+    font-size: 1.05rem;
+    margin: 0;
+  }
+
+  .meta-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem 1.75rem;
+    margin-top: 1.75rem;
+    font-family: var(--font-mono);
+    font-size: .74rem;
+    color: var(--ink-faint);
+  }
+  .meta-strip b { color: var(--ink-soft); font-weight: 500; }
+
+  /* ---- table of contents ---- */
+  .toc {
+    position: sticky;
+    top: 1.5rem;
+    font-size: .84rem;
+    margin-bottom: 3rem;
+  }
+  .toc-title {
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding-bottom: .7rem;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: .7rem;
+  }
+  .toc ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .1rem; }
+  .toc a {
+    display: flex;
+    gap: .6rem;
+    padding: .3rem 0;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    padding-left: .7rem;
+    margin-left: -.7rem;
+  }
+  .toc a:hover { color: var(--teal); border-left-color: var(--teal); }
+  .toc a .n { font-family: var(--font-mono); font-size: .72rem; color: var(--ink-faint); padding-top: .12rem; }
+
+  /* ============================================================
+     SECTIONS
+     ============================================================ */
+  section { scroll-margin-top: 1.5rem; margin-bottom: 4.5rem; }
+
+  .sec-head { margin-bottom: 1.5rem; }
+  .sec-num {
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    letter-spacing: .16em;
+    color: var(--teal);
+    display: block;
+    margin-bottom: .45rem;
+  }
+  .sec-head h2 {
+    font-size: clamp(1.35rem, 1.1rem + 1vw, 1.85rem);
+    letter-spacing: -.015em;
+  }
+  .sec-head p {
+    color: var(--ink-soft);
+    max-width: var(--measure);
+    margin: .7rem 0 0;
+  }
+
+  h3 {
+    font-size: 1.05rem;
+    margin: 2.5rem 0 .9rem;
+    letter-spacing: -.005em;
+  }
+  h3:first-of-type { margin-top: 1.75rem; }
+
+  p { max-width: var(--measure); }
+
+  .note {
+    border-left: 2px solid var(--teal);
+    background: var(--teal-wash);
+    padding: .9rem 1.1rem;
+    border-radius: 0 8px 8px 0;
+    color: var(--ink-soft);
+    max-width: var(--measure);
+    font-size: .93rem;
+  }
+  .note strong { color: var(--ink); }
+  .note.warn { border-left-color: var(--st-awaiting); background: color-mix(in srgb, var(--st-awaiting) 10%, transparent); }
+  .note.danger { border-left-color: var(--st-cancelled); background: color-mix(in srgb, var(--st-cancelled) 10%, transparent); }
+
+  /* ============================================================
+     FLOW TRACK — screen on the left, wire on the right
+     ============================================================ */
+  .track { display: flex; flex-direction: column; gap: 0; margin: 1.5rem 0 0; }
+
+  .stop {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    column-gap: 1.1rem;
+    position: relative;
+  }
+
+  .stop-rail { position: relative; display: flex; justify-content: center; }
+  .stop-rail::before {
+    content: "";
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 1px;
+    background: var(--rule);
+  }
+  .stop:last-child .stop-rail::before { bottom: auto; height: 26px; }
+
+  .stop-dot {
+    position: relative;
+    z-index: 1;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    color: var(--teal);
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    font-weight: 600;
+    display: grid;
+    place-items: center;
+    margin-top: .1rem;
+  }
+  .stop-dot.solid { background: var(--teal); border-color: var(--teal); color: var(--ground); }
+
+  .stop-body { padding-bottom: 1.6rem; min-width: 0; }
+
+  .stop-title {
+    font-weight: 700;
+    font-size: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: .55rem;
+  }
+  .stop-route {
+    font-family: var(--font-mono);
+    font-size: .74rem;
+    color: var(--ink-faint);
+    font-weight: 400;
+  }
+  .stop-body p { margin: .4rem 0 0; color: var(--ink-soft); font-size: .95rem; }
+  .stop-body ul { margin: .55rem 0 0; padding-left: 1.1rem; color: var(--ink-soft); font-size: .95rem; }
+  .stop-body ul li { margin-bottom: .25rem; }
+  .stop-body ul li::marker { color: var(--ink-faint); }
+
+  /* wire calls — the right-hand gutter, inlined as chips */
+  .wire {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    margin-top: .7rem;
+  }
+  .call {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    font-family: var(--font-mono);
+    font-size: .73rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    padding: .22rem .7rem .22rem .3rem;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .verb {
+    font-size: .64rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    padding: .08rem .4rem;
+    border-radius: 999px;
+    color: var(--ground);
+    background: var(--ink-soft);
+    flex-shrink: 0;
+  }
+  .verb.get   { background: var(--lane-backend); }
+  .verb.post  { background: var(--st-completed); }
+  .verb.patch { background: var(--st-awaiting); }
+  .verb.del   { background: var(--st-cancelled); }
+  .verb.local { background: var(--ink-faint); }
+
+  /* ============================================================
+     STATUS CHIPS + LIFECYCLE
+     ============================================================ */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .02em;
+    padding: .2rem .6rem;
+    border-radius: 999px;
+    border: 1px solid;
+    white-space: nowrap;
+  }
+  .chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .chip.awaiting  { color: var(--st-awaiting);  border-color: color-mix(in srgb, var(--st-awaiting) 40%, transparent);  background: color-mix(in srgb, var(--st-awaiting) 10%, transparent); }
+  .chip.pending   { color: var(--st-pending);   border-color: color-mix(in srgb, var(--st-pending) 45%, transparent);   background: color-mix(in srgb, var(--st-pending) 12%, transparent); }
+  .chip.matched   { color: var(--st-matched);   border-color: color-mix(in srgb, var(--st-matched) 40%, transparent);   background: color-mix(in srgb, var(--st-matched) 10%, transparent); }
+  .chip.progress  { color: var(--st-progress);  border-color: color-mix(in srgb, var(--st-progress) 40%, transparent);  background: color-mix(in srgb, var(--st-progress) 10%, transparent); }
+  .chip.completed { color: var(--st-completed); border-color: color-mix(in srgb, var(--st-completed) 40%, transparent); background: color-mix(in srgb, var(--st-completed) 10%, transparent); }
+  .chip.cancelled { color: var(--st-cancelled); border-color: color-mix(in srgb, var(--st-cancelled) 40%, transparent); background: color-mix(in srgb, var(--st-cancelled) 10%, transparent); }
+  .chip.expired   { color: var(--st-expired);   border-color: color-mix(in srgb, var(--st-expired) 40%, transparent);   background: color-mix(in srgb, var(--st-expired) 10%, transparent); }
+
+  .lifecycle {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 1.25rem 0;
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .lc-row {
+    display: grid;
+    grid-template-columns: minmax(170px, auto) 1fr;
+    gap: .25rem 1.25rem;
+    padding: .85rem 1.1rem;
+    border-bottom: 1px solid var(--rule-soft);
+    align-items: center;
+  }
+  .lc-row:last-child { border-bottom: none; }
+  .lc-arrow {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-family: var(--font-mono);
+    font-size: .7rem;
+    color: var(--ink-faint);
+    padding: 0 1.1rem .4rem;
+  }
+  .lc-what { color: var(--ink-soft); font-size: .92rem; }
+  .lc-what b { color: var(--ink); font-weight: 600; }
+
+  @media (max-width: 620px) {
+    .lc-row { grid-template-columns: 1fr; }
+  }
+
+  /* ============================================================
+     SWIMLANES — the matching sequence
+     ============================================================ */
+  .lanes-wrap { overflow-x: auto; margin: 1.5rem 0; padding-bottom: .5rem; }
+
+  .lanes {
+    min-width: 720px;
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    background: var(--surface);
+    padding: 0 0 1.25rem;
+  }
+
+  .lane-heads {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--rule);
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    z-index: 2;
+  }
+  .lane-head {
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: .35rem 0;
+    border-radius: 6px;
+    font-weight: 700;
+  }
+  .lane-head.c1 { color: var(--lane-client);  background: color-mix(in srgb, var(--lane-client) 12%, transparent); }
+  .lane-head.c2 { color: var(--lane-backend); background: color-mix(in srgb, var(--lane-backend) 12%, transparent); }
+  .lane-head.c3 { color: var(--lane-partner); background: color-mix(in srgb, var(--lane-partner) 12%, transparent); }
+
+  .msgs { display: flex; flex-direction: column; gap: .5rem; padding: 1.1rem 1.25rem 0; position: relative; }
+  .msgs::before,
+  .msgs::after,
+  .msgs > .spine {
+    content: "";
+    position: absolute;
+    top: .5rem; bottom: 0;
+    width: 1px;
+    background: repeating-linear-gradient(to bottom, var(--rule) 0 5px, transparent 5px 11px);
+  }
+  .msgs::before { left: calc(1.25rem + (100% - 2.5rem) / 6); }
+  .msgs::after  { left: calc(1.25rem + (100% - 2.5rem) / 2); }
+  .msgs > .spine { left: calc(1.25rem + (100% - 2.5rem) * 5 / 6); }
+
+  .msg {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    align-items: center;
+    position: relative;
+    z-index: 1;
+  }
+  .msg-bar {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: .5rem .75rem;
+    font-size: .84rem;
+    color: var(--ink-soft);
+    box-shadow: var(--shadow);
+  }
+  .msg-bar .mono { color: var(--ink); font-weight: 600; display: block; }
+  .msg-bar em { font-style: normal; color: var(--ink-faint); font-size: .78rem; display: block; margin-top: .15rem; }
+
+  .msg-n {
+    font-family: var(--font-mono);
+    font-size: .66rem;
+    color: var(--ink-faint);
+    position: absolute;
+    left: -1.6rem;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  /* Which actor a message comes from is encoded by a pip on the label and by
+     the arrowhead's colour — same chip vocabulary the status badges use. */
+  .msg-bar .mono::before {
+    content: "";
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--origin, var(--ink-faint));
+    margin-right: .5rem;
+    vertical-align: middle;
+  }
+
+  .msg.c1-2 .msg-bar { grid-column: 1 / 3; --origin: var(--lane-client); }
+  .msg.c2-1 .msg-bar { grid-column: 1 / 3; --origin: var(--lane-backend); }
+  .msg.c2-3 .msg-bar { grid-column: 2 / 4; --origin: var(--lane-backend); }
+  .msg.c3-2 .msg-bar { grid-column: 2 / 4; --origin: var(--lane-partner); }
+  .msg.self1 .msg-bar { grid-column: 1 / 2; --origin: var(--lane-client);  background: var(--surface-sunk); box-shadow: none; }
+  .msg.self2 .msg-bar { grid-column: 2 / 3; --origin: var(--lane-backend); background: var(--surface-sunk); box-shadow: none; }
+
+  .msg-bar .dir {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: var(--font-mono);
+    font-size: .85rem;
+    color: var(--origin, var(--ink-faint));
+  }
+  .msg.c1-2 .dir, .msg.c2-3 .dir { right: -1.15rem; }
+  .msg.c2-1 .dir, .msg.c3-2 .dir { left: -1.15rem; }
+
+  .msg-group {
+    grid-column: 1 / -1;
+    font-family: var(--font-mono);
+    font-size: .66rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding: .9rem 0 .2rem;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+  }
+  .msg-group::after { content: ""; flex: 1; height: 1px; background: var(--rule-soft); }
+
+  /* ============================================================
+     TABLES
+     ============================================================ */
+  .table-wrap { overflow-x: auto; margin: 1.25rem 0; border: 1px solid var(--rule); border-radius: 12px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 520px; font-size: .9rem; }
+  th, td { text-align: left; padding: .7rem .95rem; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  thead th {
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 600;
+    background: var(--surface-sunk);
+    border-bottom: 1px solid var(--rule);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td .mono { color: var(--ink); }
+
+  /* ============================================================
+     ROUTE MAP
+     ============================================================ */
+  .routemap { display: grid; gap: .75rem; margin: 1.25rem 0; }
+  @media (min-width: 720px) { .routemap { grid-template-columns: repeat(2, 1fr); } }
+
+  .rt-group {
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    background: var(--surface);
+    padding: 1rem 1.1rem;
+  }
+  .rt-group h4 {
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: .7rem;
+  }
+  .rt-list { display: flex; flex-direction: column; gap: .45rem; }
+  .rt {
+    display: flex;
+    gap: .7rem;
+    align-items: baseline;
+    font-size: .88rem;
+    color: var(--ink-soft);
+  }
+  .rt .path {
+    font-family: var(--font-mono);
+    font-size: .76rem;
+    color: var(--teal);
+    flex-shrink: 0;
+  }
+
+  /* ============================================================
+     POLL CADENCE STRIP
+     ============================================================ */
+  .cadence { display: grid; gap: .6rem; margin: 1.25rem 0; }
+  @media (min-width: 720px) { .cadence { grid-template-columns: repeat(4, 1fr); } }
+  .cad {
+    border: 1px solid var(--rule);
+    border-top: 3px solid var(--c, var(--rule));
+    border-radius: 10px;
+    background: var(--surface);
+    padding: .9rem 1rem;
+  }
+  .cad .k { font-family: var(--font-mono); font-size: .7rem; letter-spacing: .08em; color: var(--c); font-weight: 700; }
+  .cad .v { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; margin: .2rem 0 .1rem; letter-spacing: -.02em; }
+  .cad .d { font-size: .82rem; color: var(--ink-soft); }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.75rem;
+    color: var(--ink-faint);
+    font-size: .84rem;
+    max-width: var(--measure);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <p class="eyebrow">CareMate · client_app · Flutter</p>
+    <h1>Frontend Flow Reference</h1>
+    <p class="lede">
+      ทุก flow ของแอปฝั่งผู้ใช้ ตั้งแต่เปิดแอปจนงานเสร็จ — แต่ละหน้าจอทำอะไร
+      ยิง endpoint ไหน มีเงื่อนไขอะไรกั้นไว้ และสถานะการจองเดินอย่างไร
+      รวมถึง <b>flow การจับคู่ผู้ดูแล (matching)</b> ที่เกิดขึ้นแบบ async หลังชำระเงิน
+    </p>
+    <div class="meta-strip">
+      <span><b>Repo</b> D:\SandBox\caremate</span>
+      <span><b>Backend</b> care-mate-backend (Go/Fiber) · /api/v1</span>
+      <span><b>Auth</b> cookie caremate_session</span>
+      <span><b>อ้างอิง</b> โค้ดจริงใน lib/ + booking-flow.md</span>
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="สารบัญ">
+    <div class="toc-title">สารบัญ</div>
+    <ol>
+      <li><a href="#overview"><span class="n">01</span><span>ภาพรวมสถาปัตยกรรม</span></a></li>
+      <li><a href="#routes"><span class="n">02</span><span>แผนผังเส้นทางหน้าจอ</span></a></li>
+      <li><a href="#boot"><span class="n">03</span><span>เปิดแอป &amp; ประตูตรวจสิทธิ์</span></a></li>
+      <li><a href="#register"><span class="n">04</span><span>สมัครสมาชิก + PDPA</span></a></li>
+      <li><a href="#home"><span class="n">05</span><span>หน้าแรก</span></a></li>
+      <li><a href="#members"><span class="n">06</span><span>สมาชิกที่ดูแล</span></a></li>
+      <li><a href="#booking"><span class="n">07</span><span>จองบริการ (5 ขั้น)</span></a></li>
+      <li><a href="#payment"><span class="n">08</span><span>ชำระเงิน</span></a></li>
+      <li><a href="#matching"><span class="n">09</span><span>การจับคู่ผู้ดูแล</span></a></li>
+      <li><a href="#status"><span class="n">10</span><span>หน้าติดตามสถานะ</span></a></li>
+      <li><a href="#cancel"><span class="n">11</span><span>การยกเลิกการจอง</span></a></li>
+      <li><a href="#profile"><span class="n">12</span><span>โปรไฟล์ &amp; ประวัติ</span></a></li>
+      <li><a href="#appendix"><span class="n">13</span><span>ภาคผนวก &amp; ข้อจำกัด</span></a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- ============ 01 OVERVIEW ============ -->
+    <section id="overview">
+      <div class="sec-head">
+        <span class="sec-num">01</span>
+        <h2>ภาพรวมสถาปัตยกรรม</h2>
+        <p>
+          ระบบมีผู้เล่น 3 ฝ่าย แอปนี้คุยกับ backend ตรง ๆ ไม่ผ่าน BFF อีกแล้ว
+          และ <b>ไม่มี push/webhook กลับมาหาแอป</b> — ข้อจำกัดข้อนี้เป็นตัวกำหนดรูปร่างของ flow การจับคู่ทั้งหมด
+        </p>
+      </div>
+
+      <div class="routemap">
+        <div class="rt-group">
+          <h4>ผู้เล่นในระบบ</h4>
+          <div class="rt-list">
+            <div class="rt"><span class="path">client_app</span><span>แอป Flutter ตัวนี้ — ฝั่งผู้ใช้/ญาติ</span></div>
+            <div class="rt"><span class="path">backend</span><span>Go/Fiber — เจ้าของ business logic และ matching ทั้งหมด</span></div>
+            <div class="rt"><span class="path">partner app</span><span>แอปผู้ดูแล — เป็นตัวที่ทำให้สถานะการจองเดินหน้า</span></div>
+          </div>
+        </div>
+        <div class="rt-group">
+          <h4>กติกาที่ใช้ทั้งแอป</h4>
+          <div class="rt-list">
+            <div class="rt"><span class="path">auth</span><span>cookie <code>caremate_session</code> ตัวเดียว ไม่มี bearer token</span></div>
+            <div class="rt"><span class="path">nav</span><span>ใช้ <code>context.go</code> เสมอ ไม่ใช้ push/pop</span></div>
+            <div class="rt"><span class="path">state</span><span>Riverpod <code>Provider&lt;T&gt;</code> ธรรมดา โหลดใน <code>initState</code></span></div>
+            <div class="rt"><span class="path">i18n</span><span>UI copy เป็นภาษาไทยทั้งหมด ค่าใน field เป็นอังกฤษ</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="note">
+        <strong>จุดที่ต้องจำ:</strong> หลัง <code>POST /payments/confirm</code> สำเร็จ backend จะยิง matching
+        แบบ fire-and-forget แล้วจบ request ทันที แอปจึงต้อง <b>poll</b> เอง
+        (<code>GET /bookings/:id/mission</code>) เพื่อจะรู้ว่าจับคู่ได้แล้วหรือยัง
+      </div>
+    </section>
+
+    <!-- ============ 02 ROUTES ============ -->
+    <section id="routes">
+      <div class="sec-head">
+        <span class="sec-num">02</span>
+        <h2>แผนผังเส้นทางหน้าจอ</h2>
+        <p>
+          ทุกเส้นทางประกาศแบบ flat ใน <code>app_routes.dart</code> สี่เส้นทางกลางอยู่ใน
+          <code>ShellRoute</code> เดียวกัน (แชร์แถบล่าง) ที่เหลือเป็นหน้าเต็มจอแยก
+        </p>
+      </div>
+
+      <div class="routemap">
+        <div class="rt-group">
+          <h4>ก่อนเข้าสู่ระบบ</h4>
+          <div class="rt-list">
+            <div class="rt"><span class="path">/splash</span><span>ตรวจ session แล้วเด้งออก</span></div>
+            <div class="rt"><span class="path">/login</span><span>เข้าสู่ระบบด้วยเบอร์โทร</span></div>
+            <div class="rt"><span class="path">/register</span><span>สมัคร + ประตู PDPA</span></div>
+          </div>
+        </div>
+        <div class="rt-group">
+          <h4>แถบล่าง 4 แท็บ (ShellRoute)</h4>
+          <div class="rt-list">
+            <div class="rt"><span class="path">/home</span><span>หน้าแรก</span></div>
+            <div class="rt"><span class="path">/booking</span><span>จองบริการ (wizard 5 ขั้น)</span></div>
+            <div class="rt"><span class="path">/members</span><span>สมาชิกที่ดูแล</span></div>
+            <div class="rt"><span class="path">/profile</span><span>โปรไฟล์</span></div>
+          </div>
+        </div>
+        <div class="rt-group">
+          <h4>หน้าเต็มจอแยก</h4>
+          <div class="rt-list">
+            <div class="rt"><span class="path">/payment</span><span>ชำระเงิน PromptPay</span></div>
+            <div class="rt"><span class="path">/booking/status/:bookingId</span><span>ติดตามสถานะ + polling</span></div>
+            <div class="rt"><span class="path">/booking/history</span><span>ประวัติการจอง</span></div>
+          </div>
+        </div>
+        <div class="rt-group">
+          <h4>กลุ่มโปรไฟล์</h4>
+          <div class="rt-list">
+            <div class="rt"><span class="path">/profile/personal-information</span><span>ข้อมูลส่วนตัว</span></div>
+            <div class="rt"><span class="path">/profile/health-information</span><span>ข้อมูลสุขภาพ</span></div>
+            <div class="rt"><span class="path">/profile/addresses</span><span>ที่อยู่ของฉัน</span></div>
+            <div class="rt"><span class="path">/profile/settings</span><span>ตั้งค่าความปลอดภัย</span></div>
+          </div>
+        </div>
+      </div>
+
+      <h3>ทิศทางของ transition</h3>
+      <p>
+        เนื่องจากแอปไม่ใช้ navigation stack จริง (ไม่มี push/pop) router จึงใช้สัญญาณ
+        <code>navDirection</code> บอกทิศเอง — <code>goForward</code> เลื่อนเข้าจากขวา (300&nbsp;ms),
+        <code>goBack</code> เลื่อนเข้าจากซ้าย (260&nbsp;ms) รวมถึงการสลับแท็บล่างด้วย
+        (<code>MainScaffold</code> เทียบ index ของแท็บที่กดกับแท็บปัจจุบันก่อนเรียก <code>go</code>)
+      </p>
+    </section>
+
+    <!-- ============ 03 BOOT ============ -->
+    <section id="boot">
+      <div class="sec-head">
+        <span class="sec-num">03</span>
+        <h2>เปิดแอป &amp; ประตูตรวจสิทธิ์</h2>
+        <p>
+          <code>AuthController</code> มีสามสถานะ และ <code>redirect</code> ของ go_router
+          อ่านสถานะนี้ทุกครั้งที่เปลี่ยนหน้า ทำให้ไม่มีทางหลุดเข้าหน้าที่ต้อง login ได้
+        </p>
+      </div>
+
+      <div class="track">
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot solid">1</div></div>
+          <div class="stop-body">
+            <div class="stop-title">Splash <span class="stop-route">/splash</span></div>
+            <p>
+              ยิง <code>checkSession()</code> ทันทีใน <code>initState</code> ระหว่างนั้นแสดงโลโก้ + spinner
+              — <code>restoreSession()</code> อ่าน cookie ที่เก็บไว้ ถ้าไม่มีเลยก็จบที่ loggedOut ทันที
+              ถ้ามีจะเอาไป re-validate กับ backend
+            </p>
+            <div class="wire">
+              <span class="call"><span class="verb local">LOCAL</span>readSessionCookie()</span>
+              <span class="call"><span class="verb get">GET</span>/authentication/me</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot">2</div></div>
+          <div class="stop-body">
+            <div class="stop-title">ตัดสินใจตามสถานะ</div>
+            <ul>
+              <li><b>checking</b> — บังคับอยู่ที่ <code>/splash</code> เท่านั้น</li>
+              <li><b>loggedOut</b> — อนุญาตเฉพาะ <code>/login</code> กับ <code>/register</code> นอกนั้นเด้งไป <code>/login</code></li>
+              <li><b>authenticated</b> — ถ้าอยู่ที่ splash/login/register จะเด้งไป <code>/home</code></li>
+            </ul>
+            <p>
+              ถ้า <code>/authentication/me</code> ตอบ 401 จะล้าง session ทิ้งแล้วถือว่า loggedOut
+              (error อื่นไม่ล้าง cookie)
+            </p>
+          </div>
+        </div>
+
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot">3</div></div>
+          <div class="stop-body">
+            <div class="stop-title">เข้าสู่ระบบ <span class="stop-route">/login</span></div>
+            <p>
+              กรอก <b>เบอร์โทรอย่างเดียว</b> — ไม่มีรหัสผ่าน ไม่มี OTP ในเวอร์ชันนี้
+              backend ตอบกลับพร้อม <code>Set-Cookie</code> แอปดึง cookie ออกจาก response header
+              เก็บลง <code>LocalStorage</code> แล้ว interceptor ของ Dio จะแนบให้ทุก request ถัดไปเอง
+            </p>
+            <div class="wire">
+              <span class="call"><span class="verb post">POST</span>/authentication/login</span>
+              <span class="call"><span class="verb get">GET</span>/authentication/me</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 04 REGISTER ============ -->
+    <section id="register">
+      <div class="sec-head">
+        <span class="sec-num">04</span>
+        <h2>สมัครสมาชิก + ประตูยินยอม PDPA</h2>
+        <p>
+          จุดที่คนเข้าใจผิดบ่อย: <b>PDPA ไม่ใช่หน้าแยกและไม่ใช่ route</b> — มันเป็น modal เต็มจอ
+          ที่แทรกกลางฟังก์ชัน <code>_register()</code> หลังฟอร์มผ่าน validate แล้ว แต่ก่อนยิง API สร้างบัญชี
+        </p>
+      </div>
+
+      <div class="track">
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot solid">1</div></div>
+          <div class="stop-body">
+            <div class="stop-title">กรอกฟอร์ม <span class="stop-route">/register</span></div>
+            <p>
+              แอปบังคับกรอกครบทุกช่อง: ชื่อจริง · นามสกุล · ชื่อเล่น · เพศ · วันเกิด · อีเมล · เบอร์โทร
+              ทั้งที่ backend บังคับแค่ 3 ช่องแรก — เป็น <b>นโยบายฝั่ง frontend</b> ที่ตั้งใจให้เข้มกว่า
+              ส่วนที่อยู่ / ข้อมูลสุขภาพ / ผู้ติดต่อฉุกเฉิน ยกไปกรอกทีหลังในหน้าโปรไฟล์
+            </p>
+            <ul>
+              <li>เพศส่งเป็นค่าอังกฤษ <code>male</code>/<code>female</code>/<code>other</code> แสดงผลไทย</li>
+              <li>วันเกิดส่งเป็น <code>YYYY-MM-DD</code></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot">2</div></div>
+          <div class="stop-body">
+            <div class="stop-title">ดึงนโยบายฉบับปัจจุบัน</div>
+            <p>
+              <code>GET /pdpa</code> เป็น public ไม่ต้อง auth ตัว <code>content</code> ที่ได้เป็น
+              <b>HTML สำเร็จรูป</b> เลย render ด้วย widget <code>Html</code> ตรง ๆ ไม่ต้อง parse markdown
+              ถ้าเรียกไม่สำเร็จ (เน็ตหลุด หรือ 404 เพราะยังไม่มีเวอร์ชัน active) จะตกไปใช้
+              ฉบับที่ฝังมากับแอป <code>bundled-2026-08-04</code> — <b>การสมัครไม่มีวันถูกบล็อกเพราะ API นี้</b>
+            </p>
+            <div class="wire">
+              <span class="call"><span class="verb get">GET</span>/pdpa</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot">3</div></div>
+          <div class="stop-body">
+            <div class="stop-title">ประตูเลื่อนอ่านจนจบ</div>
+            <p>
+              ปุ่มยอมรับและ checkbox จะ <b>ยังกดไม่ได้</b> จนกว่า <code>ScrollController</code>
+              จะตรวจว่าผู้ใช้เลื่อนอ่านถึงท้ายเอกสารจริง ๆ
+              ถ้ากดปิด (X) หรือไม่เคยเลื่อนถึงท้าย จะได้ค่า <code>null</code> กลับมาและ
+              <b>ยกเลิกการสมัครก่อนยิง API ใด ๆ</b>
+            </p>
+          </div>
+        </div>
+
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot">4</div></div>
+          <div class="stop-body">
+            <div class="stop-title">บันทึกความยินยอม แล้วจึงสร้างบัญชี</div>
+            <p>
+              บันทึกลงเครื่องก่อน (timestamp UTC + เลขเวอร์ชันที่ผู้ใช้เห็นจริง)
+              แล้วค่อยยิงสมัคร โดยแนบ <code>pdpaConsent</code> / <code>pdpaConsentVersion</code> ไปด้วย
+            </p>
+            <div class="wire">
+              <span class="call"><span class="verb local">LOCAL</span>savePdpaConsentGiven(version)</span>
+              <span class="call"><span class="verb post">POST</span>/authentication/register</span>
+              <span class="call"><span class="verb get">GET</span>/authentication/me</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="note warn">
+        <strong>ข้อจำกัดที่ยังเปิดอยู่:</strong> <code>RegisterRequest</code> ฝั่ง Go
+        <b>ยังไม่มี field รับ consent</b> — ตอนนี้สองฟิลด์นั้นถือว่าถูก backend มองข้ามไปเฉย ๆ
+        และยังไม่มี endpoint ให้อ่านสถานะ consent กลับมาแสดงในหน้าโปรไฟล์
+      </div>
+    </section>
+
+    <!-- ============ 05 HOME ============ -->
+    <section id="home">
+      <div class="sec-head">
+        <span class="sec-num">05</span>
+        <h2>หน้าแรก</h2>
+        <p>ทำหน้าที่เป็นแผงสรุป + ทางลัด โหลดสองอย่างเรียงกันตอนเข้าหน้า</p>
+      </div>
+
+      <div class="track">
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot solid">1</div></div>
+          <div class="stop-body">
+            <div class="stop-title">โหลดข้อมูล <span class="stop-route">/home</span></div>
+            <p>
+              ดึงรายชื่อสมาชิกก่อน แล้วดึงรายการจองที่ยัง active
+              (กรอง <code>COMPLETED</code>/<code>CANCELLED</code>/<code>PAYMENT_EXPIRED</code> ออกฝั่งแอป)
+              รองรับดึงลงเพื่อ refresh และถ้าโหลดพังจะขึ้น empty state พร้อมปุ่มลองใหม่
+            </p>
+            <div class="wire">
+              <span class="call"><span class="verb get">GET</span>/user-relatives</span>
+              <span class="call"><span class="verb get">GET</span>/bookings</span>
+            </div>
+          </div>
+        </div>
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot">2</div></div>
+          <div class="stop-body">
+            <div class="stop-title">สิ่งที่แสดง</div>
+            <ul>
+              <li>ทักทายด้วยชื่อผู้ใช้จาก <code>AuthController.user</code></li>
+              <li>ตัวเลขสรุป 3 ช่อง — จำนวนสมาชิก · นัดหมาย · รายการรอชำระ</li>
+              <li>การ์ดนัดหมายล่าสุด พร้อมป้ายสถานะและปุ่มลัดไปหน้าติดตาม</li>
+              <li>ถ้ามีรายการ <span class="chip awaiting">AWAITING_PAYMENT</span> จะโชว์ทางลัดไป <code>/payment</code></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 06 MEMBERS ============ -->
+    <section id="members">
+      <div class="sec-head">
+        <span class="sec-num">06</span>
+        <h2>สมาชิกที่ดูแล</h2>
+        <p>
+          การจองทุกครั้งต้องระบุว่าจองให้ใคร หน้านี้จึงเป็น <b>เงื่อนไขบังคับก่อนจองได้</b>
+          เพดานอยู่ที่ 5 คน (ไม่นับตัวเอง)
+        </p>
+      </div>
+
+      <div class="track">
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot solid">1</div></div>
+          <div class="stop-body">
+            <div class="stop-title">รายการ + ตัวกรอง <span class="stop-route">/members</span></div>
+            <p>
+              ค้นหาด้วยชื่อ/ความสัมพันธ์/เบอร์โทร และกรองด้วยชิป ทั้งหมด · ตัวเอง · ครอบครัว · ค่าเริ่มต้น
+              รายการที่ <code>isActive == false</code> ถูกกรองทิ้งตั้งแต่ชั้น repository
+            </p>
+            <div class="wire"><span class="call"><span class="verb get">GET</span>/user-relatives</span></div>
+          </div>
+        </div>
+
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot">2</div></div>
+          <div class="stop-body">
+            <div class="stop-title">เพิ่มสมาชิก — สองจังหวะ ไม่ใช่จังหวะเดียว</div>
+            <p>
+              เช็กเพดาน 5 คนฝั่งแอปก่อน แล้ว <code>POST</code> สร้าง
+              จากนั้น <b>ต้องยิง <code>PATCH</code> ตามทันที</b> เพราะ <code>CreateUserRelativeRequest</code>
+              ของ backend ไม่มีช่อง <code>nickname</code>/<code>bloodType</code> เลย และ
+              <code>dateOfBirth</code> ที่ส่งไปกับ POST ก็ไม่ถูกบันทึกจริง (บั๊กฝั่ง repo)
+              ถ้าไม่ PATCH ตาม ค่าพวกนี้จะเป็น NULL
+            </p>
+            <ul>
+              <li>ชื่อ–นามสกุลเป็น <b>สองช่องแยก</b> ส่ง <code>firstName</code>/<code>lastName</code> ตรง ๆ ไม่ตัดคำเดา</li>
+              <li>อายุถูกแปลงเป็นวันเกิดโดยประมาณ (<code>ปีปัจจุบัน − อายุ</code>) ก่อนส่ง</li>
+            </ul>
+            <div class="wire">
+              <span class="call"><span class="verb post">POST</span>/user-relatives</span>
+              <span class="call"><span class="verb patch">PATCH</span>/user-relatives/:id</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot">3</div></div>
+          <div class="stop-body">
+            <div class="stop-title">แก้ไข · ตั้งเป็นค่าเริ่มต้น · ลบ</div>
+            <p>
+              แก้ไขใช้ <code>PATCH</code> ครั้งเดียวจบ ส่วน "ตั้งเป็นค่าเริ่มต้น" ต้อง
+              <code>GET</code> ข้อมูลเดิมมาก่อนแล้วส่งกลับไปทั้งก้อนพร้อม <code>isDefault: true</code>
+              เพราะ endpoint เป็นการเขียนทับ ไม่ใช่ patch บางส่วน
+            </p>
+            <div class="wire">
+              <span class="call"><span class="verb patch">PATCH</span>/user-relatives/:id</span>
+              <span class="call"><span class="verb get">GET</span>/user-relatives/:id</span>
+              <span class="call"><span class="verb del">DELETE</span>/user-relatives/:id</span>
+            </div>
+            <div class="note danger" style="margin-top:.9rem">
+              <strong>ยังใช้ไม่ได้:</strong> backend ยังไม่มี route <code>DELETE /user-relatives/:id</code>
+              ปุ่มลบจึงได้ 404 กลับมาจนกว่าฝั่งนั้นจะเพิ่มให้
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 07 BOOKING ============ -->
+    <section id="booking">
+      <div class="sec-head">
+        <span class="sec-num">07</span>
+        <h2>จองบริการ — wizard 5 ขั้น</h2>
+        <p>
+          เป็น <code>PageView</code> ที่ปิด swipe (<code>NeverScrollableScrollPhysics</code>)
+          บังคับให้เดินผ่านปุ่มเท่านั้น เพื่อให้ด่านตรวจแต่ละขั้นทำงานได้จริง
+        </p>
+      </div>
+
+      <div class="note">
+        <strong>ด่านแรกสุด:</strong> ถ้าบัญชียังไม่มีสมาชิกเลย หน้านี้จะถูกแทนที่ด้วยหน้า
+        "ยังไม่มีผู้รับบริการ" ทั้งหน้า พร้อมปุ่มไปเพิ่มสมาชิก — ไม่ปล่อยให้กรอกไปสามขั้นแล้วค่อยไปตันที่ขั้นเลือกคน
+      </div>
+
+      <h3>ขั้นตอนและด่านตรวจ</h3>
+      <div class="track">
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot solid">1</div></div>
+          <div class="stop-body">
+            <div class="stop-title">เลือกบริการ</div>
+            <p>
+              โหลดจาก <code>GET /care/services</code> เอาเฉพาะที่ <code>is_active</code>
+              บริการที่ <code>slug == 'transport'</code> เท่านั้นที่จะบังคับให้กรอกปลายทางในขั้นที่ 4
+              (เช็ก slug ตรงตัว ไม่ใช่เดาจากชื่อ)
+            </p>
+            <div class="wire">
+              <span class="call"><span class="verb get">GET</span>/care/services</span>
+              <span class="call"><span class="verb get">GET</span>/user-relatives</span>
+              <span class="call"><span class="verb get">GET</span>/payments/methods</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot">2</div></div>
+          <div class="stop-body">
+            <div class="stop-title">เลือกวันและช่วงเวลา</div>
+            <ul>
+              <li>วันที่เลือกได้ตั้งแต่วันนี้ถึง <b>+60 วัน</b></li>
+              <li>เวลาเป็น <b>ช่วงอิสระ</b> — เลือกชิปสำเร็จรูป หรือกำหนดเองด้วย time picker ทั้งต้นและปลาย</li>
+              <li>ถ้าเวลาสิ้นสุดไม่มากกว่าเวลาเริ่ม ระบบถือว่า duration = 0 และไม่ให้ยืนยัน</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot">3</div></div>
+          <div class="stop-body">
+            <div class="stop-title">เลือกผู้รับบริการ</div>
+            <p>
+              เลือกจากรายการสมาชิก ถ้าเป็นตัวเองจะส่ง <code>isForSelf: true</code> และ
+              <code>relativeId: null</code> ถ้าไม่ใช่ต้องส่ง <code>relativeId</code> เสมอ (backend บังคับ)
+            </p>
+          </div>
+        </div>
+
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot">4</div></div>
+          <div class="stop-body">
+            <div class="stop-title">เลือกสถานที่</div>
+            <p>
+              ใช้ <code>LocationPickerPage</code> ตัวเดียวกับหน้าที่อยู่ในโปรไฟล์ (มีช่องค้นหา
+              geocoding ในตัว ไม่ต้องใช้ API key) ค่าเริ่มต้นของจุดรับคือที่อยู่ของสมาชิกคนแรก
+            </p>
+            <ul>
+              <li>ด่าน: จุดรับ <b>ต้องมีพิกัดจริง</b> ไม่ใช่แค่ข้อความ</li>
+              <li>ด่าน: ถ้าเป็นบริการ transport ปลายทางต้องมีพิกัดด้วย</li>
+              <li>ระยะทางคำนวณฝั่งแอปด้วยสูตร haversine เพื่อโชว์ประมาณการ</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot">5</div></div>
+          <div class="stop-body">
+            <div class="stop-title">สรุปและยืนยัน</div>
+            <p>
+              ก่อนยิงจริงจะตรวจซ้ำทั้งหมดอีกรอบ (พิกัดจุดรับ · ปลายทางถ้าจำเป็น · ช่วงเวลา ·
+              ต้องหา <code>paymentMethodId</code> ของ PromptPay เจอ) เมื่อสำเร็จจะเด้งไปหน้าชำระเงินทันที
+            </p>
+            <div class="wire">
+              <span class="call"><span class="verb post">POST</span>/bookings/create</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3>การคิดราคา</h3>
+      <p>
+        ตัวเลขที่โชว์ในแอปคำนวณเองเพื่อให้เห็นก่อนกดยืนยัน — ปัดเวลาขึ้นเป็นขั้นละ 30 นาที
+        แล้วคิดตามเรตต่อชั่วโมงของบริการ บวกค่าแพลตฟอร์มคงที่
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>ส่วนประกอบ</th><th>ที่มา</th><th>สูตร</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>เวลาที่คิดเงิน</td><td class="mono">billingStepMinutes = 30</td><td class="num">ปัดขึ้นทีละ 30 นาที</td></tr>
+            <tr><td>ค่าบริการ</td><td class="mono">service.base_fee</td><td class="num">base_fee × (นาทีที่คิดเงิน ÷ 60)</td></tr>
+            <tr><td>ค่าแพลตฟอร์ม</td><td class="mono">platformFee = 20.0</td><td class="num">คงที่ (ฝั่งแอป)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note warn">
+        <strong>ระวังสองเรื่อง:</strong> (1) เวลาที่ส่งขึ้น backend ต้องเป็น RFC3339
+        <b>พร้อม offset</b> — <code>toIso8601String()</code> ของ Dart ไม่ใส่ timezone ให้ ทำให้ Go ปฏิเสธ
+        จึงมี helper <code>_toRfc3339()</code> ไว้เฉพาะ · (2) <code>paymentMethodId</code> ต้องเป็น
+        <b>UUID จริง</b> จาก <code>GET /payments/methods</code> ไม่ใช่ slug — slug จริงของ PromptPay คือ
+        <code>qr_promptpay</code>
+      </div>
+      <p>
+        ราคาสุดท้ายที่มีผลคือตัวที่ backend ตอบกลับใน response ของ <code>POST /bookings/create</code>
+        (<code>totalAmount</code>, <code>platformFee</code>, <code>partnerPayout</code>, <code>distanceKm</code>)
+        ตัวเลขในแอปเป็นการประมาณการก่อนยืนยันเท่านั้น
+      </p>
+    </section>
+
+    <!-- ============ 08 PAYMENT ============ -->
+    <section id="payment">
+      <div class="sec-head">
+        <span class="sec-num">08</span>
+        <h2>ชำระเงิน</h2>
+        <p>
+          จองเสร็จ booking จะอยู่ที่ <span class="chip awaiting">AWAITING_PAYMENT</span>
+          และมีนาฬิกา 15 นาทีเดินอยู่ฝั่ง backend (Redis TTL)
+        </p>
+      </div>
+
+      <div class="track">
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot solid">1</div></div>
+          <div class="stop-body">
+            <div class="stop-title">หารายการที่รอชำระ <span class="stop-route">/payment</span></div>
+            <p>
+              ถ้าเพิ่งจองในรอบนี้ จะใช้ข้อมูลที่ค้างไว้ในหน่วยความจำของ repository เลย
+              (เพราะมีชื่อบริการ/ไอคอน/ชื่อผู้รับบริการครบ ซึ่ง endpoint รายการไม่ส่งกลับมา)
+              ถ้าเปิดแอปใหม่แล้วค่อยมาจ่าย จะไปถาม <code>/users/payment-check</code> แทน
+            </p>
+            <div class="wire">
+              <span class="call"><span class="verb get">GET</span>/users/payment-check</span>
+              <span class="call"><span class="verb get">GET</span>/payments/methods</span>
+              <span class="call"><span class="verb get">GET</span>/payments/:paymentId</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot">2</div></div>
+          <div class="stop-body">
+            <div class="stop-title">แสดง QR PromptPay</div>
+            <p>
+              QR <b>ถูกสร้างในเครื่อง</b> ด้วยอัลกอริทึม EMVCo + CRC16 ไม่มี endpoint ฝั่ง backend
+              (ยกมาจาก proxy Next.js เดิม) จะสร้างก็ต่อเมื่อวิธีชำระที่เลือกมี slug เป็น
+              <code>qr_promptpay</code> เท่านั้น
+            </p>
+            <ul>
+              <li>นับถอยหลังจาก <code>payment.expiredAt</code> ทุกวินาที</li>
+              <li>ปุ่มยืนยัน <b>ล็อกไว้ 5 วินาทีแรก</b> กันกดก่อนสแกน</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot">3</div></div>
+          <div class="stop-body">
+            <div class="stop-title">ยืนยันการชำระ</div>
+            <p>
+              ยิง confirm แล้วอ่านสถานะกลับมาด้วย <code>GET /payments/:id</code> อีกที
+              เพราะ endpoint confirm <b>ไม่ส่ง body อธิบายผลลัพธ์กลับมาเลย</b>
+              จากนั้นเปิด bottom sheet "ชำระเงินสำเร็จ" พร้อมปุ่มไปหน้าติดตามสถานะ
+            </p>
+            <div class="wire">
+              <span class="call"><span class="verb post">POST</span>/payments/confirm</span>
+              <span class="call"><span class="verb get">GET</span>/payments/:paymentId</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="note danger">
+        <strong>ยังไม่ได้ตรวจสอบ:</strong> ตัวสร้าง QR ผ่านการทดสอบกับ test vector ทางการแล้ว
+        แต่ <b>ยังไม่เคยถูกสแกนด้วยแอปธนาคารจริง</b> — ถือเป็นความเสี่ยงที่ยังเปิดอยู่
+      </div>
+    </section>
+
+    <!-- ============ 09 MATCHING ============ -->
+    <section id="matching">
+      <div class="sec-head">
+        <span class="sec-num">09</span>
+        <h2>การจับคู่ผู้ดูแล (matching)</h2>
+        <p>
+          นี่คือส่วนที่แอปฝั่งผู้ใช้ <b>ไม่ได้เป็นคนสั่งเอง</b> ทั้งหมด — แอปแค่จุดชนวนด้วยการ confirm
+          แล้วเฝ้าดูผลผ่านการ poll ส่วนคนที่ทำให้สถานะเดินหน้าจริง ๆ คือ backend กับแอปพาร์ทเนอร์
+        </p>
+      </div>
+
+      <h3>ลำดับเหตุการณ์ทั้งสามฝ่าย</h3>
+      <div class="lanes-wrap">
+        <div class="lanes">
+          <div class="lane-heads">
+            <div class="lane-head c1">แอปผู้ใช้</div>
+            <div class="lane-head c2">Backend</div>
+            <div class="lane-head c3">แอปพาร์ทเนอร์</div>
+          </div>
+          <div class="msgs">
+            <span class="spine"></span>
+
+            <div class="msg-group">ขั้นสร้างรายการ</div>
+
+            <div class="msg c1-2">
+              <div class="msg-bar"><span class="msg-n">01</span>
+                <span class="mono">POST /bookings/create</span>
+                <em>ส่งบริการ · ผู้รับบริการ · ช่วงเวลา · พิกัด</em>
+                <span class="dir">▶</span>
+              </div>
+            </div>
+
+            <div class="msg self2">
+              <div class="msg-bar"><span class="msg-n">02</span>
+                <span class="mono">สร้าง booking + payment ในทรานแซกชันเดียว</span>
+                <em>booking = AWAITING_PAYMENT · payment = PENDING · ตั้ง Redis TTL 15 นาที</em>
+              </div>
+            </div>
+
+            <div class="msg c2-1">
+              <div class="msg-bar"><span class="msg-n">03</span>
+                <span class="mono">201 { bookingId, paymentId, totalAmount }</span>
+                <em>แอปเก็บไว้ในหน่วยความจำเพื่อใช้ที่หน้าชำระเงิน</em>
+                <span class="dir">◀</span>
+              </div>
+            </div>
+
+            <div class="msg self1">
+              <div class="msg-bar"><span class="msg-n">04</span>
+                <span class="mono">แสดง QR PromptPay · ผู้ใช้โอนเงิน</span>
+                <em>QR สร้างในเครื่อง ไม่ผ่าน backend</em>
+              </div>
+            </div>
+
+            <div class="msg-group">ขั้นจุดชนวน matching</div>
+
+            <div class="msg c1-2">
+              <div class="msg-bar"><span class="msg-n">05</span>
+                <span class="mono">POST /payments/confirm</span>
+                <em>{ bookingId, paymentId }</em>
+                <span class="dir">▶</span>
+              </div>
+            </div>
+
+            <div class="msg self2">
+              <div class="msg-bar"><span class="msg-n">06</span>
+                <span class="mono">payment → paid · booking → PENDING · ยกเลิก TTL</span>
+                <em>ล็อกทั้งสองแถวก่อนแก้</em>
+              </div>
+            </div>
+
+            <div class="msg c2-1">
+              <div class="msg-bar"><span class="msg-n">07</span>
+                <span class="mono">200 { message }</span>
+                <em>ไม่มีข้อมูลสถานะกลับมา — ต้องไปถามเอง</em>
+                <span class="dir">◀</span>
+              </div>
+            </div>
+
+            <div class="msg self2">
+              <div class="msg-bar"><span class="msg-n">08</span>
+                <span class="mono">matchBookingAsync() — goroutine แยก timeout 30 วิ</span>
+                <em>หาพาร์ทเนอร์ตามรัศมีพื้นที่ ถ้าไม่เจอใช้วิธีเอา 10 คนที่ใกล้สุด · สร้าง job_offers อายุ 10 นาที</em>
+              </div>
+            </div>
+
+            <div class="msg c2-3">
+              <div class="msg-bar"><span class="msg-n">09</span>
+                <span class="mono">LINE push — ข้อความ flex เสนองาน</span>
+                <em>ส่งหาพาร์ทเนอร์ทุกคนที่เข้าเกณฑ์</em>
+                <span class="dir">▶</span>
+              </div>
+            </div>
+
+            <div class="msg-group">ขั้นพาร์ทเนอร์ทำงาน</div>
+
+            <div class="msg c3-2">
+              <div class="msg-bar"><span class="msg-n">10</span>
+                <span class="mono">POST /partner/offers/:id/accept</span>
+                <em>booking → MATCHED · ตั้ง partner_id · ปิด offer ของคนอื่นทั้งหมด</em>
+                <span class="dir">◀</span>
+              </div>
+            </div>
+
+            <div class="msg c3-2">
+              <div class="msg-bar"><span class="msg-n">11</span>
+                <span class="mono">POST /partner/missions</span>
+                <em>booking → IN_PROGRESS · สร้าง mission พร้อม checkpoints</em>
+                <span class="dir">◀</span>
+              </div>
+            </div>
+
+            <div class="msg c3-2">
+              <div class="msg-bar"><span class="msg-n">12</span>
+                <span class="mono">POST /partner/missions/:id/complete</span>
+                <em>booking → COMPLETED</em>
+                <span class="dir">◀</span>
+              </div>
+            </div>
+
+            <div class="msg-group">ขั้นเฝ้าดู — วนตลอดตั้งแต่ข้อ 07</div>
+
+            <div class="msg c1-2">
+              <div class="msg-bar"><span class="msg-n">13</span>
+                <span class="mono">GET /bookings/:bookingId/mission</span>
+                <em>วนทุก 5 วิ ตอน PENDING · ทุก 20 วิ หลังจับคู่ได้ · ตอบกลับ { booking, mission, partner }</em>
+                <span class="dir">▶</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3>วงจรสถานะการจอง</h3>
+      <div class="lifecycle">
+        <div class="lc-row">
+          <span class="chip awaiting">AWAITING_PAYMENT</span>
+          <span class="lc-what">สร้างรายการแล้ว รอผู้ใช้ชำระเงิน — <b>นาฬิกา 15 นาทีเริ่มเดินทันที</b></span>
+        </div>
+        <div class="lc-arrow">↓ <span>POST /payments/confirm</span></div>
+        <div class="lc-row">
+          <span class="chip pending">PENDING</span>
+          <span class="lc-what">จ่ายแล้ว ระบบกำลังหาผู้ดูแล — แอปแสดง "กำลังค้นหาผู้ดูแลใกล้คุณ"</span>
+        </div>
+        <div class="lc-arrow">↓ <span>พาร์ทเนอร์กดรับงาน</span></div>
+        <div class="lc-row">
+          <span class="chip matched">MATCHED</span>
+          <span class="lc-what">ได้ผู้ดูแลแล้ว — object <code>partner</code> เริ่มมีค่า แอปโชว์ชื่อ เบอร์ และคะแนน</span>
+        </div>
+        <div class="lc-arrow">↓ <span>พาร์ทเนอร์เริ่มงาน</span></div>
+        <div class="lc-row">
+          <span class="chip progress">IN_PROGRESS</span>
+          <span class="lc-what">กำลังทำงาน — แอปเรนเดอร์ความคืบหน้าจาก <code>mission.checkpoints</code></span>
+        </div>
+        <div class="lc-arrow">↓ <span>พาร์ทเนอร์ปิดงาน</span></div>
+        <div class="lc-row">
+          <span class="chip completed">COMPLETED</span>
+          <span class="lc-what">เสร็จสิ้น — แอปหยุด poll ทันที</span>
+        </div>
+      </div>
+
+      <p>อีกสองสถานะที่เป็นทางตัน:</p>
+      <div class="lifecycle">
+        <div class="lc-row">
+          <span class="chip expired">PAYMENT_EXPIRED</span>
+          <span class="lc-what">ครบ 15 นาทีแล้วยังไม่จ่าย — <b>ไม่มีทางกู้คืน</b> แอปแสดงปุ่มให้จองใหม่อย่างเดียว</span>
+        </div>
+        <div class="lc-row">
+          <span class="chip cancelled">CANCELLED</span>
+          <span class="lc-what">ผู้ใช้กดยกเลิกเอง — ทำได้จาก <span class="chip awaiting">AWAITING_PAYMENT</span> <span class="chip pending">PENDING</span> <span class="chip matched">MATCHED</span> เท่านั้น ดูหัวข้อ 11</span>
+        </div>
+      </div>
+
+      <div class="note danger">
+        <strong>ช่องโหว่ที่รู้อยู่ (ฝั่ง backend ยังไม่แก้):</strong> ถ้าไม่มีพาร์ทเนอร์คนไหนกดรับภายใน 10 นาที
+        <b>ไม่มีอะไรมา retry หรือแจ้งเตือนเลย</b> รายการจะค้างที่ <span class="chip pending">PENDING</span> เงียบ ๆ
+        ฝั่งแอปจึงจงใจใส่คำเตือนแบบนุ่ม ๆ ขึ้นมาเองเมื่อค้างเกิน 10 นาที — ถ้าเจอเคสนี้ตอนทดสอบ
+        ให้รู้ว่าเป็นช่องโหว่นี้ ไม่ใช่บั๊กของ polling
+      </div>
+    </section>
+
+    <!-- ============ 10 STATUS ============ -->
+    <section id="status">
+      <div class="sec-head">
+        <span class="sec-num">10</span>
+        <h2>หน้าติดตามสถานะ</h2>
+        <p>
+          <code>/booking/status/:bookingId</code> — เป็นหน้าเดียวในแอปที่มี polling
+          รับข้อมูลตั้งต้นที่หน้าจอต้องใช้ (ชื่อบริการ ไอคอน สี ชื่อผู้รับบริการ) มาทาง
+          <code>extra</code> ของ router เพราะ endpoint ที่ poll ไม่ส่งของพวกนี้กลับมา
+        </p>
+      </div>
+
+      <h3>จังหวะการ poll</h3>
+      <div class="cadence">
+        <div class="cad" style="--c: var(--st-pending)">
+          <div class="k">PENDING</div>
+          <div class="v">5 วิ</div>
+          <div class="d">ถี่ที่สุด เพราะเป็นช่วงที่สถานะพร้อมเปลี่ยนทุกเมื่อ</div>
+        </div>
+        <div class="cad" style="--c: var(--st-matched)">
+          <div class="k">MATCHED</div>
+          <div class="v">20 วิ</div>
+          <div class="d">ได้คนแล้ว ผ่อนความถี่ลง</div>
+        </div>
+        <div class="cad" style="--c: var(--st-progress)">
+          <div class="k">IN_PROGRESS</div>
+          <div class="v">20 วิ</div>
+          <div class="d">ตามความคืบหน้าของ checkpoints</div>
+        </div>
+        <div class="cad" style="--c: var(--st-completed)">
+          <div class="k">สถานะปลายทาง</div>
+          <div class="v">หยุด</div>
+          <div class="d">COMPLETED · CANCELLED · PAYMENT_EXPIRED · AWAITING_PAYMENT</div>
+        </div>
+      </div>
+
+      <p>
+        นอกจากนี้ยังดึงลงเพื่อ refresh เองได้ทุกเมื่อ และ timer ถูกยกเลิกใน <code>dispose()</code>
+        เพื่อไม่ให้ยิงต่อหลังออกจากหน้า
+      </p>
+
+      <h3>สิ่งที่แสดงในแต่ละสถานะ</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>สถานะ</th><th>หน้าจอแสดง</th><th>ปุ่มที่มี</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="chip pending">PENDING</span></td>
+              <td>spinner + "กำลังค้นหาผู้ดูแลใกล้คุณ" · เกิน 10 นาทีขึ้นแถบเตือนสีเหลือง</td>
+              <td>ยกเลิกการจอง · กลับหน้าหลัก</td>
+            </tr>
+            <tr>
+              <td><span class="chip matched">MATCHED</span></td>
+              <td>การ์ดพาร์ทเนอร์ — ชื่อ เบอร์โทร คะแนนเฉลี่ย</td>
+              <td>ยกเลิกการจอง · กลับหน้าหลัก</td>
+            </tr>
+            <tr>
+              <td><span class="chip progress">IN_PROGRESS</span></td>
+              <td>การ์ดพาร์ทเนอร์ + รายการ checkpoint พร้อมเครื่องหมายถูก ถ้ายังไม่มี checkpoint จะขึ้น "พาร์ทเนอร์รับงานแล้ว กำลังเตรียมเดินทาง"</td>
+              <td>กลับหน้าหลัก <em>(ยกเลิกเองไม่ได้)</em></td>
+            </tr>
+            <tr>
+              <td><span class="chip completed">COMPLETED</span></td>
+              <td>สรุปงานเสร็จสิ้น</td>
+              <td>กลับหน้าหลัก</td>
+            </tr>
+            <tr>
+              <td><span class="chip cancelled">CANCELLED</span></td>
+              <td>สรุปการยกเลิก + เหตุผล + แถบแจ้งคืนเงินถ้าจ่ายไปแล้ว</td>
+              <td>จองใหม่</td>
+            </tr>
+            <tr>
+              <td><span class="chip expired">PAYMENT_EXPIRED</span></td>
+              <td>แจ้งว่าหมดอายุ ทำต่อไม่ได้</td>
+              <td>จองใหม่</td>
+            </tr>
+            <tr>
+              <td><span class="chip awaiting">AWAITING_PAYMENT</span></td>
+              <td>ป้ายสถานะรอชำระ</td>
+              <td>ไปชำระเงิน · ยกเลิกการจอง</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ 11 CANCEL ============ -->
+    <section id="cancel">
+      <div class="sec-head">
+        <span class="sec-num">11</span>
+        <h2>การยกเลิกการจอง</h2>
+        <p>
+          ฝั่ง backend ทำทั้งหมดใน transaction เดียว ล็อกแถวด้วย <code>FOR UPDATE</code>
+          ตามลำดับ bookings → payments เพื่อไม่ให้ deadlock กับ confirm/expire payment
+          ฝั่งแอปมีทางเข้าสองที่
+        </p>
+        <div class="routemap">
+          <div class="rt-group">
+            <h4>ทางเข้าหลัก</h4>
+            <div class="rt-list">
+              <div class="rt"><span class="path">/booking/status/:id</span><span>หน้ารายละเอียดการจอง — หน้าเดียวกับที่กดเข้าจากการ์ดนัดหมายในหน้าแรกและจากประวัติ ใช้ได้ทั้งสามสถานะที่ยกเลิกได้</span></div>
+            </div>
+          </div>
+          <div class="rt-group">
+            <h4>ทางลัดตอนยังไม่จ่าย</h4>
+            <div class="rt-list">
+              <div class="rt"><span class="path">/payment</span><span>ลิงก์ "ยกเลิกรายการจองนี้" ใต้การ์ด QR — คนที่เปลี่ยนใจตอนเห็นยอดจะได้ไม่ต้องออกไปหารายการเองแล้วปล่อยให้ countdown เดินต่อ</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3>ยกเลิกได้ตอนไหนบ้าง</h3>
+      <div class="lifecycle">
+        <div class="lc-row">
+          <span class="chip awaiting">AWAITING_PAYMENT</span>
+          <span class="lc-what">ยกเลิกได้ — ยังไม่จ่าย ไม่มีเรื่องคืนเงิน</span>
+        </div>
+        <div class="lc-row">
+          <span class="chip pending">PENDING</span>
+          <span class="lc-what">ยกเลิกได้ — หยุดการค้นหาผู้ดูแล จ่ายไปแล้วจึงต้องคืนเงิน</span>
+        </div>
+        <div class="lc-row">
+          <span class="chip matched">MATCHED</span>
+          <span class="lc-what">ยกเลิกได้ — <b>ผู้ดูแลจะได้รับ noti แจ้งยกเลิก</b> และต้องคืนเงิน</span>
+        </div>
+        <div class="lc-row">
+          <span class="chip progress">IN_PROGRESS</span>
+          <span class="lc-what"><b>ยกเลิกเองไม่ได้</b> — mission เริ่มแล้ว มีผู้ดูแลออกงานจริง ต้องผ่านเจ้าหน้าที่ (ตอบ 409)</span>
+        </div>
+        <div class="lc-row">
+          <span class="chip completed">COMPLETED</span>
+          <span class="lc-what">ยกเลิกไม่ได้ — จบงานแล้ว (ตอบ 409)</span>
+        </div>
+        <div class="lc-row">
+          <span class="chip expired">PAYMENT_EXPIRED</span>
+          <span class="lc-what">ยกเลิกไม่ได้ — ตายไปเองแล้ว (ตอบ 409)</span>
+        </div>
+      </div>
+
+      <h3>ลำดับการทำงาน</h3>
+      <div class="track">
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot solid">1</div></div>
+          <div class="stop-body">
+            <div class="stop-title">กดปุ่ม "ยกเลิกการจอง"</div>
+            <p>
+              ปุ่มจะโผล่ก็ต่อเมื่อสถานะปัจจุบันยกเลิกได้จริง — เงื่อนไขฝั่งแอปสะท้อน
+              <code>IsBookingCancellableByUser</code> ของ backend ตรง ๆ ไม่ต้องรอให้ยิงไปโดน 409 ก่อน
+            </p>
+          </div>
+        </div>
+
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot">2</div></div>
+          <div class="stop-body">
+            <div class="stop-title">ยืนยันในกล่องโต้ตอบ</div>
+            <p>
+              ข้อความอธิบายผลลัพธ์เปลี่ยนตามสถานะปัจจุบัน (ยังไม่จ่าย / กำลังหาคน / ได้คนแล้ว)
+              พร้อมช่องกรอกเหตุผลแบบ <b>ไม่บังคับ</b> จำกัด 500 ตัวอักษร
+              — ถ้าเว้นว่างจะไม่ส่ง key <code>reason</code> ขึ้นไปเลย
+            </p>
+          </div>
+        </div>
+
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot">3</div></div>
+          <div class="stop-body">
+            <div class="stop-title">ยิง API</div>
+            <p>
+              endpoint นี้ <b>idempotent</b> — กดซ้ำได้ อย่างมากก็ได้ 409 กลับมา
+              ระหว่างรอผลปุ่มจะถูก disable และเปลี่ยนข้อความเป็น "กำลังยกเลิก..."
+            </p>
+            <div class="wire">
+              <span class="call"><span class="verb post">POST</span>/bookings/:bookingId/cancel</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stop">
+          <div class="stop-rail"><div class="stop-dot">4</div></div>
+          <div class="stop-body">
+            <div class="stop-title">สำเร็จ → หยุด poll แล้วเปลี่ยนหน้าจอ</div>
+            <ul>
+              <li><b>ยกเลิก timer ทันที</b> ไม่ต้องรอรอบถัดไป — หน้ารายละเอียดหยุด polling ส่วนหน้าชำระเงินหยุดทั้ง countdown และ timer ปลดล็อกปุ่ม แล้วพากลับหน้าแรก</li>
+              <li>เคลียร์รายการรอชำระที่ค้างในหน่วยความจำ ถ้าเป็นตัวเดียวกัน — กัน countdown ที่หน้าชำระเงินเดินต่อ (ฝั่ง server ลบ Redis expiry key ให้แล้ว)</li>
+              <li>แสดงสรุปการยกเลิก + เหตุผล และแถบเตือนคืนเงินถ้า <code>refundRequired</code></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <h3>สิ่งที่ backend ทำให้ในหนึ่ง transaction</h3>
+      <ol style="max-width: var(--measure); color: var(--ink-soft); padding-left: 1.2rem;">
+        <li>ตรวจว่าเป็น booking ของผู้ใช้คนนั้นจริง และสถานะยกเลิกได้</li>
+        <li>payment ที่ยัง <code>PENDING</code> → <code>CANCELLED</code> — <b>จำเป็น</b> เพราะ sweeper กวาดเฉพาะ booking ที่ยัง <code>AWAITING_PAYMENT</code> ถ้าไม่ปิดจะค้าง PENDING ตลอดไป · ถ้า <code>PAID</code> อยู่แล้วปล่อยไว้แล้วตอบ <code>refundRequired: true</code></li>
+        <li>job offer ที่ยัง pending → expired กันพาร์ทเนอร์กดรับงานที่ยกเลิกไปแล้ว</li>
+        <li>booking → <code>CANCELLED</code> พร้อม audit trail (<code>cancelled_at</code>, <code>cancelled_by_type</code>, <code>cancelled_by_id</code>, <code>cancelled_reason</code>)</li>
+      </ol>
+      <p>
+        นอก transaction แบบ best-effort: ลบ Redis key payment-expire ·
+        ส่ง noti <code>booking_cancelled</code> หาพาร์ทเนอร์ที่ถูก match แล้ว · เขียน audit log
+      </p>
+
+      <h3>สัญญาของ API</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ส่วน</th><th>รายละเอียด</th></tr></thead>
+          <tbody>
+            <tr><td>Endpoint</td><td class="mono">POST /bookings/:bookingID/cancel</td></tr>
+            <tr><td>Auth</td><td>จำเป็น — แอปนี้ส่ง cookie <code>caremate_session</code> ที่ interceptor แนบให้อยู่แล้ว สเปกเขียนเป็น Bearer JWT แต่ <code>authRequired</code> อ่าน cookie ก่อนแล้วค่อย fallback ไป header (ยืนยันจาก <code>middleware.go</code>) จึงใช้ได้เลยไม่ต้องแก้ชั้น network</td></tr>
+            <tr><td>Body</td><td class="mono">{ "reason": "…" } — optional, ≤ 500 ตัวอักษร</td></tr>
+            <tr><td>ตอบกลับ</td><td class="mono">bookingId · reference · status · previousStatus · cancelledAt · cancelledBy · reason · paymentId · paymentStatus · refundRequired</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>ฟิลด์ที่ UI ต้องใช้จริง</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ฟิลด์</th><th>เอาไปทำอะไร</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="mono">previousStatus</td>
+              <td>เลือกข้อความบอกผู้ใช้ — <code>MATCHED</code> แจ้งว่า "ระบบได้แจ้งการยกเลิกให้ผู้ดูแลแล้ว" · <code>PENDING</code> แจ้งว่า "หยุดค้นหาผู้ดูแลแล้ว" · <code>AWAITING_PAYMENT</code> แจ้งว่า "ยกเลิกก่อนการชำระเงิน"</td>
+            </tr>
+            <tr>
+              <td class="mono">refundRequired</td>
+              <td>ถ้า <code>true</code> ขึ้นแถบสีเหลือง "อยู่ระหว่างดำเนินการคืนเงิน เจ้าหน้าที่จะติดต่อกลับ" — ยังไม่มีระบบคืนเงินอัตโนมัติ</td>
+            </tr>
+            <tr>
+              <td class="mono">paymentStatus</td>
+              <td><code>CANCELLED</code> = ยกเลิกก่อนจ่าย · <code>PAID</code> = ยกเลิกหลังจ่าย</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>การจัดการ error</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>HTTP</th><th>code</th><th>แอปทำอะไร</th></tr></thead>
+          <tbody>
+            <tr><td class="num">400</td><td class="mono">INVALID_BOOKING_REQUEST</td><td>ไม่ควรเกิด — ความยาวเหตุผลถูกจำกัดที่ช่องกรอกแล้ว</td></tr>
+            <tr><td class="num">401</td><td class="mono">–</td><td>เด้ง login (redirect ของ router จัดการให้เอง)</td></tr>
+            <tr><td class="num">404</td><td class="mono">BOOKING_NOT_FOUND</td><td>แจ้ง "ไม่พบรายการจองนี้"</td></tr>
+            <tr><td class="num">409</td><td class="mono">BOOKING_ALREADY_CANCELLED</td><td><b>ถือว่าสำเร็จ</b> — แจ้งว่ายกเลิกไปแล้ว แล้ว refresh ข้อมูล ไม่แสดงเป็น error</td></tr>
+            <tr><td class="num">409</td><td class="mono">BOOKING_NOT_CANCELLABLE</td><td>แจ้ง "กรุณาติดต่อเจ้าหน้าที่" แล้ว refresh ให้สถานะตรงความจริง</td></tr>
+            <tr><td class="num">500</td><td class="mono">INTERNAL_SERVER_ERROR</td><td>แสดงข้อความจาก server กดใหม่ได้ (idempotent)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        เพื่อแยกสอง 409 ออกจากกัน <code>ApiException</code> ถูกขยายให้เก็บ <code>code</code>
+        เพิ่มจาก <code>statusCode</code> — <b>อย่าแยกด้วยข้อความ</b> เพราะข้อความเปลี่ยนได้
+      </p>
+
+      <div class="note warn">
+        <strong>ผลข้างเคียงที่ต้องรู้:</strong> หลังยกเลิกสำเร็จ booking จะ
+        <b>หายจาก <code>GET /bookings</code></b> (รายการที่กำลังใช้งาน) แล้วไปโผล่ใน
+        <code>GET /bookings/history</code> แทน — หน้าแรกจะสะท้อนผลเองเมื่อโหลดใหม่
+      </div>
+
+      <div class="note danger">
+        <strong>ต้องรัน migration ก่อนใช้จริง:</strong>
+        <code>migrations/020_booking_cancellation_enums.sql</code> (เพิ่ม
+        <code>payment_status='CANCELLED'</code> และ <code>notification_type='booking_cancelled'</code>)
+        ใช้ <code>ADD VALUE IF NOT EXISTS</code> + <code>NO TRANSACTION</code> รันซ้ำได้ปลอดภัย
+        — ถ้าทีมยัง apply ตรงเข้า DB อยู่ ก็รันสองบรรทัดนั้นตรง ๆ ได้
+        <b>ถ้ายังไม่รัน endpoint นี้จะพังตอนเขียนค่า enum ใหม่</b>
+      </div>
+    </section>
+
+    <!-- ============ 12 PROFILE ============ -->
+    <section id="profile">
+      <div class="sec-head">
+        <span class="sec-num">12</span>
+        <h2>โปรไฟล์ &amp; ประวัติ</h2>
+        <p>หน้าโปรไฟล์เป็นสารบัญของหน้าย่อย แต่ละหน้าย่อยคุยกับ endpoint ของตัวเอง</p>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>เมนู</th><th>เส้นทาง</th><th>Endpoint</th></tr></thead>
+          <tbody>
+            <tr><td>ข้อมูลส่วนตัว</td><td class="mono">/profile/personal-information</td><td class="mono">GET /authentication/me · PATCH /users/personal-information</td></tr>
+            <tr><td>ข้อมูลสุขภาพ</td><td class="mono">/profile/health-information</td><td class="mono">GET · PATCH /users/health-information</td></tr>
+            <tr><td>ที่อยู่ของฉัน</td><td class="mono">/profile/addresses</td><td class="mono">GET · PATCH /users/address</td></tr>
+            <tr><td>สมาชิกที่ดูแล</td><td class="mono">/members</td><td class="mono">ดูหัวข้อ 06</td></tr>
+            <tr><td>ประวัติการจอง</td><td class="mono">/booking/history</td><td class="mono">GET /bookings/history</td></tr>
+            <tr><td>การชำระเงิน</td><td class="mono">/payment</td><td class="mono">ดูหัวข้อ 08</td></tr>
+            <tr><td>ตั้งค่าความปลอดภัย</td><td class="mono">/profile/settings</td><td class="mono">แสดงผลฝั่งแอปเป็นหลัก</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <strong>ออกจากระบบ</strong> เป็นการล้าง cookie ในเครื่องอย่างเดียว — ไม่มี endpoint logout
+        ฝั่ง backend ให้เรียก
+      </div>
+    </section>
+
+    <!-- ============ 13 APPENDIX ============ -->
+    <section id="appendix">
+      <div class="sec-head">
+        <span class="sec-num">13</span>
+        <h2>ภาคผนวก &amp; ข้อจำกัดที่ยังเปิดอยู่</h2>
+      </div>
+
+      <h3>Endpoint แยกตาม repository</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Repository</th><th>Endpoint ที่ถือครอง</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">auth_repository</td><td class="mono">/authentication/login · /register · /me · /pdpa · /pdpa/versions · /pdpa/:version</td></tr>
+            <tr><td class="mono">member_repository</td><td class="mono">/user-relatives (GET·POST·PATCH·GET :id·DELETE :id)</td></tr>
+            <tr><td class="mono">booking_repository</td><td class="mono">/care/services · /bookings · /bookings/history · /bookings/create · /bookings/:id/mission · /bookings/:id/cancel · /users/payment-check</td></tr>
+            <tr><td class="mono">payment_repository</td><td class="mono">/payments/methods · /payments/:id · /payments/confirm</td></tr>
+            <tr><td class="mono">profile_repository</td><td class="mono">/authentication/me · /users/personal-information · /users/health-information · /users/address</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>ความไม่สม่ำเสมอของ API ที่ต้องอยู่ร่วมกับมัน</h3>
+      <ul>
+        <li><b>envelope ไม่คงที่</b> — payload อาจอยู่ใต้ <code>data</code>, <code>Data</code>, <code>result</code> หรือไม่ห่อเลย จึงมี <code>ApiClient.unwrap()</code></li>
+        <li><b>ตัวพิมพ์ของ field ไม่คงที่</b> — <code>/bookings</code> และ <code>/bookings/history</code> เป็น snake_case ล้วน ส่วน <code>/bookings/create</code> และ <code>/user-relatives</code> เป็น camelCase จึงมี <code>pickField()</code></li>
+        <li><b>ชื่อ field ยอดเงินไม่ตรงกัน</b> — endpoint รายการใช้ <code>fee</code> ไม่ใช่ <code>total_amount</code></li>
+        <li>ทั้งสามข้อนี้ <b>เป็นพฤติกรรมจริงของ backend ที่ยืนยันแล้ว ไม่ใช่บั๊กที่ต้องไปแก้ฝั่งแอป</b></li>
+      </ul>
+
+      <h3>สิ่งที่ยังไม่มี / ยังใช้ไม่ได้</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>เรื่อง</th><th>สถานะ</th></tr></thead>
+          <tbody>
+            <tr><td>ลบสมาชิกที่ดูแล</td><td>backend ยังไม่มี route — ได้ 404</td></tr>
+            <tr><td>ยกเลิกการจองตอน IN_PROGRESS</td><td>จงใจปิดไว้ ต้องผ่านเจ้าหน้าที่ — ถ้าจะเปิด backend ต้องเพิ่มการปิด mission ให้ด้วย</td></tr>
+            <tr><td>คืนเงินอัตโนมัติ</td><td>ไม่มี — ยกเลิกหลังจ่ายแล้วเจ้าหน้าที่คืนให้เอง</td></tr>
+            <tr><td>retry การจับคู่</td><td>ไม่มี — ค้างที่ PENDING ได้แบบเงียบ</td></tr>
+            <tr><td>บันทึก consent PDPA ฝั่งเซิร์ฟเวอร์</td><td>ยังไม่มี field รับ — เก็บในเครื่องอย่างเดียว</td></tr>
+            <tr><td>QR PromptPay</td><td>ยังไม่เคยสแกนด้วยแอปธนาคารจริง</td></tr>
+            <tr><td>เลือกที่อยู่บนแผนที่ในหน้าสมาชิก</td><td>ยังไม่มีช่องที่อยู่ในฟอร์มสมาชิกเลย</td></tr>
+            <tr><td><code>GET /users/booking-check</code></td><td>มี endpoint แต่ยังไม่มีหน้าจอไหนเรียก</td></tr>
+            <tr><td>สลับ environment ของ API</td><td>ไม่มี — <code>apiBaseUrl</code> เป็น const ต้องแก้ไฟล์แล้ว build ใหม่</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      เอกสารนี้เขียนจากการอ่านโค้ดจริงใน <code>lib/</code> ของ client_app
+      ประกอบกับ <code>booking-flow.md</code> ซึ่งเป็นสเปกที่ทีม backend ส่งมาให้ฝั่ง frontend
+      หากพฤติกรรมจริงต่างจากที่เขียนไว้ ให้ยึดโค้ดกับ DTO ฝั่ง Go เป็นหลัก
+    </footer>
+
+  </main>
+</div>

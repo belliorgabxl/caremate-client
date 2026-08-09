@@ -8,10 +8,15 @@ import '../storage/local_storage.dart';
 /// Auth is a single HttpOnly `caremate_session` cookie set by the backend on
 /// `/auth/login` and `/auth/register`; Dio just replays it on every call.
 class ApiException implements Exception {
-  const ApiException(this.message, {this.statusCode});
+  const ApiException(this.message, {this.statusCode, this.code});
 
   final String message;
   final int? statusCode;
+
+  /// Machine-readable error code where the backend sends one (e.g.
+  /// `BOOKING_NOT_CANCELLABLE`) — the same HTTP status can carry different
+  /// codes, so branch on this rather than on the message text.
+  final String? code;
 
   @override
   String toString() => message;
@@ -62,7 +67,11 @@ class ApiClient {
         (data is Map<String, dynamic> ? data['message'] as String? : null) ??
         error.message ??
         'เกิดข้อผิดพลาดในการเชื่อมต่อ';
-    throw ApiException(message, statusCode: error.response?.statusCode);
+    throw ApiException(
+      message,
+      statusCode: error.response?.statusCode,
+      code: data is Map<String, dynamic> ? data['code'] as String? : null,
+    );
   }
 }
 

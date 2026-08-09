@@ -7,9 +7,12 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../shared/models/booking.dart';
+import '../../../../shared/models/booking_cancellation.dart';
 import '../../../../shared/models/mission.dart';
 import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/aurora_background.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../../shared/widgets/primary_button.dart';
@@ -40,9 +43,15 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
   DateTime? _pendingSince;
 
   bool _isLoading = true;
+  bool _isCancelling = false;
   Booking? _booking;
   Mission? _mission;
   Partner? _partner;
+
+  /// Set only when this screen is the one that cancelled the booking — a
+  /// booking opened from history that was already cancelled has no such
+  /// detail to show (the list endpoints don't carry it).
+  BookingCancellation? _cancellation;
 
   @override
   void initState() {
@@ -90,11 +99,111 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
       BookingStatus.matched => const Duration(seconds: 20),
       BookingStatus.inProgress => const Duration(seconds: 20),
       _ =>
-        null, // COMPLETED / CANCELLED / PAYMENT_EXPIRED / AWAITING_PAYMENT: stop polling
+        null,
     };
 
     if (interval == null) return;
     _pollTimer = Timer(interval, _poll);
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// Returns the reason the user typed (possibly empty) on confirm, or null
+  /// if they backed out.
+  Future<String?> _askCancelReason(Booking booking) {
+    final reasonController = TextEditingController();
+
+    final consequence = switch (booking.status) {
+      BookingStatus.awaitingPayment =>
+        'รายการนี้ยังไม่ได้ชำระเงิน ยกเลิกได้ทันที',
+      BookingStatus.matched =>
+        'ผู้ดูแลรับงานนี้ไปแล้ว ระบบจะแจ้งการยกเลิกให้ทราบ '
+            'และคืนเงินตามขั้นตอนของเจ้าหน้าที่',
+      _ =>
+        'ระบบกำลังค้นหาผู้ดูแลอยู่ การยกเลิกจะหยุดการค้นหา '
+            'และคืนเงินตามขั้นตอนของเจ้าหน้าที่',
+    };
+
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ยกเลิกการจอง'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(consequence),
+            const SizedBox(height: 16),
+            AppTextField(
+              controller: reasonController,
+              label: 'เหตุผล (ไม่บังคับ)',
+              hint: 'เช่น ผู้ป่วยอาการดีขึ้นแล้ว',
+              maxLines: 3,
+              maxLength: 500,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('ไม่ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(context, reasonController.text.trim()),
+            child: const Text(
+              'ยืนยันยกเลิก',
+              style: TextStyle(color: AppColors.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _cancelBooking(Booking booking) async {
+    final reason = await _askCancelReason(booking);
+    if (reason == null || !mounted) return;
+
+    setState(() => _isCancelling = true);
+
+    try {
+      final cancellation = await ref
+          .read(bookingRepositoryProvider)
+          .cancelBooking(bookingId: widget.bookingId, reason: reason);
+
+      if (!mounted) return;
+      _pollTimer?.cancel();
+      setState(() {
+        _cancellation = cancellation;
+        _booking = _booking?.copyWith(status: BookingStatus.cancelled);
+        _isCancelling = false;
+      });
+      _showSnack('ยกเลิกการจองเรียบร้อยแล้ว');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _isCancelling = false);
+
+      switch (e.code) {
+        // Already cancelled is the outcome the user wanted — treat it as a
+        // success and just re-sync, don't show it as a failure.
+        case BookingCancelErrorCode.alreadyCancelled:
+          _showSnack('รายการนี้ถูกยกเลิกไปแล้ว');
+          await _poll();
+        case BookingCancelErrorCode.notCancellable:
+          _showSnack('ไม่สามารถยกเลิกรายการนี้ได้ กรุณาติดต่อเจ้าหน้าที่');
+          await _poll();
+        case BookingCancelErrorCode.notFound:
+          _showSnack('ไม่พบรายการจองนี้');
+        default:
+          _showSnack(e.message);
+      }
+    }
   }
 
   bool get _isTakingLong {
@@ -179,6 +288,33 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
                 _BookingDetailCard(booking: booking),
                 const SizedBox(height: 20),
                 _buildStatusBody(booking, textTheme),
+                if (booking.status.isCancellableByUser) ...[
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _isCancelling
+                          ? null
+                          : () => _cancelBooking(booking),
+                      icon: _isCancelling
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.close_rounded),
+                      label: Text(
+                        _isCancelling ? 'กำลังยกเลิก...' : 'ยกเลิกการจอง',
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.danger,
+                        side: BorderSide(
+                          color: AppColors.danger.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
@@ -426,7 +562,88 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
         );
 
       case BookingStatus.cancelled:
-        return AppCard(child: Text(booking.status.label));
+        final cancellation = _cancellation;
+        final detail = switch (cancellation?.previousStatus) {
+          BookingStatus.matched =>
+            'ระบบได้แจ้งการยกเลิกให้ผู้ดูแลที่รับงานแล้ว',
+          BookingStatus.pending => 'ระบบหยุดค้นหาผู้ดูแลให้แล้ว',
+          BookingStatus.awaitingPayment =>
+            'รายการนี้ถูกยกเลิกก่อนการชำระเงิน',
+          _ => 'รายการนี้ถูกยกเลิกแล้ว',
+        };
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppCard(
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.cancel_rounded,
+                    color: AppColors.danger,
+                    size: 40,
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'ยกเลิกรายการแล้ว',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    detail,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppColors.textSecondary),
+                  ),
+                  if (cancellation?.reason != null) ...[
+                    const Divider(height: 24),
+                    _DetailRow(
+                      icon: Icons.notes_rounded,
+                      label: 'เหตุผลที่ยกเลิก',
+                      value: cancellation!.reason!,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (cancellation?.refundRequired == true) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(
+                    color: AppColors.warning.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.currency_exchange_rounded,
+                      color: AppColors.warning,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'ยกเลิกหลังชำระเงินแล้ว อยู่ระหว่างดำเนินการคืนเงิน '
+                        'เจ้าหน้าที่จะติดต่อกลับ',
+                        style: textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
+            PrimaryButton(
+              label: 'จองใหม่',
+              icon: Icons.add,
+              onPressed: () => context.goForward(AppRoutes.booking),
+            ),
+          ],
+        );
     }
   }
 }

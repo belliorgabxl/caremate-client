@@ -25,6 +25,14 @@ extension BookingStatusX on BookingStatus {
         BookingStatus.paymentExpired => const Color(0xFF9333EA),
       };
 
+  /// Mirrors the backend's `IsBookingCancellableByUser` — `IN_PROGRESS` is
+  /// deliberately excluded (a partner is already working the mission; that
+  /// cancellation has to go through support), as are the terminal states.
+  bool get isCancellableByUser => switch (this) {
+        BookingStatus.awaitingPayment || BookingStatus.pending || BookingStatus.matched => true,
+        _ => false,
+      };
+
   static BookingStatus fromApi(String? value) => switch (value) {
         'AWAITING_PAYMENT' => BookingStatus.awaitingPayment,
         'PENDING' => BookingStatus.pending,

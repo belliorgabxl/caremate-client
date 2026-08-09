@@ -7,7 +7,9 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../shared/models/booking.dart';
+import '../../../../shared/models/booking_cancellation.dart';
 import '../../../../shared/models/payment.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/aurora_background.dart';
@@ -29,6 +31,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   bool _isLoading = true;
   bool _canConfirm = false;
   bool _isConfirming = false;
+  bool _isCancelling = false;
 
   Booking? _booking;
   Payment? _payment;
@@ -279,6 +282,28 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                   ),
                 ),
               ],
+              const SizedBox(height: 8),
+              // A user who decides not to pay would otherwise have to leave
+              // this screen and find the booking again to cancel it — and the
+              // 15-minute expiry timer would keep running in the meantime.
+              Center(
+                child: TextButton.icon(
+                  onPressed: _isCancelling ? null : _cancelBooking,
+                  icon: _isCancelling
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.close_rounded, size: 18),
+                  label: Text(
+                    _isCancelling ? 'กำลังยกเลิก...' : 'ยกเลิกรายการจองนี้',
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.textSecondary,
+                  ),
+                ),
+              ),
             ],
           ),
         ],
@@ -328,6 +353,69 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         ),
       ),
     );
+  }
+
+  /// Cancelling here is always the `AWAITING_PAYMENT` case — nothing has been
+  /// paid, so there's no refund to explain and no partner to notify.
+  Future<void> _cancelBooking() async {
+    final booking = _booking;
+    if (booking == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ยกเลิกรายการจอง'),
+        content: const Text(
+          'รายการนี้ยังไม่ได้ชำระเงิน ยกเลิกได้ทันทีโดยไม่มีค่าใช้จ่าย '
+          'หากต้องการใช้บริการภายหลังต้องทำรายการจองใหม่',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('ไม่ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'ยืนยันยกเลิก',
+              style: TextStyle(color: AppColors.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isCancelling = true);
+
+    try {
+      await ref
+          .read(bookingRepositoryProvider)
+          .cancelBooking(bookingId: booking.id);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _isCancelling = false);
+
+      // Already cancelled is the outcome the user asked for — fall through to
+      // the same "leave this screen" handling rather than reporting an error.
+      if (e.code != BookingCancelErrorCode.alreadyCancelled) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    _unlockTimer?.cancel();
+    _countdownTimer?.cancel();
+    setState(() => _isCancelling = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('ยกเลิกรายการจองเรียบร้อยแล้ว')),
+    );
+    context.goBack(AppRoutes.home);
   }
 
   Future<void> _confirmPayment(Payment payment) async {
