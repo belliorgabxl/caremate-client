@@ -56,6 +56,10 @@ class AuthRepository {
   /// (see CLAUDE.md). Until the backend adds them they're harmlessly
   /// ignored/dropped server-side; consent is still recorded locally via
   /// `LocalStorage.savePdpaConsentGiven()` regardless.
+  ///
+  /// `referralCode` is optional (empty/omitted is fine) — sent as-is to the
+  /// backend's `RegisterRequest`, which per the referral-program spec now
+  /// accepts it as an additive, harmless-if-omitted field.
   Future<AppUser> register({
     required String phone,
     required String firstName,
@@ -65,6 +69,7 @@ class AuthRepository {
     required String dateOfBirth,
     required String email,
     String? pdpaConsentVersion,
+    String? referralCode,
   }) async {
     try {
       final response = await _api.dio.post(
@@ -81,6 +86,8 @@ class AuthRepository {
             'pdpaConsent': true,
             'pdpaConsentVersion': pdpaConsentVersion,
           },
+          if (referralCode != null && referralCode.isNotEmpty)
+            'referralCode': referralCode,
         },
       );
       await _saveSessionCookie(response);

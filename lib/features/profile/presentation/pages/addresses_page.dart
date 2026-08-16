@@ -5,11 +5,15 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/utils/error_messages.dart';
 import '../../../../shared/models/address.dart';
 import '../../../../shared/models/user_profile.dart';
+import '../../../../shared/utils/confirm_dialogs.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/aurora_background.dart';
+import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/location_picker_page.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/section_header.dart';
@@ -28,9 +32,11 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
 
   bool _isLoading = true;
   bool _isSaving = false;
+  String? _loadError;
   UserProfile? _profile;
   Address? _pickedLocation;
   String? _error;
+  bool _dirty = false;
 
   @override
   void initState() {
@@ -42,21 +48,53 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
     final user = ref.read(authControllerProvider).user;
     if (user == null) return;
 
-    final profile = await ref.read(profileRepositoryProvider).getForUser(user);
-    if (!mounted) return;
-
     setState(() {
-      _profile = profile;
-      _pickedLocation = profile.address;
-      _addressController.text = profile.address?.addressLine ?? '';
-      _isLoading = false;
+      _isLoading = true;
+      _loadError = null;
     });
+
+    try {
+      final profile = await ref
+          .read(profileRepositoryProvider)
+          .getForUser(user);
+      if (!mounted) return;
+
+      setState(() {
+        _profile = profile;
+        _pickedLocation = profile.address;
+        _addressController.text = profile.address?.addressLine ?? '';
+        _isLoading = false;
+        _dirty = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = friendlyErrorMessage(e);
+        _isLoading = false;
+      });
+    }
   }
 
   @override
   void dispose() {
     _addressController.dispose();
     super.dispose();
+  }
+
+  Future<bool> _confirmLeave() async {
+    if (!_dirty) return true;
+    return confirmDiscardChanges(context);
+  }
+
+  void _markDirty() {
+    if (!_dirty) setState(() => _dirty = true);
+  }
+
+  Future<void> _handleBack() async {
+    if (await _confirmLeave()) {
+      if (!mounted) return;
+      context.goBack(AppRoutes.profile);
+    }
   }
 
   Future<void> _pickOnMap() async {
@@ -74,6 +112,7 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
     setState(() {
       _pickedLocation = picked;
       _addressController.text = picked.addressLine;
+      _dirty = true;
     });
   }
 
@@ -103,10 +142,22 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
       ),
     );
 
-    await ref.read(profileRepositoryProvider).update(updated);
+    try {
+      await ref.read(profileRepositoryProvider).update(updated);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+        _error = friendlyErrorMessage(e);
+      });
+      return;
+    }
 
     if (!mounted) return;
-    setState(() => _isSaving = false);
+    setState(() {
+      _isSaving = false;
+      _dirty = false;
+    });
 
     ScaffoldMessenger.of(
       context,
@@ -116,13 +167,30 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    if (_isLoading || _loadError != null) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('ที่อยู่ของฉัน'),
           leading: BackButton(onPressed: () => context.goBack(AppRoutes.profile)),
         ),
-        body: const Center(child: CircularProgressIndicator()),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
+                children: [
+                  EmptyState(
+                    icon: Icons.error_outline_rounded,
+                    title: 'โหลดข้อมูลไม่สำเร็จ',
+                    message: _loadError!,
+                    action: PrimaryButton(
+                      label: 'ลองอีกครั้ง',
+                      icon: Icons.refresh_rounded,
+                      expanded: false,
+                      onPressed: _load,
+                    ),
+                  ),
+                ],
+              ),
       );
     }
 
@@ -132,7 +200,7 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('ที่อยู่ของฉัน'),
-        leading: BackButton(onPressed: () => context.goBack(AppRoutes.profile)),
+        leading: BackButton(onPressed: _handleBack),
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -168,6 +236,7 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
                       hint: 'บ้านเลขที่ ถนน แขวง/ตำบล เขต/อำเภอ',
                       prefixIcon: Icons.home_outlined,
                       maxLines: 3,
+                      onChanged: (_) => _markDirty(),
                     ),
                     const SizedBox(height: 14),
                     InkWell(
@@ -197,7 +266,7 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
                                   const SizedBox(height: 3),
                                   Text(
                                     _pickedLocation?.hasCoordinates == true
-                                        ? '${_pickedLocation!.latitude!.toStringAsFixed(5)}, ${_pickedLocation!.longitude!.toStringAsFixed(5)}'
+                                        ? 'ตำแหน่งที่ปักหมุด (ไม่พบชื่อสถานที่)'
                                         : 'ยังไม่ได้ปักหมุด',
                                     style: textTheme.bodySmall,
                                   ),

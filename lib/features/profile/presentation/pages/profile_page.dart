@@ -5,10 +5,14 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/utils/error_messages.dart';
 import '../../../../shared/models/user_profile.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/aurora_background.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
+import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/section_header.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../data/profile_repository.dart';
@@ -79,6 +83,20 @@ const _menuItems = [
     subtitle: 'จัดการความปลอดภัยของบัญชี',
     route: AppRoutes.profileSettings,
   ),
+  _MenuItem(
+    icon: Icons.card_giftcard_outlined,
+    color: AppColors.serviceErrand,
+    title: 'ชวนเพื่อน',
+    subtitle: 'แชร์รหัสชวนเพื่อนและดูจำนวนคนที่ชวนมาแล้ว',
+    route: AppRoutes.referral,
+  ),
+  _MenuItem(
+    icon: Icons.help_outline_rounded,
+    color: AppColors.info,
+    title: 'ศูนย์ช่วยเหลือ',
+    subtitle: 'คำถามที่พบบ่อยและช่องทางติดต่อเรา',
+    route: AppRoutes.helpCenter,
+  ),
 ];
 
 class ProfilePage extends ConsumerStatefulWidget {
@@ -90,6 +108,7 @@ class ProfilePage extends ConsumerStatefulWidget {
 
 class _ProfilePageState extends ConsumerState<ProfilePage> {
   bool _isLoading = true;
+  String? _loadError;
   UserProfile? _profile;
 
   @override
@@ -105,12 +124,27 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       return;
     }
 
-    final profile = await ref.read(profileRepositoryProvider).getForUser(user);
-    if (!mounted) return;
     setState(() {
-      _profile = profile;
-      _isLoading = false;
+      _isLoading = true;
+      _loadError = null;
     });
+
+    try {
+      final profile = await ref
+          .read(profileRepositoryProvider)
+          .getForUser(user);
+      if (!mounted) return;
+      setState(() {
+        _profile = profile;
+        _isLoading = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = friendlyErrorMessage(e);
+        _isLoading = false;
+      });
+    }
   }
 
   /// Mirrors `SettingsPage._confirmSignOutAllDevices` so both logout paths ask
@@ -154,6 +188,23 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       appBar: AppBar(title: const Text('โปรไฟล์')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
+          : _loadError != null
+          ? ListView(
+              padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
+              children: [
+                EmptyState(
+                  icon: Icons.error_outline_rounded,
+                  title: 'โหลดข้อมูลไม่สำเร็จ',
+                  message: _loadError!,
+                  action: PrimaryButton(
+                    label: 'ลองอีกครั้ง',
+                    icon: Icons.refresh_rounded,
+                    expanded: false,
+                    onPressed: _load,
+                  ),
+                ),
+              ],
+            )
           : Stack(
               children: [
                 const Positioned(

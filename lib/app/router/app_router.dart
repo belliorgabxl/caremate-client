@@ -8,8 +8,10 @@ import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/booking/presentation/pages/booking_history_page.dart';
 import '../../features/booking/presentation/pages/booking_page.dart';
 import '../../features/booking/presentation/pages/booking_status_page.dart';
+import '../../features/booking/presentation/pages/public_tracking_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/members/presentation/pages/members_page.dart';
+import '../../features/notifications/presentation/pages/notification_center_page.dart';
 import '../../features/payment/presentation/pages/payment_page.dart';
 import '../../features/profile/presentation/pages/addresses_page.dart';
 import '../../features/profile/presentation/pages/health_information_page.dart';
@@ -17,7 +19,10 @@ import '../../features/profile/presentation/pages/personal_information_page.dart
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/settings_page.dart';
 import '../../features/splash/presentation/pages/splash_page.dart';
+import '../../features/support/presentation/pages/help_center_page.dart';
+import '../../features/support/presentation/pages/referral_page.dart';
 import '../../shared/models/booking.dart';
+import '../../shared/models/booking_prefill.dart';
 import '../../shared/widgets/main_scaffold.dart';
 import 'app_routes.dart';
 import 'nav_direction.dart';
@@ -74,6 +79,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isSplash = path == AppRoutes.splash;
       final isLogin = path == AppRoutes.login;
       final isRegister = path == AppRoutes.register;
+      // Meant to be opened by whoever received the share link, logged in or
+      // not — never gate this behind auth, in either direction.
+      final isPublicTracking = path.startsWith('/track/');
+      if (isPublicTracking) return null;
 
       switch (auth.step) {
         case AuthStep.checking:
@@ -110,8 +119,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.booking,
-            pageBuilder: (context, state) =>
-                _slidePage(state, const BookingPage()),
+            pageBuilder: (context, state) => _slidePage(
+              state,
+              BookingPage(
+                prefill: state.extra is BookingPrefill
+                    ? state.extra as BookingPrefill
+                    : null,
+              ),
+            ),
           ),
           GoRoute(
             path: AppRoutes.members,
@@ -163,6 +178,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             bookingId: state.pathParameters['bookingId']!,
             seed: state.extra is Booking ? state.extra as Booking : null,
           ),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.referral,
+        pageBuilder: (context, state) =>
+            _slidePage(state, const ReferralPage()),
+      ),
+      GoRoute(
+        path: AppRoutes.helpCenter,
+        pageBuilder: (context, state) =>
+            _slidePage(state, const HelpCenterPage()),
+      ),
+      GoRoute(
+        path: AppRoutes.notifications,
+        pageBuilder: (context, state) =>
+            _slidePage(state, const NotificationCenterPage()),
+      ),
+      GoRoute(
+        path: AppRoutes.publicTracking,
+        pageBuilder: (context, state) => _slidePage(
+          state,
+          PublicTrackingPage(token: state.pathParameters['token']!),
         ),
       ),
     ],

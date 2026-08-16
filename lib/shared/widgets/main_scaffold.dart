@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/router/app_routes.dart';
+import '../../app/router/booking_wizard_dirty.dart';
 import '../../app/router/nav_direction.dart';
+import '../utils/confirm_dialogs.dart';
 
 class MainScaffold extends StatelessWidget {
   const MainScaffold({super.key, required this.child});
@@ -16,10 +18,22 @@ class MainScaffold extends StatelessWidget {
     return 0;
   }
 
-  void _onTap(BuildContext context, int index) {
+  Future<void> _onTap(BuildContext context, int index) async {
     final currentIndex = _getCurrentIndex(
       GoRouterState.of(context).uri.toString(),
     );
+
+    // Leaving the booking tab mid-wizard (past the first step) would
+    // silently discard everything the user has filled in — confirm first.
+    if (currentIndex == 1 && index != 1 && bookingWizardDirty.value) {
+      final confirmed = await confirmDiscardChanges(
+        context,
+        message: 'ข้อมูลการจองที่กรอกไว้จะหายไป ต้องการออกจากหน้านี้หรือไม่?',
+      );
+      if (!context.mounted || !confirmed) return;
+      bookingWizardDirty.value = false;
+    }
+
     navDirection.value = index >= currentIndex
         ? NavDirection.forward
         : NavDirection.back;

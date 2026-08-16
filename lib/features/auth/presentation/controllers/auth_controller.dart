@@ -1,15 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../../../../core/network/api_client.dart';
+import '../../../../core/services/push_notifications_service.dart';
 import '../../data/auth_repository.dart';
 import '../../data/models/app_user.dart';
 
 enum AuthStep { checking, loggedOut, authenticated }
 
 class AuthController extends ChangeNotifier {
-  AuthController(this._repo);
+  AuthController(this._repo, this._api);
 
   final AuthRepository _repo;
+  final ApiClient _api;
+
+  /// Best-effort — a failed/unavailable push setup should never affect the
+  /// actual auth flow, hence the swallowed error.
+  void _syncPushToken() {
+    PushNotificationsService.syncToken(_api).catchError((_) {});
+  }
 
   AuthStep _step = AuthStep.checking;
   AppUser? _user;
@@ -28,6 +37,7 @@ class AuthController extends ChangeNotifier {
     final user = await _repo.restoreSession();
     _user = user;
     _step = user != null ? AuthStep.authenticated : AuthStep.loggedOut;
+    if (user != null) _syncPushToken();
     notifyListeners();
   }
 
@@ -38,6 +48,7 @@ class AuthController extends ChangeNotifier {
     try {
       _user = await _repo.login(phone);
       _step = AuthStep.authenticated;
+      _syncPushToken();
     } finally {
       _isSubmitting = false;
       notifyListeners();
@@ -53,6 +64,7 @@ class AuthController extends ChangeNotifier {
     required String dateOfBirth,
     required String email,
     String? pdpaConsentVersion,
+    String? referralCode,
   }) async {
     _isSubmitting = true;
     notifyListeners();
@@ -67,8 +79,10 @@ class AuthController extends ChangeNotifier {
         dateOfBirth: dateOfBirth,
         email: email,
         pdpaConsentVersion: pdpaConsentVersion,
+        referralCode: referralCode,
       );
       _step = AuthStep.authenticated;
+      _syncPushToken();
     } finally {
       _isSubmitting = false;
       notifyListeners();
@@ -89,5 +103,5 @@ class AuthController extends ChangeNotifier {
 }
 
 final authControllerProvider = ChangeNotifierProvider<AuthController>((ref) {
-  return AuthController(ref.read(authRepositoryProvider));
+  return AuthController(ref.read(authRepositoryProvider), ref.read(apiClientProvider));
 });

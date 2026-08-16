@@ -18,6 +18,7 @@ class Partner {
     this.ratingAvg,
     this.currentLat,
     this.currentLng,
+    this.verified = false,
   });
 
   final String id;
@@ -27,7 +28,16 @@ class Partner {
   final double? currentLat;
   final double? currentLng;
 
+  /// The backend doesn't send a dedicated `verified` field — it embeds the
+  /// full partner row, so `status == "active"` (the same value gating
+  /// partner login server-side, see care-mate-backend's `domain.CanLogin`)
+  /// is the real signal a fully-vetted partner has been matched. Defaults to
+  /// false if `status` is absent (absence of the badge is the neutral
+  /// state, never a "not verified" negative signal).
+  final bool verified;
+
   factory Partner.fromJson(Map<String, dynamic> json) {
+    final status = pickField(json, const ['status', 'Status']) as String?;
     return Partner(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '-',
@@ -35,6 +45,7 @@ class Partner {
       ratingAvg: (json['rating_avg'] as num?)?.toDouble(),
       currentLat: (json['current_lat'] as num?)?.toDouble(),
       currentLng: (json['current_lng'] as num?)?.toDouble(),
+      verified: status == 'active',
     );
   }
 }

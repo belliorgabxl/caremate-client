@@ -1,0 +1,46 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "CareMate (Android emulator)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "emulator-5554"
+    },
+    {
+      "name": "CareMate (Windows)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "windows"
+    },
+    {
+      "name": "CareMate (Chrome)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "chrome"
+    },
+    {
+      "name": "CareMate (Edge)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "edge"
+    },
+    {
+      "name": "CareMate (default device)",
+      "request": "launch",
+      "type": "dart"
+    },
+    {
+      "name": "CareMate (profile mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "CareMate (release mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release"
+    }
+  ]
+}

@@ -13,6 +13,11 @@ class AppRoutes {
   static const profileSettings = '/profile/settings';
   static const bookingHistory = '/booking/history';
   static const bookingStatus = '/booking/status/:bookingId';
+  static const referral = '/profile/referral';
+  static const helpCenter = '/profile/help-center';
+  static const notifications = '/notifications';
+  static const publicTracking = '/track/:token';
 
   static String bookingStatusPath(String bookingId) => '/booking/status/$bookingId';
+  static String publicTrackingPath(String token) => '/track/$token';
 }

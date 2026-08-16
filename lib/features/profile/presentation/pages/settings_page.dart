@@ -8,6 +8,7 @@ import '../../../../core/constants/app_radius.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/aurora_background.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
+import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/section_header.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 
@@ -23,20 +24,6 @@ class _SecurityItem {
   final String description;
   final IconData icon;
   bool enabled;
-}
-
-class _LoginHistoryItem {
-  const _LoginHistoryItem({
-    required this.device,
-    required this.location,
-    required this.time,
-    this.current = false,
-  });
-
-  final String device;
-  final String location;
-  final String time;
-  final bool current;
 }
 
 class SettingsPage extends ConsumerStatefulWidget {
@@ -65,20 +52,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       description: 'ยืนยันตัวตนก่อนชำระเงินหรือทำรายการสำคัญ',
       icon: Icons.verified_user_outlined,
       enabled: true,
-    ),
-  ];
-
-  static const _loginHistory = [
-    _LoginHistoryItem(
-      device: 'Android • CareMate App',
-      location: 'กรุงเทพมหานคร',
-      time: 'วันนี้ 12:34',
-      current: true,
-    ),
-    _LoginHistoryItem(
-      device: 'Chrome on Windows',
-      location: 'กรุงเทพมหานคร',
-      time: 'เมื่อวาน 21:45',
     ),
   ];
 
@@ -264,50 +237,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 icon: Icons.history_rounded,
               ),
               const SizedBox(height: 12),
-              AppCard(
-                padding: EdgeInsets.zero,
-                child: Material(
-                  type: MaterialType.transparency,
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < _loginHistory.length; i++) ...[
-                        if (i > 0) const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.devices_rounded),
-                          title: Text(
-                            _loginHistory[i].device,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Text(
-                            '${_loginHistory[i].location} • ${_loginHistory[i].time}',
-                          ),
-                          trailing: _loginHistory[i].current
-                              ? Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.successBg,
-                                    borderRadius: BorderRadius.circular(
-                                      AppRadius.pill,
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    'ปัจจุบัน',
-                                    style: TextStyle(
-                                      color: AppColors.success,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                )
-                              : null,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+              const EmptyState(
+                icon: Icons.history_toggle_off_rounded,
+                title: 'ฟีเจอร์นี้ยังไม่พร้อมใช้งาน',
+                message: 'ประวัติการเข้าสู่ระบบจะเปิดให้ใช้งานเร็ว ๆ นี้',
               ),
               const SizedBox(height: 24),
               Container(

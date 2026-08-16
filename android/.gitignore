@@ -12,3 +12,9 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Firebase config — same treatment as the Google Maps key above (see
+# app/build.gradle.kts): Google considers this file safe to commit since it
+# only carries a restricted client key, but this project's own convention
+# keeps API-key-bearing config out of git regardless, so stay consistent.
+app/google-services.json

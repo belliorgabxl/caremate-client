@@ -16,6 +16,7 @@ import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../controllers/auth_controller.dart';
+import '../widgets/otp_verification_sheet.dart';
 import '../widgets/pdpa_consent_dialog.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
@@ -25,10 +26,16 @@ class RegisterPage extends ConsumerStatefulWidget {
   ConsumerState<RegisterPage> createState() => _RegisterPageState();
 }
 
+// Must match the only gender values the backend actually accepts —
+// `UpdateUserPersonalInformationRequest.Validate()` in care-mate-backend
+// (internal/dto/user_dto.go) rejects anything outside male/female/unspecified
+// with ErrGenderInvalid. Register's own DTO doesn't validate gender at all,
+// but sending a value the *update* endpoint will later reject (e.g. the old
+// "other") breaks editing personal info for that user forever after.
 const _genderOptions = [
   ('male', 'ชาย'),
   ('female', 'หญิง'),
-  ('other', 'อื่นๆ'),
+  ('unspecified', 'ไม่ระบุ'),
 ];
 
 class _RegisterPageState extends ConsumerState<RegisterPage> {
@@ -38,6 +45,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   final _lastNameController = TextEditingController();
   final _nicknameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _referralCodeController = TextEditingController();
   String _gender = _genderOptions.first.$1;
   DateTime? _dateOfBirth;
   String? _error;
@@ -49,6 +57,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     _lastNameController.dispose();
     _nicknameController.dispose();
     _emailController.dispose();
+    _referralCodeController.dispose();
     super.dispose();
   }
 
@@ -75,6 +84,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
     setState(() => _error = null);
 
+    final phone = _phoneController.text.trim();
+    final verified = await OtpVerificationSheet.show(context, phone: phone);
+    if (!verified) return;
+    if (!mounted) return;
+
     final pdpaConsentVersion = await PdpaConsentDialog.show(context);
     if (pdpaConsentVersion == null) return;
     await ref
@@ -88,7 +102,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       await ref
           .read(authControllerProvider)
           .register(
-            phone: _phoneController.text.trim(),
+            phone: phone,
             firstName: _firstNameController.text.trim(),
             lastName: _lastNameController.text.trim(),
             nickname: _nicknameController.text.trim(),
@@ -96,6 +110,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             dateOfBirth: dateOfBirthIso,
             email: _emailController.text.trim(),
             pdpaConsentVersion: pdpaConsentVersion,
+            referralCode: _referralCodeController.text.trim().isEmpty
+                ? null
+                : _referralCodeController.text.trim(),
           );
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -297,6 +314,13 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                             return 'อีเมลไม่ถูกต้อง';
                           return null;
                         },
+                      ),
+                      const SizedBox(height: 14),
+                      AppTextField(
+                        controller: _referralCodeController,
+                        label: 'รหัสชวนเพื่อน (ถ้ามี)',
+                        hint: 'กรอกรหัสจากเพื่อนที่ชวนคุณมา',
+                        prefixIcon: Icons.card_giftcard_outlined,
                       ),
                     ],
                   ),

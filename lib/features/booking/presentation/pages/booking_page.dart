@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/router/booking_wizard_dirty.dart';
 import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../shared/models/address.dart';
+import '../../../../shared/models/booking_prefill.dart';
 import '../../../../shared/models/care_member.dart';
 import '../../../../shared/models/care_service.dart';
 import '../../../../shared/models/payment.dart';
@@ -28,7 +30,9 @@ import '../../domain/booking_calculations.dart';
 const _stepLabels = ['บริการ', 'เวลา', 'ผู้รับบริการ', 'สถานที่', 'ยืนยัน'];
 
 class BookingPage extends ConsumerStatefulWidget {
-  const BookingPage({super.key});
+  const BookingPage({super.key, this.prefill});
+
+  final BookingPrefill? prefill;
 
   @override
   ConsumerState<BookingPage> createState() => _BookingPageState();
@@ -93,7 +97,21 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     return minutes > 0 ? minutes : 0;
   }
 
-  bool get _isTimeRangeValid => _selectedDurationMinutes > 0;
+  bool get _isDurationPositive => _selectedDurationMinutes > 0;
+
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  /// If the selected date is today, the start time can't be earlier than
+  /// right now — `showDatePicker`'s `firstDate: now` only blocks past
+  /// *dates*, not past *times* on today's date.
+  bool get _isStartTimeInFuture {
+    final now = DateTime.now();
+    if (!_isSameDay(_selectedDate, now)) return true;
+    return _minutesOfDay(_startTime) >= now.hour * 60 + now.minute;
+  }
+
+  bool get _isTimeRangeValid => _isDurationPositive && _isStartTimeInFuture;
 
   /// Only PromptPay is wired up on this booking form (see `PaymentPage`'s QR
   /// step) — `paymentMethodId` sent to `POST /bookings/create` must be the
@@ -139,6 +157,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   @override
   void initState() {
     super.initState();
+    bookingWizardDirty.value = false;
     _load();
   }
 
@@ -164,10 +183,53 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       _pickupLocation = members.isNotEmpty ? members.first.address : null;
       _isLoading = false;
     });
+
+    _applyPrefill(services, members);
+  }
+
+  /// Best-effort — a `serviceSlug`/`memberId` that doesn't match anything in
+  /// the just-loaded lists just leaves the default selection in place, and a
+  /// missing pickup/destination address leaves whatever `_load()` already
+  /// set. Never throws, never blocks the page.
+  void _applyPrefill(List<CareService> services, List<CareMember> members) {
+    final prefill = widget.prefill;
+    if (prefill == null) return;
+
+    var serviceIndex = _selectedServiceIndex;
+    var memberIndex = _selectedMemberIndex;
+
+    final slug = prefill.serviceSlug;
+    if (slug != null) {
+      final index = services.indexWhere((s) => s.slug == slug);
+      if (index != -1) serviceIndex = index;
+    }
+
+    final memberId = prefill.memberId;
+    if (memberId != null) {
+      final index = members.indexWhere((m) => m.id == memberId);
+      if (index != -1) memberIndex = index;
+    }
+
+    final pickup = prefill.pickupAddress;
+    final destination = prefill.destinationAddress;
+
+    setState(() {
+      _selectedServiceIndex = serviceIndex;
+      _selectedMemberIndex = memberIndex;
+      if (pickup != null) {
+        _pickupLocation = pickup;
+        _pickupController.text = pickup.addressLine;
+      }
+      if (destination != null) {
+        _destinationLocation = destination;
+        _destinationController.text = destination.addressLine;
+      }
+    });
   }
 
   @override
   void dispose() {
+    bookingWizardDirty.value = false;
     _pageController.dispose();
     _pickupController.dispose();
     _destinationController.dispose();
@@ -440,6 +502,10 @@ class _BookingPageState extends ConsumerState<BookingPage> {
             icon: Icons.assignment_turned_in_rounded,
           ),
           const SizedBox(height: 12),
+          if (_promptPayMethodId == null) ...[
+            _buildPromptPayWarningBanner(),
+            const SizedBox(height: 12),
+          ],
           if (service != null && member != null) ...[
             _ConfirmTile(
               icon: service.icon,
@@ -466,6 +532,35 @@ class _BookingPageState extends ConsumerState<BookingPage> {
             const AppCard(
               child: Text('กรุณาเลือกบริการและผู้รับบริการให้ครบก่อน'),
             ),
+        ],
+      ),
+    );
+  }
+
+  /// PromptPay is the only payment method wired into this form — if it isn't
+  /// in the fetched list (backend misconfiguration, or the list simply
+  /// hasn't loaded a matching slug), surface that here instead of only at
+  /// final submit.
+  Widget _buildPromptPayWarningBanner() {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline_rounded, color: AppColors.warning),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'ไม่พบวิธีชำระเงิน PromptPay กรุณาลองใหม่อีกครั้งภายหลัง',
+              style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ),
         ],
       ),
     );
@@ -693,12 +788,21 @@ class _BookingPageState extends ConsumerState<BookingPage> {
               ),
             ],
           ),
-          if (!_isTimeRangeValid) ...[
+          if (!_isDurationPositive) ...[
             const SizedBox(height: 10),
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 'เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม',
+                style: textTheme.bodySmall?.copyWith(color: AppColors.danger),
+              ),
+            ),
+          ] else if (!_isStartTimeInFuture) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'เวลาเริ่มต้องไม่ใช่เวลาที่ผ่านมาแล้ว',
                 style: textTheme.bodySmall?.copyWith(color: AppColors.danger),
               ),
             ),
@@ -771,6 +875,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       child: AppTextField(
         controller: _noteController,
         maxLines: 4,
+        maxLength: 500,
         hint: 'เช่น เดินช้า, ต้องใช้รถเข็น, แพ้อาหาร, ต้องช่วยถือของ',
       ),
     );
@@ -893,6 +998,11 @@ class _BookingPageState extends ConsumerState<BookingPage> {
 
   void _goToStep(int step) {
     setState(() => _currentStep = step);
+    // Service selection alone (step 0) isn't worth guarding — anything past
+    // it (time range, recipient, location, notes, confirm) is.
+    if (step > 0) {
+      bookingWizardDirty.value = true;
+    }
     _pageController.animateToPage(
       step,
       duration: const Duration(milliseconds: 280),
@@ -1013,8 +1123,12 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       _showSnack('กรุณาเลือกจุดหมายปลายทางบนแผนที่');
       return;
     }
-    if (!_isTimeRangeValid) {
+    if (!_isDurationPositive) {
       _showSnack('เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม');
+      return;
+    }
+    if (!_isStartTimeInFuture) {
+      _showSnack('เวลาเริ่มต้องไม่ใช่เวลาที่ผ่านมาแล้ว');
       return;
     }
     final paymentMethodId = _promptPayMethodId;
@@ -1068,6 +1182,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
 
     if (!mounted) return;
     setState(() => _isSubmitting = false);
+    bookingWizardDirty.value = false;
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('สร้างรายการจองสำเร็จ กรุณาชำระเงิน')),

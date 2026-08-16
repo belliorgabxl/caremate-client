@@ -6,7 +6,10 @@ import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/utils/error_messages.dart';
+import '../../../../shared/models/address.dart';
 import '../../../../shared/models/booking.dart';
+import '../../../../shared/models/booking_prefill.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../../shared/widgets/empty_state.dart';
@@ -49,10 +52,38 @@ class _BookingHistoryPageState extends ConsumerState<BookingHistoryPage> {
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.message;
+        _error = friendlyErrorMessage(e);
         _isLoading = false;
       });
     }
+  }
+
+  /// `Booking` (from `/bookings/history`) doesn't carry a service slug or
+  /// member id — the backend row is thin, per CLAUDE.md's documented quirk —
+  /// so this is a best-effort partial prefill: only the address strings
+  /// (wrapped as a plain `Address` with no coordinates, since history rows
+  /// don't carry lat/lng either) make it across. `BookingPage` treats a
+  /// non-matching/absent `serviceSlug`/`memberId` as a no-op, so this is
+  /// still real value even though it can't reselect the same service or
+  /// recipient.
+  void _rebook(BuildContext context, Booking booking) {
+    context.goForward(
+      AppRoutes.booking,
+      extra: BookingPrefill(
+        pickupAddress: Address(
+          addressLine: booking.pickupAddress,
+          latitude: 0,
+          longitude: 0,
+        ),
+        destinationAddress: booking.destinationAddress == null
+            ? null
+            : Address(
+                addressLine: booking.destinationAddress!,
+                latitude: 0,
+                longitude: 0,
+              ),
+      ),
+    );
   }
 
   String _formatDateTime(DateTime dateTime) {
@@ -180,32 +211,55 @@ class _BookingHistoryPageState extends ConsumerState<BookingHistoryPage> {
                                       ),
                                     ),
                                     const SizedBox(height: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.surfaceAlt,
-                                        borderRadius: BorderRadius.circular(
-                                          AppRadius.sm,
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 6,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.surfaceAlt,
+                                              borderRadius: BorderRadius.circular(
+                                                AppRadius.sm,
+                                              ),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(
+                                                  Icons.receipt_rounded,
+                                                  size: 14,
+                                                  color: AppColors.textSecondary,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Flexible(
+                                                  child: Text(
+                                                    '${booking.reference} • ฿${booking.totalAmount.toStringAsFixed(0)}',
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: textTheme.labelMedium,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(
-                                            Icons.receipt_rounded,
-                                            size: 14,
-                                            color: AppColors.textSecondary,
+                                        const SizedBox(width: 8),
+                                        TextButton.icon(
+                                          onPressed: () => _rebook(context, booking),
+                                          style: TextButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                            ),
                                           ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            '${booking.reference} • ฿${booking.totalAmount.toStringAsFixed(0)}',
-                                            style: textTheme.labelMedium,
+                                          icon: const Icon(
+                                            Icons.replay_rounded,
+                                            size: 16,
                                           ),
-                                        ],
-                                      ),
+                                          label: const Text('จองซ้ำ'),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),

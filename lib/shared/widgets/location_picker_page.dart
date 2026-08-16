@@ -279,13 +279,13 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
           ? null
           : _formatPlacemark(placemarks.first);
       setState(() {
-        _addressLabel = label ?? _formatLatLng(point);
+        _addressLabel = label ?? _unresolvedAddressLabel;
         _isResolvingAddress = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _addressLabel = _formatLatLng(point);
+        _addressLabel = _unresolvedAddressLabel;
         _isResolvingAddress = false;
       });
     }
@@ -298,11 +298,14 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
       p.locality,
       p.administrativeArea,
     ].where((part) => part != null && part.trim().isNotEmpty).toList();
-    return parts.isEmpty ? _formatLatLng(_center) : parts.join(', ');
+    return parts.isEmpty ? _unresolvedAddressLabel : parts.join(', ');
   }
 
-  String _formatLatLng(LatLng point) =>
-      '${point.latitude.toStringAsFixed(6)}, ${point.longitude.toStringAsFixed(6)}';
+  /// Never surface raw lat/long to the user as if it were a place name —
+  /// the numeric coordinates still travel to the backend via [Address.latitude]
+  /// / [Address.longitude], this is only the human-facing label shown when
+  /// reverse-geocoding couldn't resolve one.
+  static const _unresolvedAddressLabel = 'ตำแหน่งที่ปักหมุด (ไม่พบชื่อสถานที่)';
 
   Future<void> _useCurrentLocation() async {
     setState(() => _isLocating = true);
@@ -358,7 +361,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
   void _confirm() {
     Navigator.of(context).pop(
       Address(
-        addressLine: _addressLabel ?? _formatLatLng(_center),
+        addressLine: _addressLabel ?? _unresolvedAddressLabel,
         latitude: _center.latitude,
         longitude: _center.longitude,
       ),
@@ -618,7 +621,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                                   style: textTheme.bodyMedium,
                                 )
                               : Text(
-                                  _addressLabel ?? _formatLatLng(_center),
+                                  _addressLabel ?? _unresolvedAddressLabel,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: textTheme.bodyMedium?.copyWith(

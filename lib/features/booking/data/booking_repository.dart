@@ -9,6 +9,15 @@ import '../../../shared/models/care_member.dart';
 import '../../../shared/models/care_service.dart';
 import '../../../shared/models/mission.dart';
 import '../../../shared/models/payment.dart';
+import '../../../shared/models/public_tracking.dart';
+
+/// `POST /bookings/:bookingID/share-location` response.
+class ShareLocationLink {
+  const ShareLocationLink({required this.token, this.expiresAt});
+
+  final String token;
+  final DateTime? expiresAt;
+}
 
 /// Dart's `DateTime.toIso8601String()` omits the timezone entirely for local
 /// (non-UTC) DateTimes (e.g. `2026-08-05T09:00:00.000`, no `Z`/offset) —
@@ -259,6 +268,87 @@ class BookingRepository {
   void clearPendingPayment() {
     _pendingBooking = null;
     _pendingPayment = null;
+  }
+
+  /// `POST /bookings/:bookingID/emergency` — SOS alert, available while the
+  /// booking is in any non-terminal state (see `BookingStatusPage`'s
+  /// eligibility check). Fire-and-forget from the caller's perspective: a
+  /// 201 just means the alert was recorded, there's no state to merge back.
+  Future<void> triggerEmergency({
+    required String bookingId,
+    required String type,
+    String? notes,
+  }) async {
+    final trimmedNotes = notes?.trim();
+
+    try {
+      await _api.dio.post(
+        '/bookings/$bookingId/emergency',
+        data: {
+          'type': type,
+          if (trimmedNotes != null && trimmedNotes.isNotEmpty) 'notes': trimmedNotes,
+        },
+      );
+    } on DioException catch (e) {
+      _api.throwApiException(e);
+    }
+  }
+
+  /// `POST /bookings/:bookingID/share-location` — mints a short-lived public
+  /// token for `GET /public/tracking/:token` (see [getPublicTracking]),
+  /// meant to be handed to family via the native share sheet.
+  Future<ShareLocationLink> createShareLink(String bookingId) async {
+    try {
+      final response = await _api.dio.post('/bookings/$bookingId/share-location');
+      final data = _api.unwrap(response.data) as Map<String, dynamic>;
+      final expiresRaw = pickField(data, const ['expiresAt', 'expires_at']) as String?;
+
+      return ShareLocationLink(
+        token: pickField(data, const ['token']) as String? ?? '',
+        expiresAt: expiresRaw == null ? null : DateTime.tryParse(expiresRaw),
+      );
+    } on DioException catch (e) {
+      _api.throwApiException(e);
+    }
+  }
+
+  /// `GET /public/tracking/:token` — the app's one fully public, no-auth
+  /// endpoint (`ApiClient`'s interceptor only *adds* a cookie when one
+  /// exists, never requires one, so this works unauthenticated as-is).
+  /// Throws [ApiException] with `statusCode == 404` for an invalid or
+  /// expired token — the two cases are indistinguishable server-side.
+  Future<PublicTracking> getPublicTracking(String token) async {
+    try {
+      final response = await _api.dio.get('/public/tracking/$token');
+      final data = _api.unwrap(response.data) as Map<String, dynamic>;
+      return PublicTracking.fromJson(data);
+    } on DioException catch (e) {
+      _api.throwApiException(e);
+    }
+  }
+
+  /// `POST /bookings/:bookingID/review` — only valid once. The backend
+  /// answers `409` if a review already exists for this booking; the caller
+  /// (`BookingStatusPage`) branches on `ApiException.statusCode == 409` to
+  /// show "คุณให้คะแนนบริการนี้ไปแล้ว" instead of a generic error.
+  Future<void> submitReview({
+    required String bookingId,
+    required int rating,
+    String? comment,
+  }) async {
+    final trimmedComment = comment?.trim();
+
+    try {
+      await _api.dio.post(
+        '/bookings/$bookingId/review',
+        data: {
+          'rating': rating,
+          if (trimmedComment != null && trimmedComment.isNotEmpty) 'comment': trimmedComment,
+        },
+      );
+    } on DioException catch (e) {
+      _api.throwApiException(e);
+    }
   }
 
   List<dynamic> _extractList(dynamic body, List<String> keys) {

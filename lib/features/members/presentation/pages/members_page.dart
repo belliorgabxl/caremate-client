@@ -8,7 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/utils/error_messages.dart';
 import '../../../../shared/models/care_member.dart';
+import '../../../../shared/utils/confirm_dialogs.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/aurora_background.dart';
@@ -29,7 +32,7 @@ class MembersPage extends ConsumerStatefulWidget {
 const _genderOptions = [
   ('male', 'ชาย'),
   ('female', 'หญิง'),
-  ('other', 'อื่นๆ'),
+  ('unspecified', 'ไม่ระบุ'),
 ];
 
 const _bloodTypeOptions = ['A', 'B', 'AB', 'O'];
@@ -46,6 +49,7 @@ class _MembersPageState extends ConsumerState<MembersPage> {
   String _selectedFilter = 'ทั้งหมด';
 
   bool _isLoading = true;
+  String? _error;
   List<CareMember> _members = const [];
 
   @override
@@ -55,13 +59,24 @@ class _MembersPageState extends ConsumerState<MembersPage> {
   }
 
   Future<void> _load() async {
-    setState(() => _isLoading = true);
-    final members = await ref.read(memberRepositoryProvider).list();
-    if (!mounted) return;
     setState(() {
-      _members = members;
-      _isLoading = false;
+      _isLoading = true;
+      _error = null;
     });
+    try {
+      final members = await ref.read(memberRepositoryProvider).list();
+      if (!mounted) return;
+      setState(() {
+        _members = members;
+        _isLoading = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = friendlyErrorMessage(e);
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -101,16 +116,48 @@ class _MembersPageState extends ConsumerState<MembersPage> {
       );
     }
 
+    if (_error != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('สมาชิก')),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
+          children: [
+            EmptyState(
+              icon: Icons.error_outline_rounded,
+              title: 'โหลดข้อมูลไม่สำเร็จ',
+              message: _error!,
+              action: PrimaryButton(
+                label: 'ลองอีกครั้ง',
+                icon: Icons.refresh_rounded,
+                expanded: false,
+                onPressed: _load,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final members = _filteredMembers;
     final textTheme = Theme.of(context).textTheme;
+    final atMaxRelatives = _members.length >= AppConfig.maxRelatives;
 
     return Scaffold(
       appBar: AppBar(title: const Text('สมาชิก')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showMemberFormSheet(),
-        icon: const Icon(Icons.add),
-        label: const Text('เพิ่มสมาชิก'),
-      ),
+      floatingActionButton: atMaxRelatives
+          ? FloatingActionButton.extended(
+              onPressed: null,
+              backgroundColor: AppColors.textSecondary.withValues(
+                alpha: 0.4,
+              ),
+              icon: const Icon(Icons.block_rounded),
+              label: Text('ถึงจำนวนสูงสุด (${AppConfig.maxRelatives} คน)'),
+            )
+          : FloatingActionButton.extended(
+              onPressed: () => _showMemberFormSheet(),
+              icon: const Icon(Icons.add),
+              label: const Text('เพิ่มสมาชิก'),
+            ),
       body: Stack(
         children: [
           const Positioned(
@@ -345,9 +392,18 @@ class _MembersPageState extends ConsumerState<MembersPage> {
       ),
     );
 
-    if (confirmed == true) {
+    if (confirmed != true) return;
+
+    try {
       await ref.read(memberRepositoryProvider).softDelete(member.id);
       await _load();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ยังไม่รองรับการลบสมาชิกในขณะนี้ กรุณาลองใหม่ภายหลัง'),
+        ),
+      );
     }
   }
 
@@ -381,6 +437,20 @@ class _MembersPageState extends ConsumerState<MembersPage> {
         : _bloodTypeOptions.first;
     var isSubmitting = false;
 
+    final initialGender = gender;
+    final initialBloodType = bloodType;
+    bool hasUnsavedChanges() =>
+        firstNameController.text != (member?.firstName ?? '') ||
+        lastNameController.text != (member?.lastName ?? '') ||
+        nicknameController.text != (member?.nickname ?? '') ||
+        relationshipController.text != (member?.relationship ?? '') ||
+        phoneController.text != (member?.phone ?? '') ||
+        ageController.text !=
+            (member == null || member.age == 0 ? '' : '${member.age}') ||
+        careNoteController.text != (member?.careNote ?? '') ||
+        gender != initialGender ||
+        bloodType != initialBloodType;
+
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
@@ -390,7 +460,18 @@ class _MembersPageState extends ConsumerState<MembersPage> {
           builder: (context, setSheetState) {
             final textTheme = Theme.of(context).textTheme;
 
-            return Padding(
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, result) async {
+                if (didPop) return;
+                if (!hasUnsavedChanges()) {
+                  Navigator.of(context).pop();
+                  return;
+                }
+                final leave = await confirmDiscardChanges(context);
+                if (leave && context.mounted) Navigator.of(context).pop();
+              },
+              child: Padding(
               padding: EdgeInsets.fromLTRB(
                 24,
                 8,
@@ -480,9 +561,16 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                         ],
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'กรุณากรอกอายุ'
-                            : null,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'กรุณากรอกอายุ';
+                          }
+                          final age = int.tryParse(v.trim());
+                          if (age == null || age < 0 || age > 120) {
+                            return 'กรุณากรอกอายุระหว่าง 0-120 ปี';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 12),
                       Row(
@@ -593,10 +681,31 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                                   if (context.mounted) Navigator.pop(context);
                                   await _load();
                                 } on MaxRelativesReachedException catch (e) {
-                                  setSheetState(() => isSubmitting = false);
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(content: Text(e.toString())),
+                                    );
+                                  }
+                                } on ApiException catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(friendlyErrorMessage(e)),
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(friendlyErrorMessage(e)),
+                                      ),
+                                    );
+                                  }
+                                } finally {
+                                  if (context.mounted) {
+                                    setSheetState(
+                                      () => isSubmitting = false,
                                     );
                                   }
                                 }
@@ -606,6 +715,7 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                   ),
                 ),
               ),
+            ),
             );
           },
         );

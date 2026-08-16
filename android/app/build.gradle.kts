@@ -4,6 +4,7 @@ plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 // Google Maps key lives in `android/local.properties` (gitignored) rather than
@@ -26,6 +27,9 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // flutter_local_notifications requires this — java.time APIs it
+        // backports on API levels below 26 aren't in the platform SDK.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -58,4 +62,8 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

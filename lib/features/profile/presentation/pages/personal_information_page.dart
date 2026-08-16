@@ -5,11 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/utils/error_messages.dart';
 import '../../../../shared/models/user_profile.dart';
+import '../../../../shared/utils/confirm_dialogs.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/aurora_background.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
+import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../data/profile_repository.dart';
@@ -32,6 +36,9 @@ class _PersonalInformationPageState
 
   bool _isLoading = true;
   bool _isSaving = false;
+  String? _loadError;
+  String? _saveError;
+  bool _dirty = false;
   UserProfile? _profile;
   DateTime? _dateOfBirth;
   String _gender = '';
@@ -52,19 +59,44 @@ class _PersonalInformationPageState
     final user = ref.read(authControllerProvider).user;
     if (user == null) return;
 
-    final profile = await ref.read(profileRepositoryProvider).getForUser(user);
-    if (!mounted) return;
-
     setState(() {
-      _profile = profile;
-      _firstNameController.text = profile.firstName;
-      _lastNameController.text = profile.lastName;
-      _phoneController.text = user.phone;
-      _emailController.text = profile.email;
-      _dateOfBirth = profile.dateOfBirth;
-      _gender = profile.gender;
-      _isLoading = false;
+      _isLoading = true;
+      _loadError = null;
     });
+
+    try {
+      final profile = await ref
+          .read(profileRepositoryProvider)
+          .getForUser(user);
+      if (!mounted) return;
+
+      setState(() {
+        _profile = profile;
+        _firstNameController.text = profile.firstName;
+        _lastNameController.text = profile.lastName;
+        _phoneController.text = user.phone;
+        _emailController.text = profile.email;
+        _dateOfBirth = profile.dateOfBirth;
+        _gender = profile.gender;
+        _isLoading = false;
+        _dirty = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = friendlyErrorMessage(e);
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<bool> _confirmLeave() async {
+    if (!_dirty) return true;
+    return confirmDiscardChanges(context);
+  }
+
+  void _markDirty() {
+    if (!_dirty) setState(() => _dirty = true);
   }
 
   @override
@@ -85,7 +117,10 @@ class _PersonalInformationPageState
       lastDate: now,
     );
     if (picked == null) return;
-    setState(() => _dateOfBirth = picked);
+    setState(() {
+      _dateOfBirth = picked;
+      _dirty = true;
+    });
   }
 
   Future<void> _save() async {
@@ -94,7 +129,10 @@ class _PersonalInformationPageState
     final profile = _profile;
     if (profile == null) return;
 
-    setState(() => _isSaving = true);
+    setState(() {
+      _isSaving = true;
+      _saveError = null;
+    });
 
     final updated = profile.copyWith(
       firstName: _firstNameController.text.trim(),
@@ -105,11 +143,23 @@ class _PersonalInformationPageState
       gender: _gender,
     );
 
-    await ref.read(profileRepositoryProvider).update(updated);
-    await ref.read(authControllerProvider).refreshUser();
+    try {
+      await ref.read(profileRepositoryProvider).update(updated);
+      await ref.read(authControllerProvider).refreshUser();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+        _saveError = friendlyErrorMessage(e);
+      });
+      return;
+    }
 
     if (!mounted) return;
-    setState(() => _isSaving = false);
+    setState(() {
+      _isSaving = false;
+      _dirty = false;
+    });
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('บันทึกข้อมูลส่วนตัวเรียบร้อยแล้ว')),
@@ -121,15 +171,39 @@ class _PersonalInformationPageState
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year + 543}';
   }
 
+  Future<void> _handleBack() async {
+    if (await _confirmLeave()) {
+      if (!mounted) return;
+      context.goBack(AppRoutes.profile);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    if (_isLoading || _loadError != null) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('ข้อมูลส่วนตัว'),
           leading: BackButton(onPressed: () => context.goBack(AppRoutes.profile)),
         ),
-        body: const Center(child: CircularProgressIndicator()),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
+                children: [
+                  EmptyState(
+                    icon: Icons.error_outline_rounded,
+                    title: 'โหลดข้อมูลไม่สำเร็จ',
+                    message: _loadError!,
+                    action: PrimaryButton(
+                      label: 'ลองอีกครั้ง',
+                      icon: Icons.refresh_rounded,
+                      expanded: false,
+                      onPressed: _load,
+                    ),
+                  ),
+                ],
+              ),
       );
     }
 
@@ -139,7 +213,7 @@ class _PersonalInformationPageState
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('ข้อมูลส่วนตัว'),
-        leading: BackButton(onPressed: () => context.goBack(AppRoutes.profile)),
+        leading: BackButton(onPressed: _handleBack),
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -203,6 +277,7 @@ class _PersonalInformationPageState
                               controller: _firstNameController,
                               label: 'ชื่อจริง',
                               prefixIcon: Icons.badge_outlined,
+                              onChanged: (_) => _markDirty(),
                               validator: (v) => (v == null || v.trim().isEmpty)
                                   ? 'กรุณากรอกชื่อจริง'
                                   : null,
@@ -213,6 +288,7 @@ class _PersonalInformationPageState
                             child: AppTextField(
                               controller: _lastNameController,
                               label: 'นามสกุล',
+                              onChanged: (_) => _markDirty(),
                               validator: (v) => (v == null || v.trim().isEmpty)
                                   ? 'กรุณากรอกนามสกุล'
                                   : null,
@@ -226,6 +302,7 @@ class _PersonalInformationPageState
                         label: 'เบอร์โทรศัพท์',
                         prefixIcon: Icons.phone_outlined,
                         keyboardType: TextInputType.phone,
+                        onChanged: (_) => _markDirty(),
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                         ],
@@ -241,6 +318,16 @@ class _PersonalInformationPageState
                         hint: 'example@email.com',
                         prefixIcon: Icons.email_outlined,
                         keyboardType: TextInputType.emailAddress,
+                        onChanged: (_) => _markDirty(),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return null;
+                          if (!RegExp(
+                            r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                          ).hasMatch(v.trim())) {
+                            return 'อีเมลไม่ถูกต้อง';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 14),
                       InkWell(
@@ -274,9 +361,20 @@ class _PersonalInformationPageState
                               ),
                             )
                             .toList(),
-                        onChanged: (v) =>
-                            setState(() => _gender = v ?? _gender),
+                        onChanged: (v) => setState(() {
+                          _gender = v ?? _gender;
+                          _dirty = true;
+                        }),
                       ),
+                      if (_saveError != null) ...[
+                        const SizedBox(height: 14),
+                        Text(
+                          _saveError!,
+                          style: textTheme.bodySmall?.copyWith(
+                            color: AppColors.danger,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

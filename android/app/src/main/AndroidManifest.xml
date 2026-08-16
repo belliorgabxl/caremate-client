@@ -2,6 +2,12 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- Runtime-requested on Android 13+ for local booking-reminder
+         notifications (see core/services/local_notifications.dart). Not
+         paired with SCHEDULE_EXACT_ALARM — reminders use
+         AndroidScheduleMode.inexactAllowWhileIdle deliberately, which
+         doesn't need that special permission. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="client_app"
         android:name="${applicationName}"
@@ -39,6 +45,15 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- FCM default channel for background/terminated notifications —
+             same channel id local_notifications.dart's showNow() posts
+             foreground pushes to, so both paths look consistent. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="push_messages" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

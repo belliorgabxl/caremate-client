@@ -8,6 +8,8 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/services/local_notifications.dart';
+import '../../../../core/utils/error_messages.dart';
 import '../../../../shared/models/booking.dart';
 import '../../../../shared/models/booking_cancellation.dart';
 import '../../../../shared/models/payment.dart';
@@ -41,6 +43,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   Timer? _unlockTimer;
   Timer? _countdownTimer;
   Duration _remaining = Duration.zero;
+  bool _qrExpired = false;
 
   @override
   void initState() {
@@ -97,6 +100,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
 
   void _startTimers(Payment payment) {
     _canConfirm = false;
+    _qrExpired = false;
     _unlockTimer?.cancel();
     _unlockTimer = Timer(const Duration(seconds: 5), () {
       if (mounted) setState(() => _canConfirm = true);
@@ -117,9 +121,14 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
       return;
     }
     final remaining = expiredAt.difference(DateTime.now());
-    setState(
-      () => _remaining = remaining.isNegative ? Duration.zero : remaining,
-    );
+    final isExpired = remaining.isNegative;
+    setState(() {
+      _remaining = isExpired ? Duration.zero : remaining;
+      // Once the QR's own expiry passes, the "ฉันชำระเงินแล้ว" action can no
+      // longer succeed server-side — stop offering it rather than letting the
+      // user tap into a guaranteed failure.
+      if (isExpired) _qrExpired = true;
+    });
   }
 
   String get _countdownLabel {
@@ -253,6 +262,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                   payload: _qrPayload,
                   reference: payment.reference,
                   countdownLabel: _countdownLabel,
+                  isExpired: _qrExpired,
                 ),
               ] else if (method != null) ...[
                 const SectionHeader(
@@ -341,10 +351,12 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
             SizedBox(
               width: 200,
               child: PrimaryButton(
-                label: _canConfirm ? 'ฉันชำระเงินแล้ว' : 'กรุณาสแกน QR ก่อน',
-                icon: Icons.lock_rounded,
+                label: _qrExpired
+                    ? 'QR หมดอายุ'
+                    : (_canConfirm ? 'ฉันชำระเงินแล้ว' : 'กรุณาสแกน QR ก่อน'),
+                icon: _qrExpired ? Icons.error_outline_rounded : Icons.lock_rounded,
                 isLoading: _isConfirming,
-                onPressed: (_canConfirm && !_isConfirming)
+                onPressed: (_canConfirm && !_isConfirming && !_qrExpired)
                     ? () => _confirmPayment(payment)
                     : null,
               ),
@@ -402,7 +414,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
       if (e.code != BookingCancelErrorCode.alreadyCancelled) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
+        ).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
         return;
       }
     }
@@ -421,14 +433,46 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   Future<void> _confirmPayment(Payment payment) async {
     setState(() => _isConfirming = true);
 
-    await ref
-        .read(paymentRepositoryProvider)
-        .confirm(bookingId: payment.bookingId, paymentId: payment.id);
+    try {
+      await ref
+          .read(paymentRepositoryProvider)
+          .confirm(bookingId: payment.bookingId, paymentId: payment.id);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _isConfirming = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
+      return;
+    }
+
     ref.read(bookingRepositoryProvider).clearPendingPayment();
+    _scheduleBookingReminder(_booking);
 
     if (!mounted) return;
     setState(() => _isConfirming = false);
     _showSuccessSheet(_booking!);
+  }
+
+  /// Best-effort nicety layered on top of a successful payment confirmation
+  /// — a failure here (permission denied, plugin not ready, etc.) must never
+  /// surface as an error on what is otherwise a completed, paid booking.
+  /// Fire-and-forget (not awaited from [_confirmPayment]); `.catchError`
+  /// (rather than a synchronous try/catch, which can't see errors thrown
+  /// after an `await` inside the scheduling call) makes sure a failure here
+  /// only ever reaches `debugPrint`.
+  void _scheduleBookingReminder(Booking? booking) {
+    if (booking == null) return;
+
+    LocalNotificationsService.scheduleBookingReminder(
+      id: booking.id.hashCode,
+      title: 'ใกล้ถึงเวลานัดหมายแล้ว',
+      body: '${booking.serviceTitle} สำหรับ ${booking.memberName} '
+          'อีก 30 นาทีจะถึงเวลานัดหมาย',
+      scheduledFor: booking.scheduledAt,
+    ).catchError((Object e) {
+      debugPrint('scheduleBookingReminder failed: $e');
+    });
   }
 
   void _showSuccessSheet(Booking booking) {
@@ -498,11 +542,13 @@ class _PromptPayQrCard extends StatelessWidget {
     required this.payload,
     required this.reference,
     required this.countdownLabel,
+    required this.isExpired,
   });
 
   final String? payload;
   final String reference;
   final String countdownLabel;
+  final bool isExpired;
 
   @override
   Widget build(BuildContext context) {
@@ -523,18 +569,26 @@ class _PromptPayQrCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.border),
             ),
-            child: hasPayload
-                ? QrImageView(
-                    data: payload!,
-                    backgroundColor: AppColors.surfaceAlt,
-                  )
-                : const Center(
-                    child: SizedBox(
-                      width: 28,
-                      height: 28,
-                      child: CircularProgressIndicator(strokeWidth: 3),
+            child: isExpired
+                ? const Center(
+                    child: Icon(
+                      Icons.qr_code_2_rounded,
+                      size: 56,
+                      color: AppColors.textSecondary,
                     ),
-                  ),
+                  )
+                : (hasPayload
+                      ? QrImageView(
+                          data: payload!,
+                          backgroundColor: AppColors.surfaceAlt,
+                        )
+                      : const Center(
+                          child: SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: CircularProgressIndicator(strokeWidth: 3),
+                          ),
+                        )),
           ),
           const SizedBox(height: 14),
           Text('อ้างอิง: $reference', style: textTheme.bodySmall),
@@ -542,14 +596,14 @@ class _PromptPayQrCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.timer_outlined,
+              Icon(
+                isExpired ? Icons.error_outline_rounded : Icons.timer_outlined,
                 size: 16,
                 color: AppColors.danger,
               ),
               const SizedBox(width: 6),
               Text(
-                'QR หมดอายุใน $countdownLabel นาที',
+                isExpired ? 'QR หมดอายุแล้ว กรุณาทำรายการใหม่' : 'QR หมดอายุใน $countdownLabel นาที',
                 style: textTheme.bodySmall?.copyWith(
                   color: AppColors.danger,
                   fontWeight: FontWeight.w700,

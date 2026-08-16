@@ -1,0 +1,2033 @@
+<meta charset="utf-8">
+<title>CareMate — Flow, Step &amp; UI ของหน้าบ้าน</title>
+
+<style>
+  /* ============================================================
+     TOKENS
+     Light = bare :root. Dark redefines tokens only.
+     Palette derived from the app's own "Tidewater" system
+     (lib/core/constants/app_colors.dart) + the seven literal
+     BookingStatus colours from lib/shared/models/booking.dart.
+     ============================================================ */
+  :root {
+    --ground:       #F1F7F8;
+    --surface:      #FFFFFF;
+    --surface-2:    #E7F2F3;
+    --ink:          #0F2A2E;
+    --ink-soft:     #456367;
+    --ink-faint:    #7D9BA0;
+    --rule:         #D3E6E8;
+    --rule-soft:    #E4F0F1;
+
+    --accent:       #0E7A94;
+    --accent-deep:  #0A5E73;
+    --accent-wash:  #E3F6F5;
+    --accent-lit:   #0EA5C4;
+
+    /* BookingStatus — exact enum values */
+    --st-awaiting:  #D97706;
+    --st-pending:   #5B6B6A;
+    --st-matched:   #2563EB;
+    --st-progress:  #0F766E;
+    --st-done:      #16A34A;
+    --st-cancel:    #DC2626;
+    --st-expired:   #9333EA;
+
+    /* Jewel palette — one per service category */
+    --coral:        #FF6F5C;
+    --emerald:      #0EA66B;
+    --amethyst:     #7C3AED;
+    --rose:         #E8478D;
+    --warn:         #E08A00;
+    --danger:       #E0342C;
+    --ok:           #12A150;
+
+    --frame:        #0F2A2E;
+    --frame-edge:   rgba(15,42,46,.16);
+    --shadow:       0 1px 2px rgba(15,42,46,.05), 0 14px 34px -22px rgba(15,42,46,.45);
+    --shadow-lift:  0 24px 60px -28px rgba(15,42,46,.55);
+
+    --sans: "Noto Sans Thai", "Leelawadee UI", "IBM Plex Sans Thai", "Sukhumvit Set", Thonburi, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --mono: "Cascadia Mono", "JetBrains Mono", "SF Mono", Consolas, "Roboto Mono", monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #0A1A1D;
+      --surface:     #11272C;
+      --surface-2:   #163137;
+      --ink:         #E2F0F1;
+      --ink-soft:    #9CBABE;
+      --ink-faint:   #6C8C91;
+      --rule:        #1E3B41;
+      --rule-soft:   #173238;
+      --accent:      #3FBBD4;
+      --accent-deep: #7FD8E8;
+      --accent-wash: #10333C;
+      --accent-lit:  #46C8DE;
+      --st-awaiting: #F0A93C;
+      --st-pending:  #97AAA9;
+      --st-matched:  #6C9BF5;
+      --st-progress: #2FB3A8;
+      --st-done:     #4ED07F;
+      --st-cancel:   #F4736B;
+      --st-expired:  #B98BF3;
+      --warn:        #F0A93C;
+      --danger:      #F4736B;
+      --ok:          #4ED07F;
+      --frame:       #051215;
+      --frame-edge:  rgba(255,255,255,.10);
+      --shadow:      0 1px 2px rgba(0,0,0,.4), 0 14px 34px -22px rgba(0,0,0,.8);
+      --shadow-lift: 0 24px 60px -28px rgba(0,0,0,.9);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #0A1A1D;
+    --surface:     #11272C;
+    --surface-2:   #163137;
+    --ink:         #E2F0F1;
+    --ink-soft:    #9CBABE;
+    --ink-faint:   #6C8C91;
+    --rule:        #1E3B41;
+    --rule-soft:   #173238;
+    --accent:      #3FBBD4;
+    --accent-deep: #7FD8E8;
+    --accent-wash: #10333C;
+    --accent-lit:  #46C8DE;
+    --st-awaiting: #F0A93C;
+    --st-pending:  #97AAA9;
+    --st-matched:  #6C9BF5;
+    --st-progress: #2FB3A8;
+    --st-done:     #4ED07F;
+    --st-cancel:   #F4736B;
+    --st-expired:  #B98BF3;
+    --warn:        #F0A93C;
+    --danger:      #F4736B;
+    --ok:          #4ED07F;
+    --frame:       #051215;
+    --frame-edge:  rgba(255,255,255,.10);
+    --shadow:      0 1px 2px rgba(0,0,0,.4), 0 14px 34px -22px rgba(0,0,0,.8);
+    --shadow-lift: 0 24px 60px -28px rgba(0,0,0,.9);
+  }
+
+  /* ============================================================
+     PAGE
+     ============================================================ */
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.72;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 28px 120px;
+    display: grid;
+    grid-template-columns: 232px minmax(0, 1fr);
+    gap: 56px;
+    align-items: start;
+  }
+
+  /* ---- masthead ---- */
+  .masthead {
+    grid-column: 1 / -1;
+    padding: 72px 0 44px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 48px;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 18px;
+  }
+  h1 {
+    font-size: clamp(34px, 5.2vw, 58px);
+    line-height: 1.1;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    margin: 0 0 20px;
+    text-wrap: balance;
+    max-width: 20ch;
+  }
+  .lede {
+    font-size: 18px;
+    color: var(--ink-soft);
+    max-width: 68ch;
+    margin: 0;
+  }
+  .meta-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 28px;
+    margin-top: 28px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink-faint);
+  }
+  .meta-strip b { color: var(--ink-soft); font-weight: 600; }
+
+  /* ---- rail ---- */
+  .rail {
+    position: sticky;
+    top: 28px;
+    font-size: 14px;
+  }
+  .rail-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 14px;
+  }
+  .rail ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .rail a {
+    display: flex;
+    gap: 10px;
+    padding: 6px 10px 6px 8px;
+    border-radius: 8px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    line-height: 1.4;
+    border-left: 2px solid transparent;
+  }
+  .rail a:hover { background: var(--surface); color: var(--ink); border-left-color: var(--accent); }
+  .rail a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .rail .n { font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); padding-top: 2px; }
+  .rail hr { border: 0; border-top: 1px solid var(--rule); margin: 12px 0; }
+
+  /* ---- content ---- */
+  .content { min-width: 0; display: flex; flex-direction: column; gap: 76px; }
+
+  .stage { scroll-margin-top: 24px; }
+  .stage-head { display: flex; gap: 18px; align-items: baseline; margin-bottom: 6px; }
+  .stage-n {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: .1em;
+    padding-top: 6px;
+    white-space: nowrap;
+  }
+  h2 {
+    font-size: clamp(24px, 3vw, 32px);
+    line-height: 1.22;
+    font-weight: 800;
+    letter-spacing: -.015em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin: 32px 0 12px;
+    letter-spacing: -.005em;
+  }
+  p { margin: 0 0 14px; max-width: 68ch; }
+  .stage > p:first-of-type { margin-top: 10px; }
+
+  .routes { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 22px 0; }
+  code, .route {
+    font-family: var(--mono);
+    font-size: 12.5px;
+  }
+  .route {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    padding: 3px 11px;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  p code, li code, td code {
+    background: var(--surface-2);
+    border-radius: 5px;
+    padding: 1px 6px;
+    font-size: 13px;
+    color: var(--ink);
+  }
+
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 40px; align-items: start; }
+  .split.rev { grid-template-columns: auto minmax(0, 1fr); }
+
+  ul.steps { list-style: none; margin: 0 0 18px; padding: 0; display: flex; flex-direction: column; gap: 12px; max-width: 68ch; }
+  ul.steps > li { display: grid; grid-template-columns: 26px 1fr; gap: 12px; align-items: start; }
+  ul.steps .b {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.5;
+    text-align: center;
+    color: var(--accent);
+    background: var(--accent-wash);
+    border-radius: 6px;
+    padding: 3px 0;
+    margin-top: 4px;
+  }
+  ul.plain { margin: 0 0 18px; padding-left: 20px; max-width: 68ch; }
+  ul.plain li { margin-bottom: 7px; }
+
+  .note {
+    --nc: var(--accent);
+    background: color-mix(in srgb, var(--nc) 7%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--nc) 24%, transparent);
+    border-radius: 12px;
+    padding: 15px 18px;
+    margin: 20px 0;
+    max-width: 70ch;
+    font-size: 14.5px;
+    line-height: 1.65;
+    color: var(--ink-soft);
+  }
+  .note b { color: var(--ink); }
+  .note.warn { --nc: var(--warn); }
+  .note.stop { --nc: var(--danger); }
+  .note .tag {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--nc);
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; margin: 8px 0 20px; }
+  .tw { overflow-x: auto; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; font-family: var(--mono); }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; vertical-align: -1px; }
+
+  /* ============================================================
+     PHONE MOCKUPS
+     The app is light-only, so screen internals are painted from a
+     fixed app-palette that never flips with the doc theme.
+     ============================================================ */
+  .frames { display: flex; gap: 22px; overflow-x: auto; padding: 4px 4px 18px; scrollbar-width: thin; }
+  .frames.wrapy { flex-wrap: wrap; overflow-x: visible; }
+
+  figure.shot { margin: 0; display: flex; flex-direction: column; gap: 10px; flex: none; }
+  figure.shot figcaption {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    line-height: 1.5;
+    max-width: 300px;
+  }
+  figure.shot figcaption b { color: var(--ink-soft); font-weight: 600; display: block; }
+
+  .device {
+    width: 300px;
+    padding: 9px;
+    border-radius: 36px;
+    background: var(--frame);
+    box-shadow: var(--shadow-lift), 0 0 0 1px var(--frame-edge);
+    flex: none;
+  }
+  .device.sm { width: 232px; padding: 7px; border-radius: 30px; }
+
+  .screen {
+    --s-bg:      #F3FAFA;
+    --s-card:    #FFFFFF;
+    --s-alt:     #EAF6F5;
+    --s-line:    #D7EBEA;
+    --s-ink:     #0F2A2E;
+    --s-ink2:    #4E6B6E;
+    --s-ink3:    #86A0A2;
+    --s-primary: #0E7A94;
+    --s-pri-lt:  #E3F6F5;
+
+    position: relative;
+    height: 616px;
+    border-radius: 28px;
+    overflow: hidden;
+    background: var(--s-bg);
+    color: var(--s-ink);
+    font-size: 11.5px;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    isolation: isolate;
+  }
+  .device.sm .screen { height: 470px; border-radius: 24px; font-size: 10.5px; }
+
+  /* aurora blobs — blurred solid colour, exactly as AuroraBackground */
+  .aurora { position: absolute; inset: 0 0 auto 0; height: 300px; z-index: 0; pointer-events: none; overflow: hidden; }
+  .aurora i { position: absolute; display: block; border-radius: 50%; filter: blur(42px); opacity: .5; }
+  .aurora i:nth-child(1) { width: 190px; height: 190px; left: -50px; top: -60px; background: #22D3C6; }
+  .aurora i:nth-child(2) { width: 160px; height: 160px; right: -40px; top: -30px; background: #7C3AED; opacity: .32; }
+  .aurora i:nth-child(3) { width: 150px; height: 150px; left: 90px; top: 60px; background: #FF6F5C; opacity: .26; }
+  .aurora.full { inset: 0; height: auto; }
+  .aurora.full i:nth-child(3) { top: 40%; }
+
+  .sbar {
+    position: relative; z-index: 2;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 16px 2px;
+    font-size: 10px; font-weight: 700; letter-spacing: .01em;
+    font-variant-numeric: tabular-nums;
+    color: var(--s-ink);
+  }
+  .sbar .sig { display: flex; gap: 3px; align-items: center; }
+  .sbar .sig b { display: block; width: 3px; background: var(--s-ink); border-radius: 1px; }
+  .sbar .sig b:nth-child(1) { height: 4px; }
+  .sbar .sig b:nth-child(2) { height: 6px; }
+  .sbar .sig b:nth-child(3) { height: 8px; }
+  .sbar .batt { width: 18px; height: 9px; border: 1px solid var(--s-ink); border-radius: 2px; position: relative; }
+  .sbar .batt::after { content: ""; position: absolute; inset: 1.5px; right: 5px; background: var(--s-ink); border-radius: 1px; }
+
+  .abar {
+    position: relative; z-index: 2;
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px 10px;
+    font-weight: 700; font-size: 13px;
+  }
+  .abar .ic { width: 17px; height: 17px; }
+  .abar.plain { background: var(--s-card); border-bottom: 1px solid var(--s-line); }
+
+  .body {
+    position: relative; z-index: 1;
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 14px 16px;
+    display: flex; flex-direction: column; gap: 12px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--s-line) transparent;
+  }
+  .body::-webkit-scrollbar { width: 4px; }
+  .body::-webkit-scrollbar-thumb { background: var(--s-line); border-radius: 2px; }
+  .body.center { justify-content: center; padding: 14px; }
+
+  /* screen primitives */
+  .c {
+    background: var(--s-card);
+    border: 1px solid var(--s-line);
+    border-radius: 18px;
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .c.glass { background: rgba(255,255,255,.72); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-color: rgba(255,255,255,.85); box-shadow: 0 10px 30px -20px rgba(15,42,46,.5); }
+  .c.lift { box-shadow: 0 10px 26px -18px rgba(15,42,46,.55); }
+  .c.tint { background: var(--s-pri-lt); border-color: var(--s-pri-lt); }
+  .c.flat { background: var(--s-alt); border-color: transparent; border-radius: 14px; padding: 11px 12px; }
+  .c.tiny { padding: 11px 12px; border-radius: 14px; gap: 7px; }
+
+  .r { display: flex; align-items: center; gap: 10px; }
+  .r.top { align-items: flex-start; }
+  .r.sp { justify-content: space-between; }
+  .col { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .grow { flex: 1; min-width: 0; }
+  .stack { display: flex; flex-direction: column; gap: 10px; }
+  .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .t-h { font-size: 17px; font-weight: 800; letter-spacing: -.01em; line-height: 1.3; }
+  .t-t { font-size: 12.5px; font-weight: 700; line-height: 1.35; }
+  .t-b { font-size: 11px; color: var(--s-ink2); }
+  .t-s { font-size: 10px; color: var(--s-ink3); }
+  .t-n { font-size: 19px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .t-money { font-size: 20px; font-weight: 800; color: var(--s-primary); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .av {
+    flex: none;
+    display: grid; place-items: center;
+    width: 38px; height: 38px; border-radius: 50%;
+    background: var(--s-card);
+    color: var(--ac, var(--s-primary));
+    border: 1px solid color-mix(in srgb, var(--ac, var(--s-primary)) 20%, transparent);
+    box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--ac, var(--s-primary)) 45%, transparent);
+  }
+  .av .ic { width: 19px; height: 19px; }
+  .av.fill { background: var(--ac, var(--s-primary)); color: #fff; border-color: transparent; }
+  .av.lg { width: 50px; height: 50px; }
+  .av.lg .ic { width: 25px; height: 25px; }
+  .av.sm { width: 30px; height: 30px; }
+  .av.sm .ic { width: 15px; height: 15px; }
+
+  .badge {
+    flex: none;
+    font-size: 9.5px; font-weight: 700; line-height: 1;
+    padding: 5px 9px; border-radius: 999px;
+    color: var(--ac);
+    background: color-mix(in srgb, var(--ac) 13%, #fff);
+    border: 1px solid color-mix(in srgb, var(--ac) 26%, transparent);
+    white-space: nowrap;
+  }
+
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    height: 42px; border-radius: 14px;
+    font-size: 12px; font-weight: 700;
+    background: var(--s-primary); color: #fff;
+    white-space: nowrap;
+  }
+  .btn .ic { width: 16px; height: 16px; }
+  .btn.out { background: transparent; color: var(--s-primary); border: 1.4px solid color-mix(in srgb, var(--s-primary) 45%, transparent); }
+  .btn.ghost { background: transparent; color: var(--s-ink2); height: 34px; font-weight: 600; }
+  .btn.danger { background: transparent; color: #E0342C; border: 1.4px solid rgba(224,52,44,.45); }
+  .btn.off { background: var(--s-line); color: var(--s-ink3); }
+  .btn.sm { height: 34px; font-size: 11px; border-radius: 12px; padding: 0 14px; }
+  .btn.sq { width: 42px; flex: none; padding: 0; }
+
+  .field {
+    border: 1.3px solid var(--s-line); border-radius: 13px;
+    background: var(--s-card);
+    padding: 9px 12px;
+    display: flex; align-items: center; gap: 9px;
+  }
+  .field .ic { width: 15px; height: 15px; color: var(--s-ink3); flex: none; }
+  .field .lab { font-size: 9.5px; color: var(--s-ink3); }
+  .field .val { font-size: 11.5px; font-weight: 600; }
+  .field .val.ph { font-weight: 400; color: var(--s-ink3); }
+  .field.on { border-color: var(--s-primary); }
+  .field.tall { align-items: flex-start; min-height: 62px; }
+
+  .chip {
+    font-size: 10.5px; font-weight: 600;
+    padding: 6px 12px; border-radius: 999px;
+    border: 1px solid var(--s-line); background: var(--s-card); color: var(--s-ink2);
+    white-space: nowrap;
+  }
+  .chip.on { background: var(--s-primary); border-color: var(--s-primary); color: #fff; }
+  .chips { display: flex; gap: 7px; flex-wrap: wrap; }
+  .chips.scroll { flex-wrap: nowrap; overflow: hidden; }
+
+  .nav {
+    position: relative; z-index: 2;
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    background: var(--s-card);
+    border-top: 1px solid var(--s-line);
+    padding: 7px 4px 10px;
+  }
+  .nav div { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 9px; color: var(--s-ink3); font-weight: 600; }
+  .nav .ic { width: 19px; height: 19px; }
+  .nav div.on { color: var(--s-primary); }
+  .nav div.on .ic { background: var(--s-pri-lt); border-radius: 999px; padding: 2px 10px; width: 39px; box-sizing: content-box; }
+
+  .bbar {
+    position: relative; z-index: 2;
+    display: flex; align-items: center; gap: 10px;
+    background: var(--s-card);
+    border-top: 1px solid var(--s-line);
+    padding: 11px 14px 14px;
+  }
+
+  /* service / step bits */
+  .svc {
+    flex: none; width: 118px;
+    border: 1px solid var(--s-line); border-radius: 16px;
+    background: var(--s-card);
+    padding: 12px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .svc.on { background: var(--ac); border-color: var(--ac); color: #fff; }
+  .svc.on .t-b { color: rgba(255,255,255,.86); }
+  .svc .puck { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--ac) 12%, transparent); color: var(--ac); }
+  .svc.on .puck { background: rgba(255,255,255,.22); color: #fff; }
+  .svc .puck .ic { width: 17px; height: 17px; }
+
+  .steps5 { display: flex; align-items: flex-start; gap: 0; }
+  .steps5 .s { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: none; width: 40px; }
+  .steps5 .s i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--s-line); color: var(--s-ink2); font-size: 9px; font-weight: 800; font-style: normal; }
+  .steps5 .s span { font-size: 8.5px; color: var(--s-ink2); }
+  .steps5 .s.on i { background: var(--s-primary); color: #fff; }
+  .steps5 .s.on span { color: var(--s-primary); font-weight: 700; }
+  .steps5 .l { flex: 1; height: 2px; background: var(--s-line); margin-top: 10px; }
+  .steps5 .l.on { background: var(--s-primary); }
+  .bar { height: 8px; border-radius: 999px; background: var(--s-alt); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--s-primary); border-radius: 999px; }
+
+  .kv { display: flex; justify-content: space-between; gap: 12px; font-size: 11px; }
+  .kv b { font-weight: 700; text-align: right; }
+  .kv span { color: var(--s-ink2); flex: none; }
+  .hr { height: 1px; background: var(--s-line); }
+
+  .spin { width: 26px; height: 26px; border-radius: 50%; border: 3px solid var(--s-pri-lt); border-top-color: var(--s-primary); margin: 0 auto; }
+  @media (prefers-reduced-motion: no-preference) {
+    .spin { animation: sp 1s linear infinite; }
+  }
+  @keyframes sp { to { transform: rotate(360deg); } }
+
+  .mark {
+    display: grid; place-items: center;
+    border-radius: 24%;
+    background: linear-gradient(140deg, #22D3C6, #0EA5C4);
+    color: #fff;
+    flex: none;
+  }
+  .mark .ic { width: 58%; height: 58%; }
+
+  .sheet {
+    position: absolute; inset: auto 0 0 0; z-index: 5;
+    background: var(--s-card);
+    border-radius: 22px 22px 0 0;
+    padding: 10px 18px 20px;
+    display: flex; flex-direction: column; align-items: center; gap: 9px;
+    box-shadow: 0 -14px 40px -20px rgba(15,42,46,.6);
+  }
+  .sheet .grip { width: 34px; height: 4px; border-radius: 2px; background: var(--s-line); margin-bottom: 4px; }
+  .scrim { position: absolute; inset: 0; z-index: 4; background: rgba(15,42,46,.42); }
+
+  .dlg {
+    position: absolute; z-index: 6; left: 16px; right: 16px; top: 50%; transform: translateY(-50%);
+    background: var(--s-card); border-radius: 20px; padding: 18px;
+    display: flex; flex-direction: column; gap: 11px;
+    box-shadow: 0 30px 60px -24px rgba(15,42,46,.7);
+  }
+  .dlg .acts { display: flex; justify-content: flex-end; gap: 14px; font-size: 11.5px; font-weight: 700; }
+
+  .map-canvas {
+    position: relative; flex: 1;
+    background:
+      linear-gradient(0deg, rgba(14,122,148,.06) 1px, transparent 1px) 0 0 / 100% 26px,
+      linear-gradient(90deg, rgba(14,122,148,.06) 1px, transparent 1px) 0 0 / 26px 100%,
+      #E9F4F3;
+  }
+  .map-canvas .road { position: absolute; background: #fff; box-shadow: 0 0 0 1px rgba(15,42,46,.05); }
+  .map-canvas .park { position: absolute; background: rgba(14,166,107,.14); border-radius: 10px; }
+  .map-canvas .pin {
+    position: absolute; left: 50%; top: 46%; transform: translate(-50%, -100%);
+    color: #E0342C;
+  }
+  .map-canvas .pin .ic { width: 30px; height: 30px; filter: drop-shadow(0 4px 6px rgba(15,42,46,.35)); }
+
+  .qr { width: 128px; height: 128px; display: block; image-rendering: pixelated; border-radius: 4px; }
+
+  .ic { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  .ic.fill { fill: currentColor; stroke: none; }
+
+  /* ---- flow map (doc-level diagram) ---- */
+  .flowmap { overflow-x: auto; padding: 8px 2px 18px; }
+  .flowmap-inner { display: flex; flex-direction: column; gap: 14px; min-width: 720px; }
+  .flowrow { display: flex; align-items: center; gap: 12px; }
+  .node {
+    background: var(--surface); border: 1px solid var(--rule); border-radius: 12px;
+    padding: 10px 14px; box-shadow: var(--shadow); min-width: 132px;
+  }
+  .node .nm { font-weight: 700; font-size: 14px; line-height: 1.3; }
+  .node .pth { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+  .node.gate { border-style: dashed; border-color: var(--accent); background: var(--accent-wash); box-shadow: none; }
+  .node.term { border-color: color-mix(in srgb, var(--st-done) 50%, transparent); }
+  .arrow { color: var(--ink-faint); font-family: var(--mono); font-size: 13px; flex: none; }
+  .flowlabel { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); letter-spacing: .1em; text-transform: uppercase; padding-top: 6px; }
+
+  footer.end {
+    grid-column: 1 / -1;
+    margin-top: 90px; padding-top: 28px;
+    border-top: 1px solid var(--rule);
+    color: var(--ink-faint); font-size: 13.5px; font-family: var(--mono);
+  }
+
+  @media (max-width: 1080px) {
+    .shell { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0 20px 90px; }
+    .rail { position: static; margin-bottom: 44px; }
+    .rail ol { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 2px 14px; }
+    .split, .split.rev { grid-template-columns: minmax(0, 1fr); gap: 26px; }
+    .masthead { padding-top: 48px; }
+  }
+</style>
+
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-7.5 9 7.5v8.5a1.5 1.5 0 01-1.5 1.5H15v-6H9v6H4.5A1.5 1.5 0 013 19.5z"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.2" y="5" width="17.6" height="16" rx="3"/><path d="M8 3v4M16 3v4M3.2 10h17.6"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.2 6-5.2s6 1.9 6 5.2"/><path d="M16.5 5.4a3.2 3.2 0 010 6.2M18 14.4c2.2.5 3 2.3 3 5.6"/></symbol>
+  <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M4.8 20.5c0-4 3.3-6.2 7.2-6.2s7.2 2.2 7.2 6.2"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 6.8V12l3.4 2.2"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21.5s7-6.4 7-11.4a7 7 0 10-14 0c0 5 7 11.4 7 11.4z"/><circle cx="12" cy="10" r="2.6"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M6 21.5V3.2M6 4h11.4l-2.2 4.1L17.4 12H6"/></symbol>
+  <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M5.6 3h12.8v18.2l-3.2-2-3.2 2-3.2-2-3.2 2z"/><path d="M9 8.4h6M9 12.4h6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M4.5 12.5l5 5 10-11"/></symbol>
+  <symbol id="i-checkc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.8"/><path d="M8 12.3l2.7 2.7L16.2 9"/></symbol>
+  <symbol id="i-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.8"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16.4V11a6 6 0 1112 0v5.4l1.6 2.6H4.4z"/><path d="M10 21.4h4"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7.6 2.8v5.9c0 4.7-3.6 7.7-7.6 9-4-1.3-7.6-4.3-7.6-9V5.8z"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 4.2l2.5 5 5.6.8-4 3.9.9 5.5-5-2.6-5 2.6.9-5.5-4-3.9 5.6-.8z"/></symbol>
+  <symbol id="i-car" viewBox="0 0 24 24"><path d="M4 16.4v-4.2l1.9-4.7h12.2l1.9 4.7v4.2"/><path d="M4 16.4h16"/><circle cx="7.6" cy="17.4" r="1.7"/><circle cx="16.4" cy="17.4" r="1.7"/></symbol>
+  <symbol id="i-pill" viewBox="0 0 24 24"><rect x="2.6" y="8.4" width="18.8" height="7.2" rx="3.6" transform="rotate(-45 12 12)"/><path d="M8.4 8.4l7.2 7.2"/></symbol>
+  <symbol id="i-hands" viewBox="0 0 24 24"><path d="M12 20.5S4.5 15.9 4.5 10.4A3.9 3.9 0 0112 8.2a3.9 3.9 0 017.5 2.2c0 5.5-7.5 10.1-7.5 10.1z"/></symbol>
+  <symbol id="i-cross" viewBox="0 0 24 24"><path d="M9.6 3.5h4.8v6.1h6.1v4.8h-6.1v6.1H9.6v-6.1H3.5V9.6h6.1z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.6"/><path d="M15.8 15.8L21 21"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9.5 5.5l6.5 6.5-6.5 6.5"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M14.5 5.5L8 12l6.5 6.5"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24"><path d="M9 4.4L3.5 6.6v13L9 17.4l6 2.2 5.5-2.2v-13L15 6.6z"/><path d="M9 4.4v13M15 6.6v13"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3.8l9 15.4H3z"/><path d="M12 9.6v4.2M12 16.6v.6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.6" y="10.4" width="14.8" height="10.2" rx="3"/><path d="M8.2 10.4V7.8a3.8 3.8 0 017.6 0v2.6"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3.2" y="5.4" width="17.6" height="13.2" rx="3"/><path d="M3.8 7.6L12 13l8.2-5.4"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M8.2 3.5l2.4 4-2 2.1a12 12 0 005.8 5.8l2.1-2 4 2.4-.8 3.1a1.6 1.6 0 01-1.8 1.2C10.8 19 5 13.2 3.7 6.1A1.6 1.6 0 015 4.3z"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><rect x="4.2" y="3.6" width="15.6" height="16.8" rx="3"/><path d="M8 8.6h8M8 12.4h8M8 16.2h5"/></symbol>
+  <symbol id="i-qr" viewBox="0 0 24 24"><rect x="3.4" y="3.4" width="6.4" height="6.4" rx="1.6"/><rect x="14.2" y="3.4" width="6.4" height="6.4" rx="1.6"/><rect x="3.4" y="14.2" width="6.4" height="6.4" rx="1.6"/><path d="M14.2 14.2h2.6v2.6h-2.6zM18 18h2.6v2.6H18z"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><rect x="3.2" y="5.8" width="17.6" height="12.4" rx="3"/><path d="M3.2 10h17.6M16.4 14.4h1.6"/></symbol>
+  <symbol id="i-track" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8.6"/><path d="M12 1.6v3M12 19.4v3M1.6 12h3M19.4 12h3"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6.5h12M8 12h12M8 17.5h12M4 6.5h.01M4 12h.01M4 17.5h.01"/></symbol>
+  <symbol id="i-tip" viewBox="0 0 24 24"><path d="M9.4 18.2h5.2M10 21h4"/><path d="M12 3.2a5.8 5.8 0 013.4 10.4c-.7.6-1 1.2-1 2H9.6c0-.8-.3-1.4-1-2A5.8 5.8 0 0112 3.2z"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M14.5 3.6H6.4a2 2 0 00-2 2v12.8a2 2 0 002 2h8.1"/><path d="M18.4 12H9.6M15.4 8.4l3.6 3.6-3.6 3.6"/></symbol>
+  <symbol id="i-badge" viewBox="0 0 24 24"><rect x="4" y="3.4" width="16" height="17.2" rx="3"/><circle cx="12" cy="10" r="2.6"/><path d="M8 17.2c.6-1.9 2.1-2.8 4-2.8s3.4.9 4 2.8"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 11-2.5-5.8"/><path d="M20.4 3.6v4.2h-4.2"/></symbol>
+</svg>
+<div class="shell">
+
+  <header class="masthead">
+    <p class="eyebrow">CareMate · Client App · Flutter</p>
+    <h1>Flow, ขั้นตอนการใช้งาน และ UI ของหน้าบ้าน</h1>
+    <p class="lede">
+      เอกสารแสดง FLOW ตั้งแต่เปิดแอปครั้งแรกจนจบงานหนึ่งครั้ง — เปิดแอป → สมัคร&เข้าสู่ระบบ →
+      เพิ่มสมาชิกที่ดูแล → จองบริการ 5 ขั้นตอน → ชำระเงินแบบ Default → ติดตามการจับคู่ผู้ดูแล
+      ทุกหน้าจอในเอกสารนี้จำลองจากโค้ดจริงใน <code>lib/features/**</code> ข้อความไทย ปุ่ม สี และลำดับการ์ด
+      ยกมาจากไฟล์ต้นทางโดยตรง ไม่ใช่ภาพร่างสมมุติ
+    </p>
+    <div class="meta-strip">
+      <span><b>Stack</b> Flutter · Riverpod · go_router · dio</span>
+      <span><b>Backend</b> care-mate-backend (Go/Fiber) เรียกตรง</span>
+      <span><b>ภาษา UI</b> ไทยทั้งหมด</span>
+      <span><b>ธีม</b> Tidewater · teal #0E7A94</span>
+    </div>
+  </header>
+
+  <nav class="rail" aria-label="สารบัญ">
+    <p class="rail-title">สารบัญ</p>
+    <ol>
+      <li><a href="#overview"><span class="n">—</span><span>แผนผังรวม</span></a></li>
+      <hr>
+      <li><a href="#s0"><span class="n">00</span><span>เปิดแอป &amp; ด่านตรวจสิทธิ์</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>เข้าสู่ระบบ</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>สมัครสมาชิก + PDPA</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>หน้าแรก</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>สมาชิกที่ดูแล</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>จองบริการ 5 ขั้น</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>เลือกตำแหน่งบนแผนที่</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>ชำระเงิน PromptPay</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>ติดตามสถานะ</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>ยกเลิกการจอง</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>โปรไฟล์ &amp; เมนูย่อย</span></a></li>
+      <hr>
+      <li><a href="#status"><span class="n">—</span><span>สถานะการจอง 7 แบบ</span></a></li>
+      <li><a href="#rules"><span class="n">—</span><span>กติกา UI ที่ใช้ทุกหน้า</span></a></li>
+      <li><a href="#limits"><span class="n">—</span><span>ข้อจำกัดที่ยังเปิดอยู่</span></a></li>
+    </ol>
+  </nav>
+
+  <main class="content">
+
+    <!-- ============================ OVERVIEW ============================ -->
+    <section class="stage" id="overview">
+      <div class="stage-head"><span class="stage-n">MAP</span><h2>แผนผังรวมของแอป</h2></div>
+      <p>
+        แอปมี 4 แท็บล่างถาวร (หน้าแรก / จองบริการ / สมาชิก / โปรไฟล์) และหน้าลูกที่เปิดทับเป็นเส้นทางเต็ม
+        ทุกการนำทางใช้ <code>context.go</code> ไม่เคยใช้ <code>push</code> — หน้าใหม่เลื่อนเข้าจากขวา
+        ส่วนการ "ย้อนกลับ" เรียก <code>goBack()</code> ซึ่งเลื่อนเข้าจากซ้ายแทน
+      </p>
+
+      <div class="flowmap">
+        <div class="flowmap-inner">
+          <div class="flowrow">
+            <span class="flowlabel">เปิดแอป</span>
+            <div class="node"><div class="nm">Splash</div><div class="pth">/splash</div></div>
+            <span class="arrow">──▶</span>
+            <div class="node gate"><div class="nm">ตรวจ session cookie</div><div class="pth">redirect()</div></div>
+            <span class="arrow">──▶</span>
+            <div class="node"><div class="nm">เข้าสู่ระบบ</div><div class="pth">/login</div></div>
+            <span class="arrow">⇄</span>
+            <div class="node"><div class="nm">สมัครสมาชิก</div><div class="pth">/register</div></div>
+          </div>
+          <div class="flowrow">
+            <span class="flowlabel">แท็บหลัก</span>
+            <div class="node"><div class="nm">หน้าแรก</div><div class="pth">/home</div></div>
+            <span class="arrow">·</span>
+            <div class="node"><div class="nm">จองบริการ</div><div class="pth">/booking</div></div>
+            <span class="arrow">·</span>
+            <div class="node"><div class="nm">สมาชิก</div><div class="pth">/members</div></div>
+            <span class="arrow">·</span>
+            <div class="node"><div class="nm">โปรไฟล์</div><div class="pth">/profile</div></div>
+          </div>
+          <div class="flowrow">
+            <span class="flowlabel">งานหลัก</span>
+            <div class="node"><div class="nm">จอง 5 ขั้น</div><div class="pth">/booking</div></div>
+            <span class="arrow">──▶</span>
+            <div class="node"><div class="nm">ชำระเงิน</div><div class="pth">/payment</div></div>
+            <span class="arrow">──▶</span>
+            <div class="node term"><div class="nm">ติดตามสถานะ</div><div class="pth">/booking/status/:id</div></div>
+          </div>
+          <div class="flowrow">
+            <span class="flowlabel">หน้าลูก</span>
+            <div class="node"><div class="nm">ข้อมูลส่วนตัว</div><div class="pth">/profile/personal-information</div></div>
+            <div class="node"><div class="nm">ข้อมูลสุขภาพ</div><div class="pth">/profile/health-information</div></div>
+            <div class="node"><div class="nm">ที่อยู่ของฉัน</div><div class="pth">/profile/addresses</div></div>
+          </div>
+          <div class="flowrow">
+            <span class="flowlabel"></span>
+            <div class="node"><div class="nm">ตั้งค่าความปลอดภัย</div><div class="pth">/profile/settings</div></div>
+            <div class="node"><div class="nm">ประวัติการจอง</div><div class="pth">/booking/history</div></div>
+            <div class="node gate"><div class="nm">เลือกตำแหน่งบนแผนที่</div><div class="pth">Navigator.push (ไม่มี route)</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="note">
+        <span class="tag">ด่านตรวจสิทธิ์</span>
+        <b>redirect ใน <code>app_router.dart</code> ตัดสินทุกครั้งที่สถานะ auth เปลี่ยน</b> —
+        <code>checking</code> บังคับอยู่ที่ <code>/splash</code>, <code>loggedOut</code> ปล่อยเฉพาะ
+        <code>/login</code> กับ <code>/register</code>, <code>authenticated</code> เตะออกจากสามหน้านั้นไป
+        <code>/home</code> ทันที ผู้ใช้จึงย้อนกลับไปหน้า login หลังเข้าสู่ระบบแล้วไม่ได้
+      </div>
+    </section>
+
+    <!-- ============================ 00 SPLASH ============================ -->
+    <section class="stage" id="s0">
+      <div class="stage-head"><span class="stage-n">00</span><h2>เปิดแอป &amp; ด่านตรวจสิทธิ์</h2></div>
+      <div class="routes"><span class="route">/splash</span></div>
+      <div class="split">
+        <div>
+          <p>
+            หน้าแรกสุดที่ผู้ใช้เห็นเสมอ ไม่ว่าจะเคยล็อกอินไว้หรือไม่ — เป็นหน้าที่ "รอผลตรวจ" ล้วน ๆ
+            ไม่มีปุ่มให้กด
+          </p>
+          <ul class="steps">
+            <li><span class="b">1</span><span>แอปเปิด <code>SplashPage</code> แล้วยิง <code>checkSession()</code> ทันทีใน <code>initState</code></span></li>
+            <li><span class="b">2</span><span>ตัวควบคุมอ่าน cookie <code>caremate_session</code> จาก <code>LocalStorage</code> แล้วลองเรียกโปรไฟล์</span></li>
+            <li><span class="b">3</span><span>สำเร็จ → เด้งไป <code>/home</code> · ล้มเหลว/ไม่มี cookie → เด้งไป <code>/login</code></span></li>
+          </ul>
+          <div class="note">
+            <span class="tag">Auth = cookie ตัวเดียว</span>
+            ระบบนี้ <b>ไม่มี bearer token</b> — <code>login</code>/<code>register</code> ตอบกลับพร้อม
+            <code>Set-Cookie: caremate_session</code> แล้ว interceptor ของ <code>ApiClient</code>
+            แนบกลับไปเองทุก request
+          </div>
+        </div>
+
+        <div class="frames">
+          <figure class="shot">
+            <div class="device"><div class="screen">
+              <div class="aurora full"><i></i><i></i><i></i></div>
+              <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+              <div class="body center" style="align-items:center;gap:14px">
+                <div class="mark" style="width:88px;height:88px"><svg class="ic fill"><use href="#i-cross"/></svg></div>
+                <div class="t-h" style="font-size:26px">CareMate</div>
+                <div class="t-b">ดูแลคนที่คุณรัก ทุกที่ทุกเวลา</div>
+                <div class="spin" style="margin-top:10px"></div>
+              </div>
+            </div></div>
+            <figcaption><b>SplashPage</b>aurora เต็มจอ + โลโก้แอปจริง (assets/images/app_icon.png)</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ 01 LOGIN ============================ -->
+    <section class="stage" id="s1">
+      <div class="stage-head"><span class="stage-n">01</span><h2>เข้าสู่ระบบด้วยเบอร์โทร</h2></div>
+      <div class="routes"><span class="route">/login</span></div>
+      <div class="split">
+        <div>
+          <p>
+            กรอกเบอร์โทร 10 หลักแล้วกดเข้าสู่ระบบได้เลย เนื่องจากยังไม่มีระบบ OTP
+          </p>
+          <ul class="steps">
+            <li><span class="b">1</span><span>กรอกเบอร์ — เบอร์โทรที่ใช้สมัคร</span></li>
+            <li><span class="b">2</span><span>กดปุ่ม → ปุ่มเปลี่ยนเป็น "กำลังเข้าสู่ระบบ..." พร้อมสปินเนอร์ กดซ้ำไม่ได้</span></li>
+            <li><span class="b">3</span><span>สำเร็จ → router เด้งเข้า <code>/home</code> เอง ไม่ต้องสั่ง navigate</span></li>
+            <li><span class="b">4</span><span>ล้มเหลว → ข้อความแดงใต้ปุ่ม (ข้อความจาก API หรือ "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง")</span></li>
+          </ul>
+        </div>
+
+        <div class="frames">
+          <figure class="shot">
+            <div class="device"><div class="screen">
+              <div class="aurora full"><i></i><i></i><i></i></div>
+              <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+              <div class="body center">
+                <div class="c glass" style="padding:22px;align-items:center;gap:12px">
+                  <div class="mark" style="width:66px;height:66px"><svg class="ic fill"><use href="#i-cross"/></svg></div>
+                  <div class="t-h" style="text-align:center">ยินดีต้อนรับสู่ CareMate</div>
+                  <div class="t-b" style="text-align:center">เข้าสู่ระบบด้วยเบอร์โทรศัพท์เพื่อเริ่มจองบริการดูแลสุขภาพ</div>
+                  <div class="field" style="width:100%;margin-top:8px">
+                    <svg class="ic"><use href="#i-phone"/></svg>
+                    <div class="col grow"><span class="lab">เบอร์โทรศัพท์</span><span class="val">0812345678</span></div>
+                  </div>
+                  <div class="btn" style="width:100%;margin-top:4px"><svg class="ic"><use href="#i-out"/></svg>เข้าสู่ระบบ</div>
+                  <div class="btn ghost" style="color:#0E7A94">ยังไม่มีบัญชี? สมัครสมาชิก</div>
+                </div>
+              </div>
+            </div></div>
+            <figcaption><b>LoginPage</b>การ์ดกระจกใบเดียวลอยบน aurora เต็มจอ</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+    <!-- ============================ 02 REGISTER ============================ -->
+    <section class="stage" id="s2">
+      <div class="stage-head"><span class="stage-n">02</span><h2>สมัครสมาชิก แล้วผ่านด่านยินยอม PDPA</h2></div>
+      <div class="routes"><span class="route">/register</span><span class="route">PdpaConsentDialog (modal)</span></div>
+
+      <p>
+        ลำดับสำคัญมาก: <b>กรอกฟอร์ม → กดสมัคร → ฟอร์มผ่าน validation → เปิดหน้ายินยอม PDPA → ยินยอม → ค่อยเรียก API สร้างบัญชี</b>
+        ถ้าผู้ใช้ปิดหน้ายินยอม จะไม่มีการเรียก API ใด ๆ เลย — ไม่มีบัญชีค้างในระบบ
+      </p>
+
+      <div class="split">
+        <div>
+          <h3>ฟอร์มสมัคร</h3>
+          <p>
+            ฝั่ง backend บังคับแค่ <code>phone</code>/<code>firstName</code>/<code>lastName</code> แต่แอปตั้งใจบังคับครบทุกช่องเอง
+            ส่วนที่อยู่ ข้อมูลสุขภาพ และผู้ติดต่อฉุกเฉิน ยกไปกรอกทีหลังในหน้าโปรไฟล์
+          </p>
+          <ul class="plain">
+            <li><b>เบอร์โทรศัพท์</b> — ตัวเลขล้วน 10 หลัก</li>
+            <li><b>ชื่อจริง / นามสกุล</b> — สองช่องเรียงแถวเดียวกัน</li>
+            <li><b>ชื่อเล่น</b> — บังคับ ("กรุณากรอกชื่อเล่น")</li>
+            <li><b>เพศ</b> — dropdown ส่งค่าอังกฤษ <code>male</code>/<code>female</code>/<code>other</code> แสดงไทย ชาย/หญิง/อื่นๆ</li>
+            <li><b>วันเกิด</b> — แตะเปิด date picker แสดงเป็น พ.ศ.</li>
+            <li><b>อีเมล</b> — ตรวจรูปแบบด้วย regex</li>
+          </ul>
+
+          <h3>ด่านยินยอม PDPA</h3>
+          <ul class="steps">
+            <li><span class="b">1</span><span>ดึงนโยบายจาก <code>GET /pdpa</code> — เนื้อหาเป็น HTML สำเร็จรูป แสดงด้วย <code>flutter_html</code></span></li>
+            <li><span class="b">2</span><span>ถ้า API ล่มหรือยังไม่มีเวอร์ชันเปิดใช้ (404) ใช้ฉบับที่ฝังมากับแอป <code>bundled-2026-08-04</code> แทน — ไม่บล็อกการสมัคร</span></li>
+            <li><span class="b">3</span><span>ต้องเลื่อนอ่านจนสุด checkbox จึงกดได้ ปุ่ม "ยินยอมและดำเนินการต่อ" จึงจะเปิด</span></li>
+            <li><span class="b">4</span><span>กดปิด (X) = ยกเลิกการสมัคร กลับมาที่ฟอร์มโดยไม่เรียก API</span></li>
+            <li><span class="b">5</span><span>ยินยอมแล้วบันทึกเวลา UTC + เวอร์ชันไว้ในเครื่อง แล้วส่ง <code>pdpaConsent</code>/<code>pdpaConsentVersion</code> ไปกับ register</span></li>
+          </ul>
+          <div class="note warn">
+            <span class="tag">ข้อควรรู้</span>
+            <b>ฝั่ง backend ยังไม่มีช่องรับความยินยอมนี้</b> — <code>RegisterRequest</code> ไม่มีฟิลด์ PDPA
+            การบังคับยินยอมจึงอยู่ฝั่งแอปล้วน และยังไม่มี endpoint ให้อ่านสถานะย้อนหลัง
+          </div>
+        </div>
+
+        <div class="frames">
+          <figure class="shot">
+            <div class="device"><div class="screen">
+              <div class="aurora"><i></i><i></i><i></i></div>
+              <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+              <div class="abar"><svg class="ic"><use href="#i-back"/></svg>สมัครสมาชิก</div>
+              <div class="body">
+                <div class="c glass">
+                  <div class="r">
+                    <div class="av fill"><svg class="ic"><use href="#i-person"/></svg></div>
+                    <div class="col grow"><span class="t-t">สร้างบัญชีใหม่</span><span class="t-b">กรอกข้อมูลเบื้องต้น รายละเอียดอื่นแก้ไขเพิ่มเติมได้ภายหลัง</span></div>
+                  </div>
+                </div>
+                <div class="c">
+                  <div class="field"><svg class="ic"><use href="#i-phone"/></svg><div class="col grow"><span class="lab">เบอร์โทรศัพท์</span><span class="val">0812345678</span></div></div>
+                  <div class="g2">
+                    <div class="field"><div class="col grow"><span class="lab">ชื่อจริง</span><span class="val">สมชาย</span></div></div>
+                    <div class="field"><div class="col grow"><span class="lab">นามสกุล</span><span class="val">ใจดี</span></div></div>
+                  </div>
+                  <div class="field"><div class="col grow"><span class="lab">ชื่อเล่น</span><span class="val">ชาย</span></div></div>
+                  <div class="g2">
+                    <div class="field"><div class="col grow"><span class="lab">เพศ</span><span class="val">ชาย</span></div><svg class="ic"><use href="#i-chev"/></svg></div>
+                    <div class="field"><div class="col grow"><span class="lab">วันเกิด</span><span class="val ph">เลือกวันเกิด</span></div></div>
+                  </div>
+                  <div class="field"><svg class="ic"><use href="#i-mail"/></svg><div class="col grow"><span class="lab">อีเมล</span><span class="val">somchai@mail.com</span></div></div>
+                  <div class="btn" style="margin-top:2px">สมัครสมาชิก</div>
+                </div>
+              </div>
+            </div></div>
+            <figcaption><b>RegisterPage</b>บังคับครบ 7 ช่อง ก่อนจะเปิดหน้ายินยอมได้</figcaption>
+          </figure>
+
+          <figure class="shot">
+            <div class="device"><div class="screen">
+              <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+              <div class="abar plain"><svg class="ic"><use href="#i-x"/></svg>ความยินยอมเก็บข้อมูลส่วนบุคคล</div>
+              <div class="body" style="gap:10px">
+                <div class="t-t">PDPA — พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562</div>
+                <div class="c" style="gap:7px">
+                  <div class="t-t" style="font-size:11.5px">1. ข้อมูลที่เราเก็บ</div>
+                  <div class="t-b">ชื่อ-นามสกุล เบอร์โทรศัพท์ อีเมล วันเกิด เพศ ที่อยู่ และข้อมูลสุขภาพของผู้รับบริการที่คุณเพิ่มเข้าระบบ</div>
+                  <div class="t-t" style="font-size:11.5px">2. วัตถุประสงค์</div>
+                  <div class="t-b">ใช้จับคู่ผู้ดูแลที่เหมาะสม ยืนยันตัวตน ออกใบเสร็จ และติดต่อกรณีฉุกเฉินระหว่างให้บริการ</div>
+                  <div class="t-t" style="font-size:11.5px">3. การเปิดเผยข้อมูล</div>
+                  <div class="t-b">เปิดเผยเท่าที่จำเป็นต่อพาร์ทเนอร์ผู้รับงานของคุณเท่านั้น</div>
+                  <div class="t-s" style="text-align:center;padding-top:4px">⌄ เลื่อนอ่านจนสุดเพื่อเปิดปุ่มยินยอม</div>
+                </div>
+                <div class="c flat r" style="gap:9px">
+                  <div style="width:15px;height:15px;border:1.5px solid #86A0A2;border-radius:4px;flex:none"></div>
+                  <span class="t-b">ข้าพเจ้าได้อ่านและยินยอมให้ CareMate เก็บรวบรวม ใช้ และเปิดเผยข้อมูลส่วนบุคคล (รวมถึงข้อมูลสุขภาพ) ของข้าพเจ้าตามนโยบายข้างต้น</span>
+                </div>
+                <div class="btn off"><svg class="ic"><use href="#i-checkc"/></svg>ยินยอมและดำเนินการต่อ</div>
+              </div>
+            </div></div>
+            <figcaption><b>PdpaConsentDialog</b>สถานะเริ่มต้น — ยังไม่เลื่อนสุด ปุ่มและ checkbox ยังกดไม่ได้</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ 03 HOME ============================ -->
+    <section class="stage" id="s3">
+      <div class="stage-head"><span class="stage-n">03</span><h2>หน้าแรก — เรียงตามสิ่งที่ต้องรีบทำก่อน</h2></div>
+      <div class="routes"><span class="route">/home</span></div>
+      <div class="split">
+        <div>
+          <p>
+            เข้าหน้านี้แล้วโหลดสองอย่างเรียงกัน: รายชื่อสมาชิกที่ดูแล แล้วตามด้วยรายการจองที่ยัง active
+            ดึงลงเพื่อรีเฟรชได้ ถ้าโหลดไม่สำเร็จจะแทนที่ทั้งหน้าด้วยการ์ด "โหลดข้อมูลไม่สำเร็จ" + ปุ่มลองอีกครั้ง
+          </p>
+          <h3>ลำดับการ์ดไม่ตายตัว</h3>
+          <p>
+            บล็อก "การชำระเงิน" กับ "นัดหมายล่าสุด" สลับที่กันตามสถานการณ์ —
+            <b>ถ้ามีรายการรอชำระ บล็อกชำระเงินจะขึ้นก่อนเสมอ</b> ถ้าไม่มีก็ลงไปอยู่ล่างในรูปแบบ empty state
+            ("ไม่มีรายการค้างชำระ")
+          </p>
+          <ul class="plain">
+            <li><b>แถบตัวเลข 3 ช่อง</b> — สมาชิก / นัดหมาย / รอชำระ อ่านจากข้อมูลจริงที่เพิ่งโหลด</li>
+            <li><b>บริการด่วน</b> — 4 การ์ด แต่ละใบใช้สีหมวดของตัวเอง (Coral / Emerald / Amethyst / Rose) กดแล้วเข้าหน้าจอง</li>
+            <li><b>สมาชิกที่ดูแล</b> — แถวอวาตาร์เลื่อนแนวนอน กดเข้าหน้าสมาชิก</li>
+            <li><b>กระดิ่งแจ้งเตือน</b> — ยังไม่ทำงานจริง กดแล้วขึ้น snackbar บอกตรง ๆ ว่ายังไม่มีในโหมดจำลอง</li>
+          </ul>
+        </div>
+
+        <div class="frames">
+          <figure class="shot">
+            <div class="device"><div class="screen">
+              <div class="aurora"><i></i><i></i><i></i></div>
+              <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+              <div class="body">
+                <div class="r sp">
+                  <div class="r" style="gap:7px"><div class="mark" style="width:22px;height:22px;border-radius:7px"><svg class="ic fill"><use href="#i-cross"/></svg></div><span class="t-t" style="font-size:13px">CareMate</span></div>
+                  <div class="av sm"><svg class="ic"><use href="#i-bell"/></svg></div>
+                </div>
+                <div class="col" style="gap:4px">
+                  <span class="t-h">สวัสดีครับ, สมชาย</span>
+                  <span class="t-b">วันนี้ต้องการให้ CareMate ช่วยดูแลอะไรครับ?</span>
+                </div>
+                <div class="r">
+                  <div class="btn grow"><svg class="ic"><use href="#i-plus"/></svg>จองบริการ</div>
+                  <div class="btn sq" style="background:#E3F6F5;color:#0A5E73"><svg class="ic"><use href="#i-people"/></svg></div>
+                </div>
+                <div class="c glass r" style="padding:16px 6px;text-align:center">
+                  <div class="col grow" style="align-items:center;gap:5px"><div class="av sm"><svg class="ic"><use href="#i-people"/></svg></div><span class="t-n">3</span><span class="t-s">สมาชิก</span></div>
+                  <div style="width:1px;height:38px;background:#D7EBEA"></div>
+                  <div class="col grow" style="align-items:center;gap:5px"><div class="av sm" style="--ac:#0EA66B"><svg class="ic"><use href="#i-cal"/></svg></div><span class="t-n">1</span><span class="t-s">นัดหมาย</span></div>
+                  <div style="width:1px;height:38px;background:#D7EBEA"></div>
+                  <div class="col grow" style="align-items:center;gap:5px"><div class="av sm" style="--ac:#E08A00"><svg class="ic"><use href="#i-receipt"/></svg></div><span class="t-n">1</span><span class="t-s">รอชำระ</span></div>
+                </div>
+                <div class="r sp"><div class="col"><span class="t-t">การชำระเงิน</span><span class="t-s">สรุปรายการชำระเงินล่าสุด</span></div><span class="t-s" style="color:#0E7A94;font-weight:700">ดูเพิ่ม</span></div>
+                <div class="c glass r">
+                  <div class="av" style="--ac:#E08A00"><svg class="ic"><use href="#i-receipt"/></svg></div>
+                  <div class="col grow"><span class="t-t">รอชำระ 1 รายการ</span><span class="t-b">ยอดรวม ฿420</span></div>
+                  <div class="btn sm">ชำระ</div>
+                </div>
+                <div class="r sp"><div class="col"><span class="t-t">นัดหมายล่าสุด</span><span class="t-s">รายการจองที่กำลังจะมาถึง</span></div><span class="t-s" style="color:#0E7A94;font-weight:700">ดูรายการ</span></div>
+                <div class="c glass">
+                  <div class="r top">
+                    <div class="av lg" style="--ac:#FF6F5C"><svg class="ic"><use href="#i-car"/></svg></div>
+                    <div class="col grow"><span class="t-t">รับ-ส่งพบแพทย์</span><span class="t-b">ให้คุณแม่ • 12 ส.ค. 09:00 น.</span></div>
+                    <span class="badge" style="--ac:#D97706">รอชำระเงิน</span>
+                  </div>
+                  <div class="c flat r"><svg class="ic" style="color:#0E7A94"><use href="#i-pin"/></svg><span class="t-b grow">บ้านลาดพร้าว 71 → รพ. สมิติเวช สุขุมวิท</span></div>
+                  <div class="r">
+                    <div class="btn out grow sm">ดูรายละเอียด</div>
+                    <div class="btn grow sm">ชำระเงิน</div>
+                  </div>
+                </div>
+                <div class="r sp"><div class="col"><span class="t-t">บริการด่วน</span><span class="t-s">เลือกสิ่งที่ต้องการให้ CareMate ช่วยดูแล</span></div><span class="t-s" style="color:#0E7A94;font-weight:700">ทั้งหมด</span></div>
+                <div class="g2">
+                  <div class="c tiny"><div class="av" style="--ac:#FF6F5C"><svg class="ic"><use href="#i-car"/></svg></div><span class="t-t">รับ-ส่งพบแพทย์</span><span class="t-s">มีผู้ช่วยดูแล</span></div>
+                  <div class="c tiny"><div class="av" style="--ac:#0EA66B"><svg class="ic"><use href="#i-hands"/></svg></div><span class="t-t">ดูแลรายชั่วโมง</span><span class="t-s">ที่บ้าน / คอนโด</span></div>
+                  <div class="c tiny"><div class="av" style="--ac:#7C3AED"><svg class="ic"><use href="#i-pill"/></svg></div><span class="t-t">ซื้อยา</span><span class="t-s">ยาและเวชภัณฑ์</span></div>
+                  <div class="c tiny"><div class="av" style="--ac:#E8478D"><svg class="ic"><use href="#i-people"/></svg></div><span class="t-t">สมาชิกของฉัน</span><span class="t-s">จัดการครอบครัว</span></div>
+                </div>
+                <div class="r sp"><div class="col"><span class="t-t">สมาชิกที่ดูแล</span><span class="t-s">เลือกสมาชิกเพื่อจองบริการอย่างรวดเร็ว</span></div><span class="t-s" style="color:#0E7A94;font-weight:700">จัดการ</span></div>
+                <div class="r" style="gap:14px">
+                  <div class="col" style="align-items:center;gap:5px;width:60px"><div class="av lg fill" style="--ac:#FF6F5C"><svg class="ic"><use href="#i-person"/></svg></div><span class="t-s" style="font-weight:700;color:#0F2A2E">คุณแม่</span><span class="t-s">มารดา</span></div>
+                  <div class="col" style="align-items:center;gap:5px;width:60px"><div class="av lg fill" style="--ac:#0EA66B"><svg class="ic"><use href="#i-person"/></svg></div><span class="t-s" style="font-weight:700;color:#0F2A2E">คุณพ่อ</span><span class="t-s">บิดา</span></div>
+                  <div class="col" style="align-items:center;gap:5px;width:60px"><div class="av lg fill" style="--ac:#7C3AED"><svg class="ic"><use href="#i-person"/></svg></div><span class="t-s" style="font-weight:700;color:#0F2A2E">ตัวเอง</span><span class="t-s">ตัวเอง</span></div>
+                </div>
+                <div class="c tint r top">
+                  <div class="av fill"><svg class="ic"><use href="#i-tip"/></svg></div>
+                  <div class="col grow"><span class="t-t" style="color:#0A5E73">Care Tip วันนี้</span><span class="t-b" style="color:#0A5E73">ก่อนพาผู้สูงอายุไปโรงพยาบาล ควรเตรียมยาเดิม บัตรประชาชน และประวัติแพ้ยาไว้ให้พร้อม</span></div>
+                </div>
+              </div>
+              <div class="nav">
+                <div class="on"><svg class="ic"><use href="#i-home"/></svg>หน้าแรก</div>
+                <div><svg class="ic"><use href="#i-cal"/></svg>จองบริการ</div>
+                <div><svg class="ic"><use href="#i-people"/></svg>สมาชิก</div>
+                <div><svg class="ic"><use href="#i-person"/></svg>โปรไฟล์</div>
+              </div>
+            </div></div>
+            <figcaption><b>HomePage</b>เลื่อนดูภายในกรอบได้ — ลำดับนี้คือกรณี "มีรายการรอชำระ"</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+    <!-- ============================ 04 MEMBERS ============================ -->
+    <section class="stage" id="s4">
+      <div class="stage-head"><span class="stage-n">04</span><h2>สมาชิกที่ดูแล — ด่านบังคับก่อนจองได้</h2></div>
+      <div class="routes"><span class="route">/members</span></div>
+      <div class="split">
+        <div>
+          <p>
+            การจองต้องระบุเสมอว่าจองให้ใคร บัญชีที่ยังไม่มีสมาชิกจึงเปิดหน้าจองไม่ได้เลย —
+            หน้าจองจะกลายเป็นการ์ด "ยังไม่มีผู้รับบริการ" พร้อมปุ่มพากลับมาหน้านี้
+          </p>
+          <ul class="steps">
+            <li><span class="b">1</span><span>กด "เพิ่มสมาชิก" (ปุ่มลอยมุมขวาล่าง) เปิด bottom sheet ฟอร์ม</span></li>
+            <li><span class="b">2</span><span>กรอก ชื่อจริง / นามสกุล / ชื่อเล่น / ความสัมพันธ์ / เบอร์โทร / อายุ / เพศ / กรุ๊ปเลือด / หมายเหตุการดูแล</span></li>
+            <li><span class="b">3</span><span>บันทึกแล้วรายชื่อรีเฟรชทันที ตั้งเป็นค่าเริ่มต้นได้หนึ่งคน</span></li>
+            <li><span class="b">4</span><span>สมาชิกค่าเริ่มต้นจะถูกเลือกให้อัตโนมัติในขั้นจอง และที่อยู่ของเขากลายเป็นจุดรับตั้งต้น</span></li>
+          </ul>
+          <ul class="plain">
+            <li>ค้นหาได้จากชื่อ ความสัมพันธ์ หรือเบอร์โทร</li>
+            <li>ตัวกรอง 4 ชิป: ทั้งหมด / ตัวเอง / ครอบครัว / ค่าเริ่มต้น</li>
+            <li>เพดานจำนวน 5 คน (<code>AppConfig.maxRelatives</code>) แสดงบนแถบสรุปหัวหน้าจอ</li>
+          </ul>
+          <div class="note stop">
+            <span class="tag">ยังใช้ไม่ได้จริง</span>
+            <b>ปุ่มลบสมาชิกจะได้ 404</b> — <code>DELETE /user-relatives/{id}</code> ยังไม่มีบน backend
+            และการสร้างสมาชิกต้องยิง <code>POST</code> แล้วตาม <code>PATCH</code> ทันที เพราะ <code>POST</code>
+            ไม่บันทึกชื่อเล่น/กรุ๊ปเลือด/วันเกิดให้
+          </div>
+        </div>
+
+        <div class="frames">
+          <figure class="shot">
+            <div class="device"><div class="screen">
+              <div class="aurora"><i></i><i></i><i></i></div>
+              <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+              <div class="abar">สมาชิก</div>
+              <div class="body">
+                <div class="c glass">
+                  <div class="r">
+                    <div class="av lg fill"><svg class="ic"><use href="#i-people"/></svg></div>
+                    <div class="col grow"><span class="t-t">จัดการคนที่คุณดูแล</span><span class="t-b">เลือกสมาชิกเพื่อจองบริการ ดูข้อมูลสุขภาพ หรือจัดการผู้ติดต่อฉุกเฉิน</span></div>
+                  </div>
+                  <div class="c flat r"><svg class="ic" style="color:#B4740A"><use href="#i-star"/></svg><span class="t-b" style="font-weight:700;color:#0F2A2E">ค่าเริ่มต้น: คุณแม่ (มารดา)</span></div>
+                </div>
+                <div class="r" style="gap:8px">
+                  <div class="c tiny grow" style="gap:2px;align-items:center"><span class="t-n">3</span><span class="t-s">สมาชิก</span></div>
+                  <div class="c tiny grow" style="gap:2px;align-items:center"><span class="t-n">5</span><span class="t-s">จำนวนสูงสุด</span></div>
+                  <div class="c tiny grow" style="gap:2px;align-items:center"><span class="t-n">2</span><span class="t-s">มีโน้ตดูแล</span></div>
+                </div>
+                <div class="field"><svg class="ic"><use href="#i-search"/></svg><span class="val ph">ค้นหาชื่อ, ความสัมพันธ์ หรือเบอร์โทร</span></div>
+                <div class="chips scroll">
+                  <span class="chip on">ทั้งหมด</span><span class="chip">ตัวเอง</span><span class="chip">ครอบครัว</span><span class="chip">ค่าเริ่มต้น</span>
+                </div>
+                <span class="t-h" style="font-size:14px">สมาชิกทั้งหมด</span>
+                <div class="c">
+                  <div class="r top">
+                    <div class="av lg fill" style="--ac:#FF6F5C"><svg class="ic"><use href="#i-person"/></svg></div>
+                    <div class="col grow"><span class="t-t">คุณแม่</span><span class="t-b">มารดา • 68 ปี</span></div>
+                    <span class="badge" style="--ac:#B4740A">ค่าเริ่มต้น</span>
+                  </div>
+                  <div class="c flat" style="gap:6px">
+                    <div class="kv"><span>เบอร์โทร</span><b>081-234-5678</b></div>
+                    <div class="kv"><span>เพศ</span><b>หญิง</b></div>
+                    <div class="kv"><span>หมายเหตุการดูแล</span><b>เดินช้า ต้องใช้ไม้เท้า</b></div>
+                  </div>
+                  <div class="r"><div class="btn out grow sm">แก้ไขข้อมูล</div><div class="btn sq sm" style="background:#EAF6F5;color:#4E6B6E"><svg class="ic"><use href="#i-x"/></svg></div></div>
+                </div>
+                <div class="c">
+                  <div class="r top">
+                    <div class="av lg fill" style="--ac:#0EA66B"><svg class="ic"><use href="#i-person"/></svg></div>
+                    <div class="col grow"><span class="t-t">คุณพ่อ</span><span class="t-b">บิดา • 72 ปี</span></div>
+                  </div>
+                  <div class="r"><div class="btn out grow sm">แก้ไขข้อมูล</div><div class="btn grow sm" style="background:#EAF6F5;color:#0E7A94">ตั้งเป็นค่าเริ่มต้น</div></div>
+                </div>
+              </div>
+              <div class="r" style="position:absolute;right:14px;bottom:74px;z-index:3">
+                <div class="btn" style="box-shadow:0 10px 24px -10px rgba(14,122,148,.8);padding:0 16px"><svg class="ic"><use href="#i-plus"/></svg>เพิ่มสมาชิก</div>
+              </div>
+              <div class="nav">
+                <div><svg class="ic"><use href="#i-home"/></svg>หน้าแรก</div>
+                <div><svg class="ic"><use href="#i-cal"/></svg>จองบริการ</div>
+                <div class="on"><svg class="ic"><use href="#i-people"/></svg>สมาชิก</div>
+                <div><svg class="ic"><use href="#i-person"/></svg>โปรไฟล์</div>
+              </div>
+            </div></div>
+            <figcaption><b>MembersPage</b>ปุ่มลอย "เพิ่มสมาชิก" เปิด bottom sheet ฟอร์ม</figcaption>
+          </figure>
+
+          <figure class="shot">
+            <div class="device"><div class="screen">
+              <div class="aurora"><i></i><i></i><i></i></div>
+              <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+              <div class="abar">จองบริการ</div>
+              <div class="body">
+                <div class="c glass">
+                  <div class="r">
+                    <div class="av lg fill"><svg class="ic"><use href="#i-hands"/></svg></div>
+                    <div class="col grow"><span class="t-t">จองบริการดูแลสุขภาพ</span><span class="t-b">เลือกบริการ ผู้รับบริการ วันเวลา และสถานที่ จากนั้นระบบจะสรุปราคาให้ก่อนยืนยัน</span></div>
+                  </div>
+                </div>
+                <div class="c glass" style="align-items:center;padding:22px;gap:10px">
+                  <div class="av lg fill" style="width:58px;height:58px"><svg class="ic" style="width:28px;height:28px"><use href="#i-plus"/></svg></div>
+                  <span class="t-h" style="font-size:15px">ยังไม่มีผู้รับบริการ</span>
+                  <span class="t-b" style="text-align:center">การจองต้องระบุว่าจองให้ใคร กรุณาเพิ่มสมาชิกที่ต้องการให้ดูแลก่อน จึงจะเริ่มจองบริการได้</span>
+                  <div class="btn" style="width:100%"><svg class="ic"><use href="#i-person"/></svg>เพิ่มสมาชิก</div>
+                </div>
+              </div>
+              <div class="nav">
+                <div><svg class="ic"><use href="#i-home"/></svg>หน้าแรก</div>
+                <div class="on"><svg class="ic"><use href="#i-cal"/></svg>จองบริการ</div>
+                <div><svg class="ic"><use href="#i-people"/></svg>สมาชิก</div>
+                <div><svg class="ic"><use href="#i-person"/></svg>โปรไฟล์</div>
+              </div>
+            </div></div>
+            <figcaption><b>BookingPage — ด่านกันไว้ก่อน</b>บัญชีที่ยังไม่มีสมาชิกเห็นหน้านี้แทนตัว wizard ทั้งชุด</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ 05 BOOKING WIZARD ============================ -->
+    <section class="stage" id="s5">
+      <div class="stage-head"><span class="stage-n">05</span><h2>จองบริการ — wizard 5 ขั้นในหน้าเดียว</h2></div>
+      <div class="routes"><span class="route">/booking</span></div>
+      <p>
+        ทั้ง 5 ขั้นอยู่ใน <code>PageView</code> เดียว ปัดเองไม่ได้ — เดินหน้าได้เฉพาะปุ่ม "ถัดไป" เท่านั้น
+        แถบล่างติดตรึงอยู่ตลอด แสดง <b>ราคาโดยประมาณที่อัปเดตสดทุกครั้งที่เปลี่ยนบริการหรือช่วงเวลา</b>
+      </p>
+
+      <div class="tw">
+        <table>
+          <thead><tr><th>ขั้น</th><th>ชื่อขั้น</th><th>ผู้ใช้ทำอะไร</th><th>ด่านตรวจก่อนไปต่อ</th></tr></thead>
+          <tbody>
+            <tr><td class="num">1</td><td>บริการ</td><td>เลือกการ์ดบริการจากแถวเลื่อนแนวนอน</td><td>ไม่มี (มีตัวเลือกแรกถูกเลือกไว้แล้ว)</td></tr>
+            <tr><td class="num">2</td><td>เวลา</td><td>เลือกวันที่ + ช่วงเวลา (ชิปสำเร็จรูปหรือกำหนดเอง)</td><td>เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม</td></tr>
+            <tr><td class="num">3</td><td>ผู้รับบริการ</td><td>เลือกสมาชิกหนึ่งคน</td><td>ต้องมีสมาชิกอย่างน้อย 1 คน</td></tr>
+            <tr><td class="num">4</td><td>สถานที่</td><td>ปักจุดรับ (+ ปลายทางถ้าเป็นบริการรับ-ส่ง) และหมายเหตุ</td><td>ต้องมีพิกัดจากแผนที่ ไม่ใช่พิมพ์ข้อความเปล่า</td></tr>
+            <tr><td class="num">5</td><td>ยืนยัน</td><td>ตรวจสรุป แล้วกด "ยืนยันและไปชำระเงิน"</td><td>ตรวจซ้ำทุกข้อ + ต้องหา PromptPay UUID เจอ</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <span class="tag">สูตรราคา</span>
+        <b>ค่าบริการ = ค่าบริการต่อชั่วโมง × (นาทีที่ปัดขึ้นทีละ 30 นาที ÷ 60) แล้วบวกค่าธรรมเนียมแพลตฟอร์ม ฿20</b>
+        — จองสองชั่วโมงกับบริการ ฿200/ชม. จึงได้ ฿420 พอดี ตัวเลขนี้เป็นเพียงค่าประมาณฝั่งแอป
+        ยอดจริงมาจาก response ตอนสร้างการจอง
+      </div>
+
+      <div class="frames">
+        <figure class="shot">
+          <div class="device"><div class="screen">
+            <div class="aurora"><i></i><i></i><i></i></div>
+            <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+            <div class="abar">จองบริการ</div>
+            <div class="body">
+              <div class="c glass">
+                <div class="r">
+                  <div class="av lg fill"><svg class="ic"><use href="#i-hands"/></svg></div>
+                  <div class="col grow"><span class="t-t">จองบริการดูแลสุขภาพ</span><span class="t-b">เลือกบริการ ผู้รับบริการ วันเวลา และสถานที่ จากนั้นระบบจะสรุปราคาให้ก่อนยืนยัน</span></div>
+                </div>
+              </div>
+              <div class="c glass">
+                <div class="steps5">
+                  <div class="s on"><i>1</i><span>บริการ</span></div><div class="l"></div>
+                  <div class="s"><i>2</i><span>เวลา</span></div><div class="l"></div>
+                  <div class="s"><i>3</i><span>ผู้รับบริการ</span></div><div class="l"></div>
+                  <div class="s"><i>4</i><span>สถานที่</span></div><div class="l"></div>
+                  <div class="s"><i>5</i><span>ยืนยัน</span></div>
+                </div>
+                <div class="bar"><i style="width:20%"></i></div>
+              </div>
+              <div class="r top" style="gap:8px">
+                <svg class="ic" style="color:#0E7A94;margin-top:2px"><use href="#i-cross"/></svg>
+                <div class="col grow"><span class="t-t">เลือกบริการ</span><span class="t-s">เลือกประเภทบริการที่ต้องการให้ CareMate ช่วยดูแล</span></div>
+              </div>
+              <div class="r" style="gap:10px;overflow:hidden">
+                <div class="svc on" style="--ac:#FF6F5C"><div class="puck"><svg class="ic"><use href="#i-car"/></svg></div><span class="t-t">รับ-ส่งพบแพทย์</span><span class="t-b">Medical transport</span></div>
+                <div class="svc" style="--ac:#0EA66B"><div class="puck"><svg class="ic"><use href="#i-hands"/></svg></div><span class="t-t">ดูแลรายชั่วโมง</span><span class="t-b">Home care</span></div>
+                <div class="svc" style="--ac:#7C3AED"><div class="puck"><svg class="ic"><use href="#i-pill"/></svg></div><span class="t-t">ซื้อยา</span><span class="t-b">Medication</span></div>
+              </div>
+            </div>
+            <div class="bbar">
+              <div class="col grow"><span class="t-s">ราคาโดยประมาณ</span><span class="t-n">฿420</span></div>
+              <div class="btn" style="width:130px">ถัดไป</div>
+            </div>
+          </div></div>
+          <figcaption><b>ขั้น 1 · บริการ</b>การ์ดที่เลือกเปลี่ยนเป็นสีหมวดตัวเองเต็มใบ (Coral = รับ-ส่ง)</figcaption>
+        </figure>
+
+        <figure class="shot">
+          <div class="device"><div class="screen">
+            <div class="aurora" style="height:200px"><i></i><i></i><i></i></div>
+            <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+            <div class="abar">จองบริการ</div>
+            <div class="body">
+              <div class="c glass">
+                <div class="steps5">
+                  <div class="s on"><i>1</i><span>บริการ</span></div><div class="l on"></div>
+                  <div class="s on"><i>2</i><span>เวลา</span></div><div class="l"></div>
+                  <div class="s"><i>3</i><span>ผู้รับบริการ</span></div><div class="l"></div>
+                  <div class="s"><i>4</i><span>สถานที่</span></div><div class="l"></div>
+                  <div class="s"><i>5</i><span>ยืนยัน</span></div>
+                </div>
+                <div class="bar"><i style="width:40%"></i></div>
+              </div>
+              <div class="r top" style="gap:8px">
+                <svg class="ic" style="color:#0E7A94;margin-top:2px"><use href="#i-cal"/></svg>
+                <div class="col grow"><span class="t-t">วันและเวลา</span><span class="t-s">เลือกวันเวลาที่ต้องการรับบริการ หรือกำหนดเวลาเอง</span></div>
+              </div>
+              <div class="c">
+                <div class="c flat r">
+                  <div class="av sm fill"><svg class="ic"><use href="#i-cal"/></svg></div>
+                  <div class="col grow"><span class="t-s">วันที่รับบริการ</span><span class="t-t">12 ส.ค. 2569</span></div>
+                  <svg class="ic" style="color:#86A0A2"><use href="#i-chev"/></svg>
+                </div>
+                <span class="t-s">ช่วงเวลารับบริการ</span>
+                <div class="chips">
+                  <span class="chip">08:00-12:00</span><span class="chip">08:00-15:00</span>
+                  <span class="chip on">09:00-11:00</span><span class="chip">13:00-18:00</span>
+                </div>
+                <div class="g2">
+                  <div class="c flat r" style="gap:8px"><svg class="ic" style="color:#0E7A94"><use href="#i-clock"/></svg><div class="col"><span class="t-s">เวลาเริ่ม</span><span class="t-t">09:00</span></div></div>
+                  <div class="c flat r" style="gap:8px"><svg class="ic" style="color:#0E7A94"><use href="#i-clock"/></svg><div class="col"><span class="t-s">เวลาสิ้นสุด</span><span class="t-t">11:00</span></div></div>
+                </div>
+              </div>
+            </div>
+            <div class="bbar">
+              <div class="btn sq out"><svg class="ic"><use href="#i-back"/></svg></div>
+              <div class="col grow"><span class="t-s">ราคาโดยประมาณ</span><span class="t-n">฿420</span></div>
+              <div class="btn" style="width:104px">ถัดไป</div>
+            </div>
+          </div></div>
+          <figcaption><b>ขั้น 2 · เวลา</b>ชิปสำเร็จรูป 4 ช่วง หรือแตะช่องเวลาเพื่อกำหนดเองอิสระ</figcaption>
+        </figure>
+
+        <figure class="shot">
+          <div class="device"><div class="screen">
+            <div class="aurora" style="height:200px"><i></i><i></i><i></i></div>
+            <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+            <div class="abar">จองบริการ</div>
+            <div class="body">
+              <div class="c glass">
+                <div class="steps5">
+                  <div class="s on"><i>1</i><span>บริการ</span></div><div class="l on"></div>
+                  <div class="s on"><i>2</i><span>เวลา</span></div><div class="l on"></div>
+                  <div class="s on"><i>3</i><span>ผู้รับบริการ</span></div><div class="l"></div>
+                  <div class="s"><i>4</i><span>สถานที่</span></div><div class="l"></div>
+                  <div class="s"><i>5</i><span>ยืนยัน</span></div>
+                </div>
+                <div class="bar"><i style="width:60%"></i></div>
+              </div>
+              <div class="r top" style="gap:8px">
+                <svg class="ic" style="color:#0E7A94;margin-top:2px"><use href="#i-people"/></svg>
+                <div class="col grow"><span class="t-t">เลือกผู้รับบริการ</span><span class="t-s">เลือกว่าจะจองบริการให้ใคร</span></div>
+              </div>
+              <div class="c" style="border-color:#0E7A94">
+                <div class="r">
+                  <div class="av lg fill" style="--ac:#FF6F5C"><svg class="ic"><use href="#i-person"/></svg></div>
+                  <div class="col grow"><span class="t-t">คุณแม่</span><span class="t-b">มารดา • 68 ปี</span><span class="t-s">เดินช้า ต้องใช้ไม้เท้า</span></div>
+                  <svg class="ic" style="color:#0E7A94"><use href="#i-checkc"/></svg>
+                </div>
+              </div>
+              <div class="c">
+                <div class="r">
+                  <div class="av lg fill" style="--ac:#0EA66B"><svg class="ic"><use href="#i-person"/></svg></div>
+                  <div class="col grow"><span class="t-t">คุณพ่อ</span><span class="t-b">บิดา • 72 ปี</span><span class="t-s">ความดันสูง</span></div>
+                  <svg class="ic" style="color:#D7EBEA"><use href="#i-circle"/></svg>
+                </div>
+              </div>
+            </div>
+            <div class="bbar">
+              <div class="btn sq out"><svg class="ic"><use href="#i-back"/></svg></div>
+              <div class="col grow"><span class="t-s">ราคาโดยประมาณ</span><span class="t-n">฿420</span></div>
+              <div class="btn" style="width:104px">ถัดไป</div>
+            </div>
+          </div></div>
+          <figcaption><b>ขั้น 3 · ผู้รับบริการ</b>เลือกคนไหน จุดรับจะเปลี่ยนเป็นที่อยู่ของคนนั้นทันที</figcaption>
+        </figure>
+
+        <figure class="shot">
+          <div class="device"><div class="screen">
+            <div class="aurora" style="height:200px"><i></i><i></i><i></i></div>
+            <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+            <div class="abar">จองบริการ</div>
+            <div class="body">
+              <div class="c glass">
+                <div class="steps5">
+                  <div class="s on"><i>1</i><span>บริการ</span></div><div class="l on"></div>
+                  <div class="s on"><i>2</i><span>เวลา</span></div><div class="l on"></div>
+                  <div class="s on"><i>3</i><span>ผู้รับบริการ</span></div><div class="l on"></div>
+                  <div class="s on"><i>4</i><span>สถานที่</span></div><div class="l"></div>
+                  <div class="s"><i>5</i><span>ยืนยัน</span></div>
+                </div>
+                <div class="bar"><i style="width:80%"></i></div>
+              </div>
+              <div class="r top" style="gap:8px">
+                <svg class="ic" style="color:#0E7A94;margin-top:2px"><use href="#i-pin"/></svg>
+                <div class="col grow"><span class="t-t">สถานที่</span><span class="t-s">ระบุจุดรับและจุดหมายปลายทาง</span></div>
+              </div>
+              <div class="c">
+                <div class="field"><svg class="ic"><use href="#i-pin"/></svg><div class="col grow"><span class="lab">จุดรับ</span><span class="val">บ้านลาดพร้าว 71</span></div><svg class="ic" style="color:#0E7A94"><use href="#i-map"/></svg></div>
+                <div class="field"><svg class="ic"><use href="#i-flag"/></svg><div class="col grow"><span class="lab">จุดหมายปลายทาง</span><span class="val ph">เช่น โรงพยาบาลสมิติเวช สุขุมวิท</span></div><svg class="ic" style="color:#0E7A94"><use href="#i-map"/></svg></div>
+                <div class="c flat r"><svg class="ic" style="color:#0E7A94"><use href="#i-car"/></svg><span class="t-b" style="font-weight:700;color:#0F2A2E">ระยะทางประมาณ 8.4 กม. • ใช้เวลาประมาณ 120 นาที</span></div>
+              </div>
+              <div class="r top" style="gap:8px">
+                <svg class="ic" style="color:#0E7A94;margin-top:2px"><use href="#i-note"/></svg>
+                <div class="col grow"><span class="t-t">ข้อมูลเพิ่มเติม</span><span class="t-s">หมายเหตุสำหรับพาร์ทเนอร์ก่อนเริ่มงาน</span></div>
+              </div>
+              <div class="c"><div class="field tall"><span class="val ph">เช่น เดินช้า, ต้องใช้รถเข็น, แพ้อาหาร, ต้องช่วยถือของ</span></div></div>
+            </div>
+            <div class="bbar">
+              <div class="btn sq out"><svg class="ic"><use href="#i-back"/></svg></div>
+              <div class="col grow"><span class="t-s">ราคาโดยประมาณ</span><span class="t-n">฿420</span></div>
+              <div class="btn" style="width:104px">ถัดไป</div>
+            </div>
+          </div></div>
+          <figcaption><b>ขั้น 4 · สถานที่</b>ช่องปลายทางโผล่เฉพาะบริการ slug <code>transport</code> เท่านั้น</figcaption>
+        </figure>
+
+        <figure class="shot">
+          <div class="device"><div class="screen">
+            <div class="aurora" style="height:200px"><i></i><i></i><i></i></div>
+            <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+            <div class="abar">จองบริการ</div>
+            <div class="body">
+              <div class="c glass">
+                <div class="steps5">
+                  <div class="s on"><i>1</i><span>บริการ</span></div><div class="l on"></div>
+                  <div class="s on"><i>2</i><span>เวลา</span></div><div class="l on"></div>
+                  <div class="s on"><i>3</i><span>ผู้รับบริการ</span></div><div class="l on"></div>
+                  <div class="s on"><i>4</i><span>สถานที่</span></div><div class="l on"></div>
+                  <div class="s on"><i>5</i><span>ยืนยัน</span></div>
+                </div>
+                <div class="bar"><i style="width:100%"></i></div>
+              </div>
+              <div class="r top" style="gap:8px">
+                <svg class="ic" style="color:#0E7A94;margin-top:2px"><use href="#i-checkc"/></svg>
+                <div class="col grow"><span class="t-t">ยืนยันรายการจอง</span><span class="t-s">ตรวจสอบข้อมูลก่อนสร้างรายการจอง</span></div>
+              </div>
+              <div class="c flat r"><div class="av sm" style="--ac:#FF6F5C"><svg class="ic"><use href="#i-car"/></svg></div><div class="col grow"><span class="t-t">รับ-ส่งพบแพทย์</span><span class="t-b">฿420 • 120 นาที</span></div></div>
+              <div class="c flat r"><div class="av sm" style="--ac:#FF6F5C"><svg class="ic"><use href="#i-person"/></svg></div><div class="col grow"><span class="t-t">สมหญิง ใจดี</span><span class="t-b">มารดา • 68 ปี</span></div></div>
+              <div class="c flat r"><div class="av sm"><svg class="ic"><use href="#i-clock"/></svg></div><div class="col grow"><span class="t-t">12 ส.ค. 2569 เวลา 09:00-11:00</span><span class="t-b">เวลานัดหมาย</span></div></div>
+              <div class="c">
+                <div class="r"><svg class="ic" style="color:#FF6F5C"><use href="#i-receipt"/></svg><span class="t-t grow">สรุปรายการจอง</span><span class="badge" style="--ac:#FF6F5C">Estimate</span></div>
+                <div class="kv"><span>บริการ</span><b>รับ-ส่งพบแพทย์</b></div>
+                <div class="kv"><span>ผู้รับบริการ</span><b>สมหญิง ใจดี</b></div>
+                <div class="kv"><span>วันเวลา</span><b>12 ส.ค. 2569 09:00-11:00</b></div>
+                <div class="kv"><span>ระยะทาง</span><b>8.4 กม.</b></div>
+                <div class="hr"></div>
+                <div class="r sp"><span class="t-b">ยอดชำระโดยประมาณ</span><span class="t-money" style="color:#FF6F5C">฿420</span></div>
+              </div>
+            </div>
+            <div class="bbar">
+              <div class="btn sq out"><svg class="ic"><use href="#i-back"/></svg></div>
+              <div class="col grow"><span class="t-s">ราคาโดยประมาณ</span><span class="t-n">฿420</span></div>
+              <div class="btn" style="width:150px"><svg class="ic"><use href="#i-wallet"/></svg>ยืนยันและไปชำระ</div>
+            </div>
+          </div></div>
+          <figcaption><b>ขั้น 5 · ยืนยัน</b>กดแล้วสร้างการจองจริง ขึ้น snackbar "สร้างรายการจองสำเร็จ กรุณาชำระเงิน" แล้วพาไป /payment</figcaption>
+        </figure>
+      </div>
+
+      <div class="note warn">
+        <span class="tag">สองกับดักที่เคยทำให้จองไม่ผ่านทั้งระบบ</span>
+        <b>1)</b> เวลาที่ส่งขึ้น backend ต้องเป็น RFC3339 พร้อม offset — <code>toIso8601String()</code> บน
+        <code>DateTime</code> ท้องถิ่นไม่ใส่ timezone มาให้ Go จึงปฏิเสธทันที ใช้ <code>_toRfc3339()</code> เสมอ ·
+        <b>2)</b> <code>paymentMethodId</code> ต้องเป็น UUID จริงจาก <code>GET /payments/methods</code>
+        ไม่ใช่ slug — slug ของ PromptPay คือ <code>qr_promptpay</code> ใช้ไว้เทียบเท่านั้น
+      </div>
+    </section>
+    <!-- ============================ 06 LOCATION PICKER ============================ -->
+    <section class="stage" id="s6">
+      <div class="stage-head"><span class="stage-n">06</span><h2>เลือกตำแหน่งบนแผนที่</h2></div>
+      <div class="routes"><span class="route">LocationPickerPage — Navigator.push, ไม่มี route ของตัวเอง</span></div>
+      <div class="split">
+        <div>
+          <p>
+            วิดเจ็ตเดียวใช้ซ้ำทุกที่ที่ต้องปักหมุด: จุดรับและปลายทางในหน้าจอง และที่อยู่หลักในหน้าโปรไฟล์
+            ชื่อหน้าเปลี่ยนตามบริบท ("เลือกจุดรับ" / "เลือกจุดหมายปลายทาง" / "เลือกที่อยู่บนแผนที่")
+          </p>
+          <ul class="steps">
+            <li><span class="b">1</span><span>ค้นหาด้วยชื่อสถานที่หรือที่อยู่ (geocoding ของระบบปฏิบัติการ ไม่ต้องใช้ API key)</span></li>
+            <li><span class="b">2</span><span>หรือเลื่อนแผนที่เอง / กดปุ่มตำแหน่งปัจจุบัน (ขออนุญาต GPS)</span></li>
+            <li><span class="b">3</span><span>ระบบแปลงพิกัดกลับเป็นข้อความที่อยู่ให้อัตโนมัติ ระหว่างรอขึ้น "กำลังค้นหาที่อยู่..."</span></li>
+            <li><span class="b">4</span><span>กด "ยืนยันตำแหน่งนี้" ส่ง <code>Address</code> พร้อมพิกัดกลับไปให้หน้าที่เรียก</span></li>
+          </ul>
+          <div class="note">
+            <span class="tag">ทำไมต้องผ่านแผนที่</span>
+            หน้าจองไม่ยอมให้ผ่านขั้นสถานที่ถ้ายังไม่มีพิกัด — พิมพ์ที่อยู่เป็นข้อความเปล่าอย่างเดียวไม่พอ
+            เพราะระบบจับคู่ผู้ดูแลฝั่ง backend ใช้พิกัดคำนวณ ถ้าไม่ได้ปักจะขึ้น snackbar
+            "กรุณาเลือกจุดรับบนแผนที่"
+          </div>
+          <p style="font-size:14.5px;color:var(--ink-faint)">
+            ข้อความเมื่อค้นหาไม่เจอ: “ไม่พบสถานที่ที่ค้นหา ลองระบุที่อยู่ให้ละเอียดขึ้น”
+          </p>
+        </div>
+
+        <div class="frames">
+          <figure class="shot">
+            <div class="device"><div class="screen">
+              <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+              <div class="abar plain"><svg class="ic"><use href="#i-back"/></svg>เลือกจุดหมายปลายทาง</div>
+              <div class="map-canvas">
+                <div class="road" style="left:0;right:0;top:38%;height:12px"></div>
+                <div class="road" style="left:0;right:0;top:70%;height:7px"></div>
+                <div class="road" style="left:28%;top:0;bottom:0;width:10px"></div>
+                <div class="road" style="left:72%;top:0;bottom:0;width:6px"></div>
+                <div class="park" style="left:34%;top:44%;width:32%;height:22%"></div>
+                <div class="park" style="left:4%;top:8%;width:20%;height:16%"></div>
+                <div class="pin"><svg class="ic fill"><use href="#i-pin"/></svg></div>
+                <div style="position:absolute;left:12px;right:12px;top:12px" class="field on">
+                  <svg class="ic" style="color:#0E7A94"><use href="#i-search"/></svg>
+                  <span class="val ph grow">ค้นหาสถานที่ เช่น ชื่อสถานที่หรือที่อยู่</span>
+                </div>
+                <div class="av" style="position:absolute;right:12px;bottom:14px;background:#fff"><svg class="ic"><use href="#i-track"/></svg></div>
+              </div>
+              <div class="c" style="border-radius:20px 20px 0 0;border-bottom:0;gap:11px">
+                <div class="r top"><svg class="ic" style="color:#0E7A94"><use href="#i-pin"/></svg>
+                  <div class="col grow"><span class="t-s">ตำแหน่งที่เลือก</span><span class="t-t">รพ. สมิติเวช สุขุมวิท ซ.สุขุมวิท 49 คลองตันเหนือ วัฒนา กรุงเทพฯ</span></div>
+                </div>
+                <div class="btn"><svg class="ic"><use href="#i-check"/></svg>ยืนยันตำแหน่งนี้</div>
+              </div>
+            </div></div>
+            <figcaption><b>LocationPickerPage</b>หมุดอยู่กลางจอเสมอ — เลื่อนแผนที่ใต้หมุด ไม่ใช่ลากหมุด</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ 07 PAYMENT ============================ -->
+    <section class="stage" id="s7">
+      <div class="stage-head"><span class="stage-n">07</span><h2>ชำระเงินด้วย PromptPay QR</h2></div>
+      <div class="routes"><span class="route">/payment</span></div>
+      <div class="split">
+        <div>
+          <p>
+            หน้านี้หยิบรายการที่ค้างชำระของผู้ใช้ขึ้นมาเองเสมอ ไม่ต้องส่ง id เข้ามา
+            ถ้าไม่มีรายการค้างจะขึ้นแค่ข้อความ "ไม่มีรายการที่รอชำระเงิน"
+          </p>
+          <ul class="steps">
+            <li><span class="b">1</span><span>สรุปการจอง (บริการ / ผู้รับบริการ / เลขอ้างอิง / ยอดชำระ) บนการ์ดกระจกใบบน</span></li>
+            <li><span class="b">2</span><span>QR สร้างขึ้น <b>ในเครื่อง</b> จากเลข PromptPay + ยอดเงิน ตามมาตรฐาน EMVCo ไม่ได้ขอจาก backend</span></li>
+            <li><span class="b">3</span><span>นาฬิกาถอยหลังนับจาก <code>expiredAt</code> ของรายการชำระเงินจริง</span></li>
+            <li><span class="b">4</span><span>ปุ่มยืนยันล็อกไว้ 5 วินาทีแรก ("กรุณาสแกน QR ก่อน") กันกดผ่านโดยไม่ได้จ่าย</span></li>
+            <li><span class="b">5</span><span>กด "ฉันชำระเงินแล้ว" → ยิง confirm → เด้ง bottom sheet สำเร็จ → ไปหน้าติดตามสถานะ</span></li>
+          </ul>
+          <div class="note stop">
+            <span class="tag">ยังไม่ได้ทดสอบจริง</span>
+            <b>QR ยังไม่เคยถูกสแกนด้วยแอปธนาคารจริง</b> — ตรวจแค่อัลกอริทึม CRC16 กับ test vector ทางการเท่านั้น
+            ถือเป็นความเสี่ยงที่ยังเปิดอยู่ก่อนขึ้น production
+          </div>
+        </div>
+
+        <div class="frames">
+          <figure class="shot">
+            <div class="device"><div class="screen">
+              <div class="aurora"><i></i><i></i><i></i></div>
+              <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+              <div class="abar"><svg class="ic"><use href="#i-back"/></svg>ชำระเงิน</div>
+              <div class="body">
+                <div class="c glass">
+                  <div class="r"><svg class="ic" style="color:#0E7A94"><use href="#i-receipt"/></svg><span class="t-t grow">สรุปรายการจอง</span><span class="badge" style="--ac:#E08A00">รอชำระเงิน</span></div>
+                  <div class="kv"><span>บริการ</span><b>รับ-ส่งพบแพทย์</b></div>
+                  <div class="kv"><span>ผู้รับบริการ</span><b>สมหญิง ใจดี</b></div>
+                  <div class="kv"><span>อ้างอิง</span><b>BK-2608-0417</b></div>
+                  <div class="hr"></div>
+                  <div class="r sp"><span class="t-b">ยอดชำระ</span><span class="t-money">฿420</span></div>
+                </div>
+                <div class="r top" style="gap:8px">
+                  <svg class="ic" style="color:#0E7A94;margin-top:2px"><use href="#i-qr"/></svg>
+                  <div class="col grow"><span class="t-t">สแกน QR เพื่อชำระเงิน</span><span class="t-s">เปิดแอปธนาคารแล้วสแกน QR นี้</span></div>
+                </div>
+                <div class="c lift" style="align-items:center;gap:11px">
+                  <div class="c flat" style="padding:12px;border:1px solid #D7EBEA"><canvas class="qr" width="29" height="29" aria-label="ตัวอย่าง PromptPay QR"></canvas></div>
+                  <span class="t-b">อ้างอิง: PAY-2608-0417</span>
+                  <div class="r" style="gap:6px;color:#E0342C"><svg class="ic" style="width:13px;height:13px"><use href="#i-clock"/></svg><span class="t-b" style="color:#E0342C;font-weight:700">QR หมดอายุใน 14:32 นาที</span></div>
+                </div>
+                <div class="btn ghost">✕ ยกเลิกรายการจองนี้</div>
+              </div>
+              <div class="bbar">
+                <div class="col grow"><span class="t-s">ยอดชำระ</span><span class="t-n">฿420</span></div>
+                <div class="btn off" style="width:158px"><svg class="ic"><use href="#i-lock"/></svg>กรุณาสแกน QR ก่อน</div>
+              </div>
+            </div></div>
+            <figcaption><b>PaymentPage</b>5 วินาทีแรก ปุ่มยังล็อก — ครบแล้วเปลี่ยนเป็น "ฉันชำระเงินแล้ว"</figcaption>
+          </figure>
+
+          <figure class="shot">
+            <div class="device"><div class="screen">
+              <div class="aurora"><i></i><i></i><i></i></div>
+              <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+              <div class="abar"><svg class="ic"><use href="#i-back"/></svg>ชำระเงิน</div>
+              <div class="body">
+                <div class="c glass">
+                  <div class="r"><svg class="ic" style="color:#0E7A94"><use href="#i-receipt"/></svg><span class="t-t grow">สรุปรายการจอง</span><span class="badge" style="--ac:#E08A00">รอชำระเงิน</span></div>
+                  <div class="kv"><span>อ้างอิง</span><b>BK-2608-0417</b></div>
+                  <div class="hr"></div>
+                  <div class="r sp"><span class="t-b">ยอดชำระ</span><span class="t-money">฿420</span></div>
+                </div>
+              </div>
+              <div class="scrim"></div>
+              <div class="sheet">
+                <div class="grip"></div>
+                <div class="av lg fill" style="--ac:#12A150;width:62px;height:62px"><svg class="ic" style="width:32px;height:32px"><use href="#i-check"/></svg></div>
+                <span class="t-h" style="font-size:17px">ชำระเงินสำเร็จ</span>
+                <span class="t-b" style="text-align:center">ระบบได้บันทึกรายการชำระเงินเรียบร้อยแล้ว</span>
+                <div class="btn" style="width:100%;margin-top:6px"><svg class="ic"><use href="#i-track"/></svg>ติดตามสถานะการจอง</div>
+                <div class="btn out" style="width:100%">กลับหน้าหลัก</div>
+              </div>
+            </div></div>
+            <figcaption><b>Success sheet</b>โผล่หลัง confirm สำเร็จ — ทางออกสองทาง ไม่ปิดเงียบ ๆ</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ 08 STATUS ============================ -->
+    <section class="stage" id="s8">
+      <div class="stage-head"><span class="stage-n">08</span><h2>ติดตามสถานะ — ฝั่งแอปต้องถามเอง</h2></div>
+      <div class="routes"><span class="route">/booking/status/:bookingId</span></div>
+      <p>
+        <b>ไม่มี push และไม่มี webhook</b> การจับคู่ผู้ดูแลเกิดขึ้นแบบ async ฝั่ง backend
+        แอปจึงต้องถาม <code>GET /bookings/:id/mission</code> ซ้ำ ๆ เอง จังหวะการถามปรับตามสถานะ
+      </p>
+
+      <div class="tw">
+        <table>
+          <thead><tr><th>สถานะขณะนั้น</th><th>ถามซ้ำทุก</th><th>เหตุผล</th></tr></thead>
+          <tbody>
+            <tr><td><span class="dot" style="background:var(--st-pending)"></span>กำลังหาผู้ดูแล</td><td class="num">5 วินาที</td><td>ช่วงที่สถานะเปลี่ยนได้ทุกวินาที ผู้ใช้จ้องจออยู่</td></tr>
+            <tr><td><span class="dot" style="background:var(--st-matched)"></span>จับคู่แล้ว</td><td class="num">20 วินาที</td><td>ได้คนแล้ว เหลือรอความคืบหน้า ไม่ต้องถี่</td></tr>
+            <tr><td><span class="dot" style="background:var(--st-progress)"></span>กำลังดำเนินการ</td><td class="num">20 วินาที</td><td>อัปเดต checkpoint ระหว่างทำงาน</td></tr>
+            <tr><td><span class="dot" style="background:var(--st-done)"></span>เสร็จสิ้น / ยกเลิก / หมดอายุ</td><td class="num">หยุดถาม</td><td>สถานะปลายทาง ไม่เปลี่ยนอีก</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note warn">
+        <span class="tag">คำเตือน 10 นาที</span>
+        ถ้าค้างที่ "กำลังหาผู้ดูแล" เกิน 10 นาที จะขึ้นแถบเตือนสีส้มให้ติดต่อฝ่ายบริการลูกค้า —
+        ใส่ไว้ตรง ๆ เพราะ backend ยังมีช่องโหว่เรื่อง retry การจับคู่ที่รู้กันอยู่
+      </div>
+
+      <div class="frames">
+        <figure class="shot">
+          <div class="device"><div class="screen">
+            <div class="aurora" style="height:250px"><i></i><i></i><i></i></div>
+            <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+            <div class="abar"><svg class="ic"><use href="#i-back"/></svg>สถานะการจอง</div>
+            <div class="body">
+              <div class="c glass">
+                <div class="r">
+                  <div class="av" style="--ac:#FF6F5C"><svg class="ic"><use href="#i-car"/></svg></div>
+                  <div class="col grow"><span class="t-t">รับ-ส่งพบแพทย์</span><span class="t-b">อ้างอิง BK-2608-0417</span></div>
+                  <span class="badge" style="--ac:#5B6B6A">กำลังหาผู้ดูแล</span>
+                </div>
+              </div>
+              <div class="r top" style="gap:8px"><svg class="ic" style="color:#0E7A94;margin-top:2px"><use href="#i-receipt"/></svg><span class="t-t grow">รายละเอียดการจอง</span></div>
+              <div class="c">
+                <div class="r top"><svg class="ic" style="color:#4E6B6E"><use href="#i-person"/></svg><div class="col grow"><span class="t-s">ผู้รับบริการ</span><span class="t-b" style="color:#0F2A2E;font-weight:600">สมหญิง ใจดี</span></div></div>
+                <div class="hr"></div>
+                <div class="r top"><svg class="ic" style="color:#4E6B6E"><use href="#i-cal"/></svg><div class="col grow"><span class="t-s">วันและเวลา</span><span class="t-b" style="color:#0F2A2E;font-weight:600">12 ส.ค. เวลา 09:00 น.</span></div></div>
+                <div class="hr"></div>
+                <div class="r top"><svg class="ic" style="color:#4E6B6E"><use href="#i-pin"/></svg><div class="col grow"><span class="t-s">จุดรับ → จุดหมาย</span><span class="t-b" style="color:#0F2A2E;font-weight:600">บ้านลาดพร้าว 71 → รพ. สมิติเวช สุขุมวิท</span></div></div>
+                <div class="hr"></div>
+                <div class="r sp"><span class="t-b">ยอดชำระ</span><span class="t-t" style="color:#FF6F5C;font-size:14px">฿420</span></div>
+              </div>
+              <div class="c" style="align-items:center;gap:9px;padding:18px 14px">
+                <div class="spin"></div>
+                <span class="t-t">กำลังค้นหาผู้ดูแลใกล้คุณ</span>
+                <span class="t-b" style="text-align:center">ระบบกำลังจับคู่กับพาร์ทเนอร์ที่เหมาะสม โปรดรอสักครู่</span>
+              </div>
+              <div class="c flat r" style="background:rgba(224,138,0,.12);border:1px solid rgba(224,138,0,.4)">
+                <svg class="ic" style="color:#E08A00"><use href="#i-warn"/></svg>
+                <span class="t-b" style="color:#0F2A2E;font-weight:600">การค้นหาผู้ดูแลใช้เวลานานกว่าปกติ หากรอนานผิดปกติ กรุณาติดต่อฝ่ายบริการลูกค้า</span>
+              </div>
+              <div class="btn danger">✕ ยกเลิกการจอง</div>
+              <div class="btn out">กลับหน้าหลัก</div>
+            </div>
+          </div></div>
+          <figcaption><b>สถานะ PENDING</b>แถบส้มขึ้นเมื่อค้างเกิน 10 นาทีเท่านั้น</figcaption>
+        </figure>
+
+        <figure class="shot">
+          <div class="device"><div class="screen">
+            <div class="aurora" style="height:250px"><i></i><i></i><i></i></div>
+            <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+            <div class="abar"><svg class="ic"><use href="#i-back"/></svg>สถานะการจอง</div>
+            <div class="body">
+              <div class="c glass">
+                <div class="r">
+                  <div class="av" style="--ac:#FF6F5C"><svg class="ic"><use href="#i-car"/></svg></div>
+                  <div class="col grow"><span class="t-t">รับ-ส่งพบแพทย์</span><span class="t-b">อ้างอิง BK-2608-0417</span></div>
+                  <span class="badge" style="--ac:#2563EB">จับคู่แล้ว</span>
+                </div>
+              </div>
+              <div class="r top" style="gap:8px"><svg class="ic" style="color:#0E7A94;margin-top:2px"><use href="#i-badge"/></svg><span class="t-t grow">พาร์ทเนอร์ผู้ดูแล</span></div>
+              <div class="c">
+                <div class="r">
+                  <div class="av fill"><svg class="ic"><use href="#i-person"/></svg></div>
+                  <div class="col grow"><span class="t-t">อนุชา พร้อมดูแล</span><span class="t-b">089-876-5432</span></div>
+                  <div class="r" style="gap:3px;color:#B4740A"><svg class="ic fill" style="width:13px;height:13px"><use href="#i-star"/></svg><span class="t-b">4.8</span></div>
+                </div>
+              </div>
+              <div class="r top" style="gap:8px"><svg class="ic" style="color:#0E7A94;margin-top:2px"><use href="#i-list"/></svg><span class="t-t grow">ความคืบหน้างาน</span></div>
+              <div class="c" style="gap:12px">
+                <div class="r"><svg class="ic" style="color:#12A150"><use href="#i-checkc"/></svg><span class="t-b" style="color:#0F2A2E;font-weight:700">รับงานแล้ว</span></div>
+                <div class="r"><svg class="ic" style="color:#12A150"><use href="#i-checkc"/></svg><span class="t-b" style="color:#0F2A2E;font-weight:700">กำลังเดินทางไปรับ</span></div>
+                <div class="r"><svg class="ic" style="color:#D7EBEA"><use href="#i-circle"/></svg><span class="t-b">ถึงจุดรับแล้ว</span></div>
+                <div class="r"><svg class="ic" style="color:#D7EBEA"><use href="#i-circle"/></svg><span class="t-b">ส่งถึงจุดหมาย</span></div>
+                <div class="r"><svg class="ic" style="color:#D7EBEA"><use href="#i-circle"/></svg><span class="t-b">งานเสร็จสิ้น</span></div>
+              </div>
+              <div class="btn danger">✕ ยกเลิกการจอง</div>
+              <div class="btn out">กลับหน้าหลัก</div>
+            </div>
+          </div></div>
+          <figcaption><b>สถานะ MATCHED</b>ได้ชื่อ เบอร์ และคะแนนพาร์ทเนอร์ + checkpoint ของงาน</figcaption>
+        </figure>
+      </div>
+    </section>
+    <!-- ============================ 09 CANCEL ============================ -->
+    <section class="stage" id="s9">
+      <div class="stage-head"><span class="stage-n">09</span><h2>ยกเลิกการจอง</h2></div>
+      <div class="routes"><span class="route">/payment</span><span class="route">/booking/status/:bookingId</span></div>
+      <div class="split">
+        <div>
+          <p>
+            ยกเลิกได้สองที่ และข้อความอธิบายผลลัพธ์เปลี่ยนตามสถานะจริงของรายการ ไม่ได้ใช้ข้อความกลาง ๆ ใบเดียว
+          </p>
+          <div class="tw">
+            <table>
+              <thead><tr><th>สถานะ</th><th>ยกเลิกเองได้</th><th>ข้อความที่ผู้ใช้เห็น</th></tr></thead>
+              <tbody>
+                <tr><td>รอชำระเงิน</td><td>ได้</td><td>ยังไม่ได้ชำระเงิน ยกเลิกได้ทันที</td></tr>
+                <tr><td>กำลังหาผู้ดูแล</td><td>ได้</td><td>จะหยุดการค้นหา และคืนเงินตามขั้นตอนของเจ้าหน้าที่</td></tr>
+                <tr><td>จับคู่แล้ว</td><td>ได้</td><td>ผู้ดูแลรับงานแล้ว ระบบจะแจ้งให้ทราบ และคืนเงินตามขั้นตอน</td></tr>
+                <tr><td>กำลังดำเนินการ</td><td>ไม่ได้</td><td>ต้องผ่านเจ้าหน้าที่ (พาร์ทเนอร์กำลังทำงานอยู่)</td></tr>
+                <tr><td>เสร็จสิ้น / ยกเลิกแล้ว / หมดอายุ</td><td>ไม่ได้</td><td>ปุ่มยกเลิกไม่ปรากฏ</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <ul class="plain">
+            <li>ใส่เหตุผลได้แต่ไม่บังคับ จำกัด 500 ตัวอักษร</li>
+            <li>ถ้ารายการถูกยกเลิกไปแล้วก่อนหน้า ระบบไม่แจ้งเป็น error — ถือว่าได้ผลลัพธ์ที่ผู้ใช้ต้องการแล้ว แล้วรีเฟรชสถานะให้</li>
+            <li>ยกเลิกหลังจ่ายเงินแล้วจะขึ้นแถบส้ม "อยู่ระหว่างดำเนินการคืนเงิน เจ้าหน้าที่จะติดต่อกลับ"</li>
+          </ul>
+        </div>
+
+        <div class="frames">
+          <figure class="shot">
+            <div class="device"><div class="screen">
+              <div class="aurora" style="height:250px"><i></i><i></i><i></i></div>
+              <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+              <div class="abar"><svg class="ic"><use href="#i-back"/></svg>สถานะการจอง</div>
+              <div class="body">
+                <div class="c glass">
+                  <div class="r">
+                    <div class="av" style="--ac:#FF6F5C"><svg class="ic"><use href="#i-car"/></svg></div>
+                    <div class="col grow"><span class="t-t">รับ-ส่งพบแพทย์</span><span class="t-b">อ้างอิง BK-2608-0417</span></div>
+                    <span class="badge" style="--ac:#2563EB">จับคู่แล้ว</span>
+                  </div>
+                </div>
+              </div>
+              <div class="scrim"></div>
+              <div class="dlg">
+                <span class="t-h" style="font-size:15px">ยกเลิกการจอง</span>
+                <span class="t-b">ผู้ดูแลรับงานนี้ไปแล้ว ระบบจะแจ้งการยกเลิกให้ทราบ และคืนเงินตามขั้นตอนของเจ้าหน้าที่</span>
+                <div class="field tall"><div class="col grow"><span class="lab">เหตุผล (ไม่บังคับ)</span><span class="val ph">เช่น ผู้ป่วยอาการดีขึ้นแล้ว</span></div></div>
+                <div class="acts"><span style="color:#4E6B6E">ไม่ยกเลิก</span><span style="color:#E0342C">ยืนยันยกเลิก</span></div>
+              </div>
+            </div></div>
+            <figcaption><b>Cancel dialog</b>ข้อความบรรทัดแรกเปลี่ยนตามสถานะ ณ ตอนกด</figcaption>
+          </figure>
+
+          <figure class="shot">
+            <div class="device"><div class="screen">
+              <div class="aurora" style="height:250px"><i></i><i></i><i></i></div>
+              <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+              <div class="abar"><svg class="ic"><use href="#i-back"/></svg>สถานะการจอง</div>
+              <div class="body">
+                <div class="c glass">
+                  <div class="r">
+                    <div class="av" style="--ac:#FF6F5C"><svg class="ic"><use href="#i-car"/></svg></div>
+                    <div class="col grow"><span class="t-t">รับ-ส่งพบแพทย์</span><span class="t-b">อ้างอิง BK-2608-0417</span></div>
+                    <span class="badge" style="--ac:#DC2626">ยกเลิกแล้ว</span>
+                  </div>
+                </div>
+                <div class="c" style="align-items:center;gap:8px;padding:18px 14px">
+                  <svg class="ic" style="width:34px;height:34px;color:#E0342C"><use href="#i-x"/></svg>
+                  <span class="t-t">ยกเลิกรายการแล้ว</span>
+                  <span class="t-b" style="text-align:center">ระบบได้แจ้งการยกเลิกให้ผู้ดูแลที่รับงานแล้ว</span>
+                  <div class="hr" style="width:100%;margin:4px 0"></div>
+                  <div class="r top" style="width:100%"><svg class="ic" style="color:#4E6B6E"><use href="#i-note"/></svg><div class="col grow"><span class="t-s">เหตุผลที่ยกเลิก</span><span class="t-b" style="color:#0F2A2E;font-weight:600">ผู้ป่วยอาการดีขึ้นแล้ว</span></div></div>
+                </div>
+                <div class="c flat r" style="background:rgba(224,138,0,.12);border:1px solid rgba(224,138,0,.4)">
+                  <svg class="ic" style="color:#E08A00"><use href="#i-wallet"/></svg>
+                  <span class="t-b" style="color:#0F2A2E;font-weight:600">ยกเลิกหลังชำระเงินแล้ว อยู่ระหว่างดำเนินการคืนเงิน เจ้าหน้าที่จะติดต่อกลับ</span>
+                </div>
+                <div class="btn"><svg class="ic"><use href="#i-plus"/></svg>จองใหม่</div>
+                <div class="btn out">กลับหน้าหลัก</div>
+              </div>
+            </div></div>
+            <figcaption><b>หลังยกเลิกสำเร็จ</b>หยุด poll ทันที และเสนอทางไปต่อคือ "จองใหม่"</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ 10 PROFILE ============================ -->
+    <section class="stage" id="s10">
+      <div class="stage-head"><span class="stage-n">10</span><h2>โปรไฟล์ &amp; เมนูย่อยทั้งหมด</h2></div>
+      <div class="routes">
+        <span class="route">/profile</span><span class="route">/profile/personal-information</span>
+        <span class="route">/profile/health-information</span><span class="route">/profile/addresses</span>
+        <span class="route">/profile/settings</span><span class="route">/booking/history</span>
+      </div>
+      <p>
+        แท็บที่ 4 เป็นประตูเข้าเมนูย่อย 7 รายการ ทุกหน้าลูกเปิดเป็นเส้นทางเต็มจอ (ไม่มีแท็บล่าง)
+        และมีปุ่มย้อนกลับของตัวเองที่พากลับ <code>/profile</code> เสมอ
+      </p>
+      <div class="tw">
+        <table>
+          <thead><tr><th>เมนู</th><th>คำอธิบายใต้ชื่อ</th><th>ปลายทาง</th></tr></thead>
+          <tbody>
+            <tr><td>ข้อมูลส่วนตัว</td><td>ชื่อ อีเมล วันเกิด และเพศ</td><td><code>/profile/personal-information</code></td></tr>
+            <tr><td>ข้อมูลสุขภาพ</td><td>ผู้ติดต่อฉุกเฉิน กรุ๊ปเลือด และประวัติการแพ้</td><td><code>/profile/health-information</code></td></tr>
+            <tr><td>ที่อยู่ของฉัน</td><td>จัดการที่อยู่หลักสำหรับการจองบริการ</td><td><code>/profile/addresses</code></td></tr>
+            <tr><td>สมาชิกที่ดูแล</td><td>จัดการรายชื่อผู้รับบริการ</td><td><code>/members</code></td></tr>
+            <tr><td>ประวัติการจอง</td><td>ดูรายการจองทั้งหมดของคุณ</td><td><code>/booking/history</code></td></tr>
+            <tr><td>การชำระเงิน</td><td>ตรวจสอบสถานะการชำระเงินล่าสุด</td><td><code>/payment</code></td></tr>
+            <tr><td>ตั้งค่าความปลอดภัย</td><td>จัดการความปลอดภัยของบัญชี</td><td><code>/profile/settings</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="frames">
+        <figure class="shot">
+          <div class="device"><div class="screen">
+            <div class="aurora"><i></i><i></i><i></i></div>
+            <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+            <div class="abar">โปรไฟล์</div>
+            <div class="body">
+              <div class="c glass">
+                <div class="r">
+                  <div class="av lg fill" style="width:56px;height:56px"><svg class="ic" style="width:26px;height:26px"><use href="#i-person"/></svg></div>
+                  <div class="col grow"><span class="t-h" style="font-size:15px">สมชาย ใจดี</span><span class="t-b">081-234-5678</span></div>
+                </div>
+              </div>
+              <div class="r top" style="gap:8px"><svg class="ic" style="color:#0E7A94;margin-top:2px"><use href="#i-badge"/></svg><span class="t-t grow">ข้อมูลบัญชี</span></div>
+              <div class="c">
+                <div class="kv"><span>อีเมล</span><b>somchai@mail.com</b></div>
+                <div class="kv"><span>เบอร์โทร</span><b>081-234-5678</b></div>
+                <div class="kv"><span>กรุ๊ปเลือด</span><b>O</b></div>
+              </div>
+              <span class="t-h" style="font-size:14px">เมนูของฉัน</span>
+              <div class="c tiny r"><div class="av sm"><svg class="ic"><use href="#i-person"/></svg></div><div class="col grow"><span class="t-t">ข้อมูลส่วนตัว</span><span class="t-s">ชื่อ อีเมล วันเกิด และเพศ</span></div><svg class="ic" style="color:#86A0A2"><use href="#i-chev"/></svg></div>
+              <div class="c tiny r"><div class="av sm" style="--ac:#0EA66B"><svg class="ic"><use href="#i-hands"/></svg></div><div class="col grow"><span class="t-t">ข้อมูลสุขภาพ</span><span class="t-s">ผู้ติดต่อฉุกเฉิน กรุ๊ปเลือด และประวัติการแพ้</span></div><svg class="ic" style="color:#86A0A2"><use href="#i-chev"/></svg></div>
+              <div class="c tiny r"><div class="av sm" style="--ac:#FF6F5C"><svg class="ic"><use href="#i-pin"/></svg></div><div class="col grow"><span class="t-t">ที่อยู่ของฉัน</span><span class="t-s">จัดการที่อยู่หลักสำหรับการจองบริการ</span></div><svg class="ic" style="color:#86A0A2"><use href="#i-chev"/></svg></div>
+              <div class="c tiny r"><div class="av sm" style="--ac:#7C3AED"><svg class="ic"><use href="#i-people"/></svg></div><div class="col grow"><span class="t-t">สมาชิกที่ดูแล</span><span class="t-s">จัดการรายชื่อผู้รับบริการ</span></div><svg class="ic" style="color:#86A0A2"><use href="#i-chev"/></svg></div>
+              <div class="c tiny r"><div class="av sm" style="--ac:#E8478D"><svg class="ic"><use href="#i-list"/></svg></div><div class="col grow"><span class="t-t">ประวัติการจอง</span><span class="t-s">ดูรายการจองทั้งหมดของคุณ</span></div><svg class="ic" style="color:#86A0A2"><use href="#i-chev"/></svg></div>
+              <div class="c tiny r"><div class="av sm" style="--ac:#E08A00"><svg class="ic"><use href="#i-wallet"/></svg></div><div class="col grow"><span class="t-t">การชำระเงิน</span><span class="t-s">ตรวจสอบสถานะการชำระเงินล่าสุด</span></div><svg class="ic" style="color:#86A0A2"><use href="#i-chev"/></svg></div>
+              <div class="c tiny r"><div class="av sm"><svg class="ic"><use href="#i-shield"/></svg></div><div class="col grow"><span class="t-t">ตั้งค่าความปลอดภัย</span><span class="t-s">จัดการความปลอดภัยของบัญชี</span></div><svg class="ic" style="color:#86A0A2"><use href="#i-chev"/></svg></div>
+              <div class="btn danger"><svg class="ic"><use href="#i-out"/></svg>ออกจากระบบ</div>
+            </div>
+            <div class="nav">
+              <div><svg class="ic"><use href="#i-home"/></svg>หน้าแรก</div>
+              <div><svg class="ic"><use href="#i-cal"/></svg>จองบริการ</div>
+              <div><svg class="ic"><use href="#i-people"/></svg>สมาชิก</div>
+              <div class="on"><svg class="ic"><use href="#i-person"/></svg>โปรไฟล์</div>
+            </div>
+          </div></div>
+          <figcaption><b>ProfilePage</b>ประตูเข้าเมนูย่อยทั้ง 7 รายการ</figcaption>
+        </figure>
+
+        <figure class="shot">
+          <div class="device"><div class="screen">
+            <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+            <div class="abar plain"><svg class="ic"><use href="#i-back"/></svg>ประวัติการจอง</div>
+            <div class="body">
+              <div class="c">
+                <div class="r top">
+                  <div class="av" style="--ac:#FF6F5C"><svg class="ic"><use href="#i-car"/></svg></div>
+                  <div class="col grow" style="gap:5px">
+                    <div class="r sp"><span class="t-t grow">รับ-ส่งพบแพทย์</span><span class="badge" style="--ac:#16A34A">เสร็จสิ้น</span></div>
+                    <span class="t-b">ให้คุณแม่ • 28 ก.ค. 08:30 น.</span>
+                    <span class="t-b ell">บ้านลาดพร้าว 71 → รพ. รามาธิบดี</span>
+                    <span class="chip" style="align-self:flex-start;font-size:9.5px">BK-2507-0288 • ฿420</span>
+                  </div>
+                </div>
+              </div>
+              <div class="c">
+                <div class="r top">
+                  <div class="av" style="--ac:#0EA66B"><svg class="ic"><use href="#i-hands"/></svg></div>
+                  <div class="col grow" style="gap:5px">
+                    <div class="r sp"><span class="t-t grow">ดูแลรายชั่วโมง</span><span class="badge" style="--ac:#DC2626">ยกเลิกแล้ว</span></div>
+                    <span class="t-b">ให้คุณพ่อ • 20 ก.ค. 13:00 น.</span>
+                    <span class="t-b ell">บ้านลาดพร้าว 71</span>
+                    <span class="chip" style="align-self:flex-start;font-size:9.5px">BK-2507-0201 • ฿320</span>
+                  </div>
+                </div>
+              </div>
+              <div class="c">
+                <div class="r top">
+                  <div class="av" style="--ac:#7C3AED"><svg class="ic"><use href="#i-pill"/></svg></div>
+                  <div class="col grow" style="gap:5px">
+                    <div class="r sp"><span class="t-t grow">ซื้อยา</span><span class="badge" style="--ac:#9333EA">หมดอายุการชำระ</span></div>
+                    <span class="t-b">ให้คุณแม่ • 15 ก.ค. 10:00 น.</span>
+                    <span class="t-b ell">ร้านขายยาฟาสซิโน ลาดพร้าว</span>
+                    <span class="chip" style="align-self:flex-start;font-size:9.5px">BK-2507-0155 • ฿170</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div></div>
+          <figcaption><b>BookingHistoryPage</b>หน้าเดียวที่ไม่มี aurora — รายการเท่ากันหมด ไม่มี hero ให้กระจกซ้อน</figcaption>
+        </figure>
+      </div>
+
+      <h3>หน้าลูกที่เหลือ</h3>
+      <div class="frames wrapy">
+        <figure class="shot">
+          <div class="device sm"><div class="screen">
+            <div class="aurora" style="height:180px"><i></i><i></i><i></i></div>
+            <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+            <div class="abar"><svg class="ic"><use href="#i-back"/></svg>ข้อมูลส่วนตัว</div>
+            <div class="body">
+              <div class="c glass r"><div class="av fill"><svg class="ic"><use href="#i-person"/></svg></div><div class="col grow"><span class="t-t">สมชาย ใจดี</span><span class="t-b">แก้ไขข้อมูลบัญชีของคุณ</span></div></div>
+              <div class="c">
+                <div class="g2">
+                  <div class="field"><div class="col grow"><span class="lab">ชื่อจริง</span><span class="val">สมชาย</span></div></div>
+                  <div class="field"><div class="col grow"><span class="lab">นามสกุล</span><span class="val">ใจดี</span></div></div>
+                </div>
+                <div class="field"><svg class="ic"><use href="#i-phone"/></svg><div class="col grow"><span class="lab">เบอร์โทรศัพท์</span><span class="val">0812345678</span></div></div>
+                <div class="field"><svg class="ic"><use href="#i-mail"/></svg><div class="col grow"><span class="lab">อีเมล</span><span class="val">somchai@mail.com</span></div></div>
+                <div class="btn">บันทึกข้อมูล</div>
+              </div>
+            </div>
+          </div></div>
+          <figcaption><b>ข้อมูลส่วนตัว</b></figcaption>
+        </figure>
+
+        <figure class="shot">
+          <div class="device sm"><div class="screen">
+            <div class="aurora" style="height:180px"><i></i><i></i><i></i></div>
+            <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+            <div class="abar"><svg class="ic"><use href="#i-back"/></svg>ข้อมูลสุขภาพ</div>
+            <div class="body">
+              <div class="r top" style="gap:7px"><svg class="ic" style="color:#0E7A94"><use href="#i-phone"/></svg><div class="col grow"><span class="t-t">ผู้ติดต่อฉุกเฉิน</span><span class="t-s">ใช้ติดต่อกรณีฉุกเฉินระหว่างการใช้บริการ</span></div></div>
+              <div class="c">
+                <div class="field"><div class="col grow"><span class="lab">ชื่อผู้ติดต่อฉุกเฉิน</span><span class="val">สมหญิง ใจดี</span></div></div>
+                <div class="field"><div class="col grow"><span class="lab">เบอร์โทรผู้ติดต่อฉุกเฉิน</span><span class="val">0898765432</span></div></div>
+              </div>
+              <div class="r top" style="gap:7px"><svg class="ic" style="color:#0E7A94"><use href="#i-hands"/></svg><div class="col grow"><span class="t-t">ข้อมูลสุขภาพพื้นฐาน</span><span class="t-s">ช่วยให้พาร์ทเนอร์ดูแลคุณได้อย่างเหมาะสม</span></div></div>
+              <div class="c">
+                <div class="field"><div class="col grow"><span class="lab">กรุ๊ปเลือด</span><span class="val">O</span></div><svg class="ic"><use href="#i-chev"/></svg></div>
+                <div class="field"><div class="col grow"><span class="lab">ประวัติการแพ้</span><span class="val ph">-</span></div></div>
+                <div class="field"><div class="col grow"><span class="lab">โรคประจำตัว</span><span class="val ph">-</span></div></div>
+                <div class="btn">บันทึกข้อมูล</div>
+              </div>
+            </div>
+          </div></div>
+          <figcaption><b>ข้อมูลสุขภาพ</b></figcaption>
+        </figure>
+
+        <figure class="shot">
+          <div class="device sm"><div class="screen">
+            <div class="aurora" style="height:180px"><i></i><i></i><i></i></div>
+            <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+            <div class="abar"><svg class="ic"><use href="#i-back"/></svg>ที่อยู่ของฉัน</div>
+            <div class="body">
+              <div class="r top" style="gap:7px"><svg class="ic" style="color:#0E7A94"><use href="#i-pin"/></svg><div class="col grow"><span class="t-t">ที่อยู่หลัก</span><span class="t-s">ใช้เป็นค่าเริ่มต้นเมื่อจองบริการ</span></div></div>
+              <div class="c">
+                <div class="field tall"><div class="col grow"><span class="lab">รายละเอียดที่อยู่</span><span class="val">88/12 ซ.ลาดพร้าว 71 แขวงลาดพร้าว เขตลาดพร้าว กรุงเทพฯ 10230</span></div></div>
+                <div class="btn out"><svg class="ic"><use href="#i-map"/></svg>เลือกที่อยู่บนแผนที่</div>
+                <div class="btn">บันทึกที่อยู่</div>
+              </div>
+            </div>
+          </div></div>
+          <figcaption><b>ที่อยู่ของฉัน</b>ใช้ตัวเลือกแผนที่ตัวเดียวกับหน้าจอง</figcaption>
+        </figure>
+
+        <figure class="shot">
+          <div class="device sm"><div class="screen">
+            <div class="aurora" style="height:180px"><i></i><i></i><i></i></div>
+            <div class="sbar"><span>09:41</span><span class="sig"><b></b><b></b><b></b><div class="batt"></div></span></div>
+            <div class="abar"><svg class="ic"><use href="#i-back"/></svg>ตั้งค่าความปลอดภัย</div>
+            <div class="body">
+              <div class="c glass r"><div class="av fill"><svg class="ic"><use href="#i-shield"/></svg></div><div class="col grow"><span class="t-t">ระดับความปลอดภัย: ดี</span><span class="t-b">บัญชีของคุณได้รับการป้องกันตามมาตรฐาน</span></div></div>
+              <div class="r top" style="gap:7px"><svg class="ic" style="color:#0E7A94"><use href="#i-lock"/></svg><span class="t-t grow">การป้องกันบัญชี</span></div>
+              <div class="c">
+                <div class="r sp"><span class="t-b" style="color:#0F2A2E">แจ้งเตือนการเข้าสู่ระบบ</span><span style="width:30px;height:17px;border-radius:999px;background:#0E7A94;flex:none"></span></div>
+                <div class="r sp"><span class="t-b" style="color:#0F2A2E">ล็อกด้วยไบโอเมตริก</span><span style="width:30px;height:17px;border-radius:999px;background:#D7EBEA;flex:none"></span></div>
+                <div class="r sp"><span class="t-b" style="color:#0F2A2E">ยืนยันตัวตนก่อนชำระเงิน</span><span style="width:30px;height:17px;border-radius:999px;background:#0E7A94;flex:none"></span></div>
+                <div class="btn out sm">เปลี่ยนรหัสผ่าน</div>
+              </div>
+              <div class="r top" style="gap:7px"><svg class="ic" style="color:#0E7A94"><use href="#i-clock"/></svg><span class="t-t grow">ประวัติการเข้าสู่ระบบ</span></div>
+              <div class="c" style="gap:9px">
+                <div class="col"><span class="t-b" style="color:#0F2A2E;font-weight:600">iPhone 15 · กรุงเทพฯ</span><span class="t-s">วันนี้ 09:12 น.</span></div>
+                <div class="col"><span class="t-b" style="color:#0F2A2E;font-weight:600">Android · นนทบุรี</span><span class="t-s">เมื่อวาน 20:41 น.</span></div>
+              </div>
+              <div class="btn danger">ออกจากระบบทุกอุปกรณ์</div>
+            </div>
+          </div></div>
+          <figcaption><b>ตั้งค่าความปลอดภัย</b>ปุ่มเปลี่ยนรหัสผ่านยังขึ้น "ฟีเจอร์นี้อยู่ระหว่างการพัฒนา"</figcaption>
+        </figure>
+      </div>
+    </section>
+    <!-- ============================ REFERENCE ============================ -->
+    <section class="stage" id="status">
+      <div class="stage-head"><span class="stage-n">REF</span><h2>สถานะการจองทั้ง 7 แบบ</h2></div>
+      <p>
+        ค่าทั้งหมดมาจาก <code>BookingStatus</code> ใน <code>lib/shared/models/booking.dart</code> —
+        ป้ายไทยและสีเป็นค่าคงที่ในไฟล์นั้น ไม่ได้กำหนดในธีม
+      </p>
+      <div class="tw">
+        <table>
+          <thead><tr><th>ค่าจาก API</th><th>ป้ายที่ผู้ใช้เห็น</th><th>สี</th><th>ผู้ใช้ทำอะไรได้</th></tr></thead>
+          <tbody>
+            <tr><td><code>AWAITING_PAYMENT</code></td><td><span class="dot" style="background:var(--st-awaiting)"></span>รอชำระเงิน</td><td class="num">#D97706</td><td>ชำระเงิน หรือยกเลิกทันทีโดยไม่มีค่าใช้จ่าย</td></tr>
+            <tr><td><code>PENDING</code></td><td><span class="dot" style="background:var(--st-pending)"></span>กำลังหาผู้ดูแล</td><td class="num">#5B6B6A</td><td>รอ (poll 5 วิ) หรือยกเลิกเพื่อหยุดค้นหา</td></tr>
+            <tr><td><code>MATCHED</code></td><td><span class="dot" style="background:var(--st-matched)"></span>จับคู่แล้ว</td><td class="num">#2563EB</td><td>เห็นข้อมูลพาร์ทเนอร์ ยังยกเลิกได้</td></tr>
+            <tr><td><code>IN_PROGRESS</code></td><td><span class="dot" style="background:var(--st-progress)"></span>กำลังดำเนินการ</td><td class="num">#0F766E</td><td>ดู checkpoint อย่างเดียว ยกเลิกเองไม่ได้</td></tr>
+            <tr><td><code>COMPLETED</code></td><td><span class="dot" style="background:var(--st-done)"></span>เสร็จสิ้น</td><td class="num">#16A34A</td><td>จบงาน หยุด poll</td></tr>
+            <tr><td><code>CANCELLED</code></td><td><span class="dot" style="background:var(--st-cancel)"></span>ยกเลิกแล้ว</td><td class="num">#DC2626</td><td>จองใหม่</td></tr>
+            <tr><td><code>PAYMENT_EXPIRED</code></td><td><span class="dot" style="background:var(--st-expired)"></span>หมดอายุการชำระ</td><td class="num">#9333EA</td><td>จองใหม่เท่านั้น</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  // Stand-in PromptPay QR: deterministic module pattern + real finder squares,
+  // so the payment mockup reads as a QR without pretending to be a valid one.
+  (function () {
+    document.querySelectorAll('canvas.qr').forEach(function (cv) {
+      var n = cv.width, ctx = cv.getContext('2d');
+      ctx.fillStyle = '#EAF6F5';
+      ctx.fillRect(0, 0, n, n);
+      ctx.fillStyle = '#0F2A2E';
+      var seed = 20250806;
+      function rnd() { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; }
+      for (var y = 0; y < n; y++) {
+        for (var x = 0; x < n; x++) {
+          var inFinder =
+            (x < 8 && y < 8) || (x > n - 9 && y < 8) || (x < 8 && y > n - 9);
+          if (inFinder) continue;
+          if (rnd() > 0.52) ctx.fillRect(x, y, 1, 1);
+        }
+      }
+      [[0, 0], [n - 7, 0], [0, n - 7]].forEach(function (p) {
+        ctx.fillRect(p[0], p[1], 7, 7);
+        ctx.fillStyle = '#EAF6F5';
+        ctx.fillRect(p[0] + 1, p[1] + 1, 5, 5);
+        ctx.fillStyle = '#0F2A2E';
+        ctx.fillRect(p[0] + 2, p[1] + 2, 3, 3);
+      });
+    });
+  })();
+</script>
+

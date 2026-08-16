@@ -2,12 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/utils/error_messages.dart';
 import '../../../../shared/models/booking.dart';
 import '../../../../shared/models/booking_cancellation.dart';
 import '../../../../shared/models/mission.dart';
@@ -53,6 +56,19 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
   /// detail to show (the list endpoints don't carry it).
   BookingCancellation? _cancellation;
 
+  bool _isSendingEmergency = false;
+  bool _isSharingLocation = false;
+
+  final TextEditingController _reviewCommentController =
+      TextEditingController();
+  int _reviewRating = 0;
+  bool _isSubmittingReview = false;
+
+  /// Optimistic client-side "already reviewed this session" flag — set on a
+  /// successful submit or a 409 (already reviewed elsewhere), so the form
+  /// can't be resubmitted without re-fetching anything.
+  bool _reviewSubmitted = false;
+
   @override
   void initState() {
     super.initState();
@@ -63,6 +79,7 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _reviewCommentController.dispose();
     super.dispose();
   }
 
@@ -201,7 +218,7 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
         case BookingCancelErrorCode.notFound:
           _showSnack('ไม่พบรายการจองนี้');
         default:
-          _showSnack(e.message);
+          _showSnack(friendlyErrorMessage(e));
       }
     }
   }
@@ -210,6 +227,184 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
     final since = _pendingSince;
     return since != null &&
         DateTime.now().difference(since) > const Duration(minutes: 10);
+  }
+
+  /// SOS is offered for any state where the booking is still "live" —
+  /// everything except the two terminal happy/unhappy paths and the expired
+  /// state, where there's no active service left to raise an alert about.
+  bool get _isEmergencyEligible {
+    final booking = _booking;
+    if (booking == null) return false;
+    return booking.status != BookingStatus.completed &&
+        booking.status != BookingStatus.cancelled &&
+        booking.status != BookingStatus.paymentExpired;
+  }
+
+  /// Zero-backend-dependency direct dial — deliberately not gated behind the
+  /// SOS confirm dialog, one tap only.
+  Future<void> _call1669() async {
+    final uri = Uri(scheme: 'tel', path: '1669');
+    final launched = await launchUrl(uri);
+    if (!launched && mounted) {
+      _showSnack('ไม่สามารถโทรออกได้ในขณะนี้');
+    }
+  }
+
+  Future<void> _showEmergencyDialog() async {
+    final notesController = TextEditingController();
+    var selectedType = 'medical';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('แจ้งเหตุฉุกเฉิน'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'ทีมงานจะได้รับแจ้งและติดต่อกลับโดยเร็วที่สุด '
+                  'กรุณาเลือกประเภทเหตุฉุกเฉิน',
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('ฉุกเฉินทางการแพทย์'),
+                      selected: selectedType == 'medical',
+                      onSelected: (_) =>
+                          setDialogState(() => selectedType = 'medical'),
+                    ),
+                    ChoiceChip(
+                      label: const Text('ความปลอดภัย'),
+                      selected: selectedType == 'safety',
+                      onSelected: (_) =>
+                          setDialogState(() => selectedType = 'safety'),
+                    ),
+                    ChoiceChip(
+                      label: const Text('อื่นๆ'),
+                      selected: selectedType == 'other',
+                      onSelected: (_) =>
+                          setDialogState(() => selectedType = 'other'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                AppTextField(
+                  controller: notesController,
+                  label: 'รายละเอียดเพิ่มเติม (ไม่บังคับ)',
+                  maxLines: 3,
+                  maxLength: 300,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('ยกเลิก'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text(
+                'ยืนยันแจ้งเหตุ',
+                style: TextStyle(color: AppColors.danger),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isSendingEmergency = true);
+    try {
+      final notes = notesController.text.trim();
+      await ref
+          .read(bookingRepositoryProvider)
+          .triggerEmergency(
+            bookingId: widget.bookingId,
+            type: selectedType,
+            notes: notes.isEmpty ? null : notes,
+          );
+      if (!mounted) return;
+      setState(() => _isSendingEmergency = false);
+      _showSnack('แจ้งเหตุฉุกเฉินแล้ว ทีมงานจะติดต่อกลับโดยเร็วที่สุด');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _isSendingEmergency = false);
+      _showSnack(
+        friendlyErrorMessage(
+          e,
+          'ไม่สามารถแจ้งเหตุฉุกเฉินได้ กรุณาลองใหม่ หรือโทร 1669',
+        ),
+      );
+    }
+  }
+
+  Future<void> _shareLocation() async {
+    setState(() => _isSharingLocation = true);
+    try {
+      final link = await ref
+          .read(bookingRepositoryProvider)
+          .createShareLink(widget.bookingId);
+      if (!mounted) return;
+      setState(() => _isSharingLocation = false);
+
+      // caremate.app has no real web deployment yet — this exact URL won't
+      // resolve for a recipient without the app installed and configured to
+      // handle the domain as an app link. The in-app route (`/track/:token`,
+      // PublicTrackingPage) is what actually renders something today.
+      final url = 'https://caremate.app/track/${link.token}';
+      final partnerName = _partner?.name ?? 'ผู้ดูแล';
+
+      await SharePlus.instance.share(
+        ShareParams(
+          text:
+              'ติดตามตำแหน่งการเดินทางของ $partnerName ได้ที่ $url',
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _isSharingLocation = false);
+      _showSnack(
+        friendlyErrorMessage(e, 'ไม่สามารถสร้างลิงก์แชร์ตำแหน่งได้ กรุณาลองใหม่'),
+      );
+    }
+  }
+
+  Future<void> _submitReview() async {
+    setState(() => _isSubmittingReview = true);
+    try {
+      final comment = _reviewCommentController.text.trim();
+      await ref
+          .read(bookingRepositoryProvider)
+          .submitReview(
+            bookingId: widget.bookingId,
+            rating: _reviewRating,
+            comment: comment.isEmpty ? null : comment,
+          );
+      if (!mounted) return;
+      setState(() {
+        _isSubmittingReview = false;
+        _reviewSubmitted = true;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _isSubmittingReview = false);
+
+      if (e.statusCode == 409) {
+        setState(() => _reviewSubmitted = true);
+        _showSnack('คุณให้คะแนนบริการนี้ไปแล้ว');
+      } else {
+        _showSnack(friendlyErrorMessage(e));
+      }
+    }
   }
 
   @override
@@ -229,6 +424,30 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
         title: const Text('สถานะการจอง'),
         leading: BackButton(onPressed: () => context.goBack(AppRoutes.home)),
       ),
+      floatingActionButton: _isEmergencyEligible
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton(
+                  heroTag: 'call1669',
+                  backgroundColor: AppColors.warning,
+                  foregroundColor: Colors.white,
+                  onPressed: _call1669,
+                  tooltip: 'โทร 1669',
+                  child: const Icon(Icons.call_rounded),
+                ),
+                const SizedBox(height: 12),
+                FloatingActionButton.extended(
+                  heroTag: 'sos',
+                  backgroundColor: AppColors.danger,
+                  foregroundColor: Colors.white,
+                  onPressed: _isSendingEmergency ? null : _showEmergencyDialog,
+                  icon: const Icon(Icons.emergency_rounded),
+                  label: const Text('ฉุกเฉิน'),
+                ),
+              ],
+            )
+          : null,
       body: Stack(
         children: [
           const Positioned(
@@ -417,9 +636,37 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(_partner!.name, style: textTheme.titleSmall),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  _partner!.name,
+                                  style: textTheme.titleSmall,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (_partner!.verified) ...[
+                                const SizedBox(width: 5),
+                                const Icon(
+                                  Icons.verified_rounded,
+                                  size: 16,
+                                  color: AppColors.info,
+                                ),
+                              ],
+                            ],
+                          ),
                           const SizedBox(height: 3),
                           Text(_partner!.phone, style: textTheme.bodySmall),
+                          if (_partner!.verified) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              'ผ่านการตรวจสอบแล้ว',
+                              style: textTheme.labelSmall?.copyWith(
+                                color: AppColors.info,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -436,6 +683,25 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
                       ),
                     ],
                   ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _isSharingLocation ? null : _shareLocation,
+                  icon: _isSharingLocation
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.share_location_rounded),
+                  label: Text(
+                    _isSharingLocation
+                        ? 'กำลังสร้างลิงก์...'
+                        : 'แชร์ตำแหน่งให้ครอบครัว',
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -490,26 +756,50 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
         );
 
       case BookingStatus.completed:
-        return const AppCard(
-          child: Column(
-            children: [
-              Icon(
-                Icons.check_circle_rounded,
-                color: AppColors.success,
-                size: 40,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const AppCard(
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.check_circle_rounded,
+                    color: AppColors.success,
+                    size: 40,
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    'งานเสร็จสิ้นแล้ว',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'ขอบคุณที่ใช้บริการ CareMate',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                ],
               ),
-              SizedBox(height: 10),
-              Text(
-                'งานเสร็จสิ้นแล้ว',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-              SizedBox(height: 4),
-              Text(
-                'ขอบคุณที่ใช้บริการ CareMate',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 20),
+            _reviewSubmitted
+                ? const AppCard(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.favorite_rounded,
+                          color: AppColors.danger,
+                          size: 32,
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'ขอบคุณสำหรับคะแนนของคุณ',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                  )
+                : _buildReviewForm(textTheme),
+          ],
         );
 
       case BookingStatus.paymentExpired:
@@ -645,6 +935,52 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
           ],
         );
     }
+  }
+
+  Widget _buildReviewForm(TextTheme textTheme) {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'ให้คะแนนบริการครั้งนี้',
+            style: textTheme.titleSmall,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (var star = 1; star <= 5; star++)
+                IconButton(
+                  onPressed: () => setState(() => _reviewRating = star),
+                  icon: Icon(
+                    star <= _reviewRating
+                        ? Icons.star_rounded
+                        : Icons.star_border_rounded,
+                    color: AppColors.badgeDefault,
+                    size: 32,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          AppTextField(
+            controller: _reviewCommentController,
+            label: 'ความคิดเห็น (ไม่บังคับ)',
+            maxLines: 3,
+            maxLength: 500,
+          ),
+          const SizedBox(height: 14),
+          PrimaryButton(
+            label: 'ส่งคะแนน',
+            icon: Icons.send_rounded,
+            isLoading: _isSubmittingReview,
+            onPressed: _reviewRating == 0 ? null : _submitReview,
+          ),
+        ],
+      ),
+    );
   }
 }
 

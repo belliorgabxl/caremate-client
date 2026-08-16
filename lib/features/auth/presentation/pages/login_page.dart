@@ -14,6 +14,7 @@ import '../../../../shared/widgets/aurora_background.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../controllers/auth_controller.dart';
+import '../widgets/otp_verification_sheet.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -38,10 +39,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     setState(() => _error = null);
 
+    final phone = _phoneController.text.trim();
+    final verified = await OtpVerificationSheet.show(context, phone: phone);
+    if (!verified) return;
+    if (!mounted) return;
+
     try {
-      await ref
-          .read(authControllerProvider)
-          .login(_phoneController.text.trim());
+      await ref.read(authControllerProvider).login(phone);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.message);

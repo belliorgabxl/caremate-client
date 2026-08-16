@@ -5,12 +5,15 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../shared/data/banner_repository.dart';
+import '../../../../shared/models/banner_item.dart';
 import '../../../../shared/models/booking.dart';
 import '../../../../shared/models/care_member.dart';
 import '../../../../shared/widgets/app_card.dart';
@@ -36,6 +39,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   String? _error;
   List<CareMember> _members = const [];
   List<Booking> _activeBookings = const [];
+  List<BannerItem> _banners = const [];
 
   @override
   void initState() {
@@ -57,9 +61,22 @@ class _HomePageState extends ConsumerState<HomePage> {
           .getActiveBookings();
 
       if (!mounted) return;
+
+      // Non-fatal: an announcements fetch failing must never blank the rest
+      // of the home page, so it gets its own inner try/catch instead of
+      // joining the outer one.
+      var banners = const <BannerItem>[];
+      try {
+        banners = await ref.read(bannerRepositoryProvider).getActive();
+      } catch (_) {
+        banners = const [];
+      }
+
+      if (!mounted) return;
       setState(() {
         _members = members;
         _activeBookings = bookings;
+        _banners = banners;
         _isLoading = false;
       });
     } on ApiException catch (e) {
@@ -69,6 +86,14 @@ class _HomePageState extends ConsumerState<HomePage> {
         _isLoading = false;
       });
     }
+  }
+
+  List<BannerItem> get _visibleBanners {
+    final banners = _banners
+        .where((b) => b.isActive && b.id.isNotEmpty && b.title.isNotEmpty)
+        .toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    return banners;
   }
 
   List<Booking> get _pendingPaymentBookings => _activeBookings
@@ -141,17 +166,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                               ),
                               const Spacer(),
                               _NotificationButton(
-                                onTap: () {
-                                  ScaffoldMessenger.of(
-                                    context,
-                                  ).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'ยังไม่มี Notification จริงในโหมดจำลอง',
-                                      ),
-                                    ),
-                                  );
-                                },
+                                onTap: () =>
+                                    context.goForward(AppRoutes.notifications),
                               ),
                             ],
                           ),
@@ -195,6 +211,16 @@ class _HomePageState extends ConsumerState<HomePage> {
                           ),
                         ],
                       ),
+                      if (_visibleBanners.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        const SectionHeader(
+                          title: 'ประกาศ',
+                          subtitle: 'ข่าวสารและโปรโมชันล่าสุดจาก CareMate',
+                          icon: Icons.campaign_rounded,
+                        ),
+                        const SizedBox(height: 12),
+                        _BannerCarousel(banners: _visibleBanners),
+                      ],
                       const SizedBox(height: 20),
                       _StatsCard(
                         memberCount: _members.length,
@@ -743,6 +769,101 @@ class _CareTipCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Horizontally-scrollable announcements strip — a distinct "announcements"
+/// section rather than blending into the plain-white cards used elsewhere on
+/// this page (per DESIGN.md's "glass only where it reveals real color behind
+/// it" rule, these stay flat `AppCard`s, no `glass:`/aurora tie-in, since
+/// they sit below the hero region).
+class _BannerCarousel extends StatelessWidget {
+  const _BannerCarousel({required this.banners});
+
+  final List<BannerItem> banners;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 148,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: banners.length,
+        separatorBuilder: (context, _) => const SizedBox(width: 12),
+        itemBuilder: (context, index) => _BannerCard(banner: banners[index]),
+      ),
+    );
+  }
+}
+
+class _BannerCard extends StatelessWidget {
+  const _BannerCard({required this.banner});
+
+  final BannerItem banner;
+
+  Future<void> _openLink() async {
+    final linkUrl = banner.linkUrl;
+    if (linkUrl == null || linkUrl.isEmpty) return;
+    final uri = Uri.tryParse(linkUrl);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final hasLink = banner.linkUrl != null && banner.linkUrl!.isNotEmpty;
+
+    return SizedBox(
+      width: 260,
+      child: AppCard(
+        onTap: hasLink ? _openLink : null,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const CircleIconAvatar(
+                  icon: Icons.campaign_rounded,
+                  color: AppColors.primary,
+                  radius: 18,
+                  iconSize: 18,
+                ),
+                if (hasLink) ...[
+                  const Spacer(),
+                  const Icon(
+                    Icons.open_in_new_rounded,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              banner.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: textTheme.titleSmall,
+            ),
+            if (banner.body != null && banner.body!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Expanded(
+                child: Text(
+                  banner.body!,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

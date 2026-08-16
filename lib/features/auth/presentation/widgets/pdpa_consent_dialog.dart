@@ -140,6 +140,32 @@ class _PdpaConsentDialogState extends ConsumerState<PdpaConsentDialog> {
     }
   }
 
+  Future<void> _confirmDecline(BuildContext context) async {
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('ยกเลิกการสมัครสมาชิก?'),
+        content: const Text(
+          'หากไม่ยินยอมนโยบายความเป็นส่วนตัว จะไม่สามารถสร้างบัญชีได้ ต้องการออกจากขั้นตอนนี้หรือไม่?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('อ่านต่อ'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: const Text('ยกเลิกการสมัคร'),
+          ),
+        ],
+      ),
+    );
+    if (leave == true && context.mounted) {
+      Navigator.of(context).pop(null);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -149,7 +175,7 @@ class _PdpaConsentDialogState extends ConsumerState<PdpaConsentDialog> {
         title: const Text('ความยินยอมเก็บข้อมูลส่วนบุคคล'),
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(null),
+          onPressed: () => _confirmDecline(context),
         ),
       ),
       body: _loading
