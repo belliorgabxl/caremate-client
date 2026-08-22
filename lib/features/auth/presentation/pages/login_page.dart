@@ -40,19 +40,27 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     setState(() => _error = null);
 
     final phone = _phoneController.text.trim();
-    final verified = await OtpVerificationSheet.show(context, phone: phone);
-    if (!verified) return;
-    if (!mounted) return;
+    final auth = ref.read(authControllerProvider);
 
     try {
-      await ref.read(authControllerProvider).login(phone);
+      await auth.requestLoginOtp(phone);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.message);
+      return;
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+      setState(() => _error = 'ส่งรหัส OTP ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+      return;
     }
+    if (!mounted) return;
+
+    await OtpVerificationSheet.show(
+      context,
+      phone: phone,
+      onVerify: (code) => auth.login(phone, code),
+      onResend: () => auth.requestLoginOtp(phone),
+    );
   }
 
   @override

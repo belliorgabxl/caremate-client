@@ -41,12 +41,24 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> login(String phone) async {
+  /// Sends the real SMS OTP for the login flow. Throws [ApiException] (e.g.
+  /// malformed phone) — caller shows the error and never opens the OTP
+  /// sheet. A phone that isn't registered still returns success here
+  /// (anti-enumeration); the real failure only surfaces from [login].
+  Future<void> requestLoginOtp(String phone) => _repo.requestLoginOtp(phone);
+
+  /// Sends the real SMS OTP for the register flow. Unlike login's, an
+  /// already-registered phone throws [ApiException] here (409) instead of
+  /// staying silent.
+  Future<void> requestRegisterOtp(String phone) =>
+      _repo.requestRegisterOtp(phone);
+
+  Future<void> login(String phone, String code) async {
     _isSubmitting = true;
     notifyListeners();
 
     try {
-      _user = await _repo.login(phone);
+      _user = await _repo.login(phone, code);
       _step = AuthStep.authenticated;
       _syncPushToken();
     } finally {
@@ -57,6 +69,7 @@ class AuthController extends ChangeNotifier {
 
   Future<void> register({
     required String phone,
+    required String code,
     required String firstName,
     required String lastName,
     required String nickname,
@@ -72,6 +85,7 @@ class AuthController extends ChangeNotifier {
     try {
       _user = await _repo.register(
         phone: phone,
+        code: code,
         firstName: firstName,
         lastName: lastName,
         nickname: nickname,

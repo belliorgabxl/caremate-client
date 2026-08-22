@@ -85,8 +85,27 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     setState(() => _error = null);
 
     final phone = _phoneController.text.trim();
-    final verified = await OtpVerificationSheet.show(context, phone: phone);
-    if (!verified) return;
+    final auth = ref.read(authControllerProvider);
+
+    try {
+      await auth.requestRegisterOtp(phone);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.message);
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'ส่งรหัส OTP ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+      return;
+    }
+    if (!mounted) return;
+
+    final code = await OtpVerificationSheet.show(
+      context,
+      phone: phone,
+      onResend: () => auth.requestRegisterOtp(phone),
+    );
+    if (code == null) return;
     if (!mounted) return;
 
     final pdpaConsentVersion = await PdpaConsentDialog.show(context);
@@ -99,21 +118,20 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     final dateOfBirthIso = _dateOfBirth!.toIso8601String().split('T').first;
 
     try {
-      await ref
-          .read(authControllerProvider)
-          .register(
-            phone: phone,
-            firstName: _firstNameController.text.trim(),
-            lastName: _lastNameController.text.trim(),
-            nickname: _nicknameController.text.trim(),
-            gender: _gender,
-            dateOfBirth: dateOfBirthIso,
-            email: _emailController.text.trim(),
-            pdpaConsentVersion: pdpaConsentVersion,
-            referralCode: _referralCodeController.text.trim().isEmpty
-                ? null
-                : _referralCodeController.text.trim(),
-          );
+      await auth.register(
+        phone: phone,
+        code: code,
+        firstName: _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
+        nickname: _nicknameController.text.trim(),
+        gender: _gender,
+        dateOfBirth: dateOfBirthIso,
+        email: _emailController.text.trim(),
+        pdpaConsentVersion: pdpaConsentVersion,
+        referralCode: _referralCodeController.text.trim().isEmpty
+            ? null
+            : _referralCodeController.text.trim(),
+      );
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.message);

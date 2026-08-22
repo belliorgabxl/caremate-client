@@ -1,35 +1,44 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/primary_button.dart';
 
-/// Client-side **mock** OTP gate — the backend has no SMS/OTP endpoint for
-/// customer login/register (only a separate partner-app OTP system exists,
-/// for a different actor). This exists purely so the product flow *behaves*
-/// like phone ownership is verified while that's built; the generated code
-/// is shown on-screen (never actually sent anywhere), and is clearly labeled
-/// as a placeholder so nobody mistakes it for real security. Replace with a
-/// real `POST /authentication/otp/*` integration once the backend adds one.
+
 class OtpVerificationSheet {
-  static Future<bool> show(BuildContext context, {required String phone}) async {
-    final result = await showModalBottomSheet<bool>(
+  static Future<String?> show(
+    BuildContext context, {
+    required String phone,
+    Future<void> Function(String code)? onVerify,
+    required Future<void> Function() onResend,
+  }) async {
+    return showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => _OtpSheetBody(phone: phone),
+      isDismissible: false,
+      enableDrag: false,
+      builder: (_) => _OtpSheetBody(
+        phone: phone,
+        onVerify: onVerify,
+        onResend: onResend,
+      ),
     );
-    return result ?? false;
   }
 }
 
 class _OtpSheetBody extends StatefulWidget {
-  const _OtpSheetBody({required this.phone});
+  const _OtpSheetBody({
+    required this.phone,
+    required this.onVerify,
+    required this.onResend,
+  });
 
   final String phone;
+  final Future<void> Function(String code)? onVerify;
+  final Future<void> Function() onResend;
 
   @override
   State<_OtpSheetBody> createState() => _OtpSheetBodyState();
@@ -37,14 +46,9 @@ class _OtpSheetBody extends StatefulWidget {
 
 class _OtpSheetBodyState extends State<_OtpSheetBody> {
   final _codeController = TextEditingController();
-  late String _sentCode;
   String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _sentCode = _generateCode();
-  }
+  bool _isVerifying = false;
+  bool _isResending = false;
 
   @override
   void dispose() {
@@ -52,27 +56,62 @@ class _OtpSheetBodyState extends State<_OtpSheetBody> {
     super.dispose();
   }
 
-  String _generateCode() => (100000 + Random().nextInt(900000)).toString();
-
-  void _resend() {
+  Future<void> _resend() async {
     setState(() {
-      _sentCode = _generateCode();
-      _codeController.clear();
+      _isResending = true;
       _error = null;
     });
+    try {
+      await widget.onResend();
+      if (!mounted) return;
+      setState(() => _codeController.clear());
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'ส่งรหัส OTP ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      if (mounted) setState(() => _isResending = false);
+    }
   }
 
-  void _verify() {
-    if (_codeController.text.trim() == _sentCode) {
-      Navigator.of(context).pop(true);
+  Future<void> _verify() async {
+    final code = _codeController.text.trim();
+    if (code.length != 6) {
+      setState(() => _error = 'กรุณากรอกรหัส OTP ให้ครบ 6 หลัก');
       return;
     }
-    setState(() => _error = 'รหัส OTP ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
+
+    final onVerify = widget.onVerify;
+    if (onVerify == null) {
+      Navigator.of(context).pop(code);
+      return;
+    }
+
+    setState(() {
+      _isVerifying = true;
+      _error = null;
+    });
+    try {
+      await onVerify(code);
+      if (!mounted) return;
+      Navigator.of(context).pop(code);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'รหัส OTP ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      if (mounted) setState(() => _isVerifying = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isBusy = _isVerifying || _isResending;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -104,33 +143,6 @@ class _OtpSheetBodyState extends State<_OtpSheetBody> {
               color: AppColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.warningBg,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.science_outlined,
-                  color: AppColors.warning,
-                  size: 20,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'รหัสของคุณคือ $_sentCode',
-                    style: textTheme.bodySmall?.copyWith(
-                      color: AppColors.warning,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
           const SizedBox(height: 20),
           AppTextField(
             controller: _codeController,
@@ -150,14 +162,21 @@ class _OtpSheetBodyState extends State<_OtpSheetBody> {
             ),
           ],
           const SizedBox(height: 16),
-          PrimaryButton(label: 'ยืนยัน', onPressed: _verify),
+          PrimaryButton(
+            label: 'ยืนยัน',
+            isLoading: _isVerifying,
+            onPressed: isBusy ? null : _verify,
+          ),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              TextButton(onPressed: _resend, child: const Text('ส่งรหัสอีกครั้ง')),
               TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
+                onPressed: isBusy ? null : _resend,
+                child: Text(_isResending ? 'กำลังส่ง...' : 'ส่งรหัสอีกครั้ง'),
+              ),
+              TextButton(
+                onPressed: isBusy ? null : () => Navigator.of(context).pop(),
                 child: const Text('ยกเลิก'),
               ),
             ],

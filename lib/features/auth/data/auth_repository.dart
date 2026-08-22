@@ -28,15 +28,34 @@ class AuthRepository {
     }
   }
 
-  /// `POST /auth/login` with just a phone number. Backend sets
-  /// `caremate_session` via `Set-Cookie`; we lift it from the response
-  /// headers (there's no WebView/browser here to store it for us) and hand
-  /// back the freshly-authenticated user.
-  Future<AppUser> login(String phone) async {
+  /// `POST /authentication/otp/request` — asks the backend to send a real
+  /// SMS OTP (via ThaiBulkSMS). `purpose` is `login` or `register`; the
+  /// backend namespaces codes separately per purpose so one can't be
+  /// replayed for the other. For `login` on an unregistered phone this
+  /// still returns 200 (anti phone-enumeration) but issues no real code —
+  /// the actual "no such account" only surfaces later, from [login].
+  Future<void> _requestOtp(String phone, String purpose) async {
+    try {
+      await _api.dio.post(
+        '/authentication/otp/request',
+        data: {'phone': phone, 'purpose': purpose},
+      );
+    } on DioException catch (e) {
+      _api.throwApiException(e);
+    }
+  }
+
+  Future<void> requestLoginOtp(String phone) => _requestOtp(phone, 'login');
+
+  Future<void> requestRegisterOtp(String phone) =>
+      _requestOtp(phone, 'register');
+
+
+  Future<AppUser> login(String phone, String code) async {
     try {
       final response = await _api.dio.post(
         '/authentication/login',
-        data: {'phone': phone},
+        data: {'phone': phone, 'code': code},
       );
       await _saveSessionCookie(response);
       return await fetchMe();
@@ -45,23 +64,10 @@ class AuthRepository {
     }
   }
 
-  /// `POST /auth/register`. The backend's `RegisterRequest` only requires
-  /// phone/firstName/lastName (nickname/gender/dateOfBirth/email are
-  /// nullable there) — the app's register form requires all of them
-  /// up front regardless, so address/health-info/emergency-contact remain
-  /// the only things deferred to the profile pages.
-  ///
-  /// `pdpaConsentVersion` is sent as `pdpaConsent`/`pdpaConsentVersion` —
-  /// **proposed fields, not yet present on the backend's `RegisterRequest`**
-  /// (see CLAUDE.md). Until the backend adds them they're harmlessly
-  /// ignored/dropped server-side; consent is still recorded locally via
-  /// `LocalStorage.savePdpaConsentGiven()` regardless.
-  ///
-  /// `referralCode` is optional (empty/omitted is fine) — sent as-is to the
-  /// backend's `RegisterRequest`, which per the referral-program spec now
-  /// accepts it as an additive, harmless-if-omitted field.
+ 
   Future<AppUser> register({
     required String phone,
+    required String code,
     required String firstName,
     required String lastName,
     required String nickname,
@@ -76,6 +82,7 @@ class AuthRepository {
         '/authentication/register',
         data: {
           'phone': phone,
+          'code': code,
           'firstName': firstName,
           'lastName': lastName,
           'nickname': nickname,
@@ -97,11 +104,7 @@ class AuthRepository {
     }
   }
 
-  /// `GET /pdpa` — the PDPA version currently in effect. Public, no auth
-  /// required. Returns the current consent copy so it can be updated
-  /// without an app release; callers should fall back to a bundled copy of
-  /// the policy if this throws (e.g. 404 if no version has been activated
-  /// yet, or any network failure).
+
   Future<PdpaPolicy> fetchPdpaPolicy() async {
     try {
       final response = await _api.dio.get('/pdpa');
@@ -112,9 +115,6 @@ class AuthRepository {
     }
   }
 
-  /// `GET /pdpa/:version` — the exact policy text for one specific version,
-  /// e.g. to show a user what they agreed to at signup time even if a newer
-  /// version is now active.
   Future<PdpaPolicy> fetchPdpaPolicyVersion(String version) async {
     try {
       final response = await _api.dio.get('/pdpa/$version');
@@ -125,9 +125,6 @@ class AuthRepository {
     }
   }
 
-  /// `GET /pdpa/versions` — metadata (no `content`) for every version,
-  /// newest `effective_date` first. `data` is always an array; empty means
-  /// no versions exist yet, not an error.
   Future<List<PdpaVersionSummary>> fetchPdpaVersions() async {
     try {
       final response = await _api.dio.get('/pdpa/versions');
