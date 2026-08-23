@@ -58,6 +58,7 @@ class MissionCheckpoint {
     required this.labelEn,
     required this.notes,
     this.completedAt,
+    this.photoUrl,
   });
 
   final String id;
@@ -67,10 +68,15 @@ class MissionCheckpoint {
   final String notes;
   final DateTime? completedAt;
 
+  /// Photo the partner attached at this checkpoint. Null/absent until they
+  /// upload one for this step — not every checkpoint gets a photo.
+  final String? photoUrl;
+
   bool get isDone => completedAt != null;
 
   factory MissionCheckpoint.fromJson(Map<String, dynamic> json) {
     final completedRaw = json['completed_at'] as String?;
+    final photoUrl = json['photo_url'] as String?;
 
     return MissionCheckpoint(
       id: json['id'] as String? ?? '',
@@ -79,6 +85,7 @@ class MissionCheckpoint {
       labelEn: json['label_en'] as String? ?? '',
       notes: json['notes'] as String? ?? '',
       completedAt: completedRaw == null ? null : DateTime.tryParse(completedRaw),
+      photoUrl: (photoUrl == null || photoUrl.isEmpty) ? null : photoUrl,
     );
   }
 }

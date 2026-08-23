@@ -718,30 +718,44 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
                     for (final checkpoint in _mission!.checkpoints)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              checkpoint.isDone
-                                  ? Icons.check_circle_rounded
-                                  : Icons.radio_button_unchecked_rounded,
-                              color: checkpoint.isDone
-                                  ? AppColors.success
-                                  : AppColors.border,
-                              size: 22,
+                            Row(
+                              children: [
+                                Icon(
+                                  checkpoint.isDone
+                                      ? Icons.check_circle_rounded
+                                      : Icons.radio_button_unchecked_rounded,
+                                  color: checkpoint.isDone
+                                      ? AppColors.success
+                                      : AppColors.border,
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    checkpoint.labelTh.isNotEmpty
+                                        ? checkpoint.labelTh
+                                        : checkpoint.labelEn,
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      fontWeight: checkpoint.isDone
+                                          ? FontWeight.w700
+                                          : FontWeight.w400,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                checkpoint.labelTh.isNotEmpty
-                                    ? checkpoint.labelTh
-                                    : checkpoint.labelEn,
-                                style: textTheme.bodyMedium?.copyWith(
-                                  fontWeight: checkpoint.isDone
-                                      ? FontWeight.w700
-                                      : FontWeight.w400,
+                            if (checkpoint.photoUrl != null) ...[
+                              const SizedBox(height: 8),
+                              Padding(
+                                padding: const EdgeInsets.only(left: 34),
+                                child: _CheckpointPhotoThumbnail(
+                                  url: checkpoint.photoUrl!,
                                 ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ),
@@ -1112,6 +1126,96 @@ class _DetailRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Small tappable thumbnail for a checkpoint photo — opens a full-screen
+/// pinch-to-zoom viewer. Plain `Image.network`, no caching package in this
+/// project yet, so loading/error states are handled explicitly.
+class _CheckpointPhotoThumbnail extends StatelessWidget {
+  const _CheckpointPhotoThumbnail({required this.url});
+
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => showDialog(
+        context: context,
+        barrierColor: Colors.black,
+        builder: (context) => _CheckpointPhotoViewer(url: url),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        child: Image.network(
+          url,
+          width: 96,
+          height: 96,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) return child;
+            return Container(
+              width: 96,
+              height: 96,
+              color: AppColors.surfaceAlt,
+              alignment: Alignment.center,
+              child: const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) => Container(
+            width: 96,
+            height: 96,
+            color: AppColors.surfaceAlt,
+            alignment: Alignment.center,
+            child: const Icon(
+              Icons.broken_image_outlined,
+              color: AppColors.textTertiary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CheckpointPhotoViewer extends StatelessWidget {
+  const _CheckpointPhotoViewer({required this.url});
+
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog.fullscreen(
+      backgroundColor: Colors.black,
+      child: Stack(
+        children: [
+          Center(
+            child: InteractiveViewer(
+              minScale: 1,
+              maxScale: 4,
+              child: Image.network(
+                url,
+                errorBuilder: (context, error, stackTrace) => const Icon(
+                  Icons.broken_image_outlined,
+                  color: Colors.white54,
+                  size: 48,
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: IconButton(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.close_rounded, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -10,7 +10,7 @@ class AppConfig {
   /// `localhost`; a physical device would need the host's LAN IP instead.
   ///  webBaseUrl = 'http://10.0.2.2:3001';
   ///  host = 'https://caremate-backend.nattavee.com';
-  static const webBaseUrl = 'http://10.0.2.2:3001';
+  static const webBaseUrl = 'https://caremate-backend.nattavee.com';
   static const apiBaseUrl = '$webBaseUrl/api/v1';
 
   /// Recipient PromptPay ID for QR generation (mirrors caremate-client's
