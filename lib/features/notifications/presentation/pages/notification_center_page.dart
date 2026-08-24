@@ -5,6 +5,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/services/app_badge_service.dart';
 import '../../../../core/utils/error_messages.dart';
 import '../../../../shared/models/notification_item.dart';
 import '../../../../shared/widgets/app_card.dart';
@@ -39,12 +40,15 @@ class _NotificationCenterPageState
       _error = null;
     });
     try {
-      final (items, _) = await ref.read(notificationRepositoryProvider).list();
+      final (items, unread) = await ref
+          .read(notificationRepositoryProvider)
+          .list();
       if (!mounted) return;
       setState(() {
         _items = items;
         _isLoading = false;
       });
+      await AppBadgeService.setCount(unread);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -79,6 +83,9 @@ class _NotificationCenterPageState
               n,
         ];
       });
+      await AppBadgeService.setCount(
+        _items.where((n) => !n.isRead).length,
+      );
     } on ApiException catch (_) {
       // Best-effort — a failed mark-read isn't worth surfacing an error for.
     }

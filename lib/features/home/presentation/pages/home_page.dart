@@ -12,6 +12,7 @@ import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/services/app_badge_service.dart';
 import '../../../../shared/data/banner_repository.dart';
 import '../../../../shared/models/banner_item.dart';
 import '../../../../shared/models/booking.dart';
@@ -82,6 +83,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             .read(notificationRepositoryProvider)
             .list();
         unreadCount = unread;
+        await AppBadgeService.setCount(unread);
       } catch (_) {
         unreadCount = 0;
       }
