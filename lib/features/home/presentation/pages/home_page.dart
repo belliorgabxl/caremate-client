@@ -26,6 +26,7 @@ import '../../../../shared/widgets/status_badge.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../booking/data/booking_repository.dart';
 import '../../../members/data/member_repository.dart';
+import '../../../notifications/data/notification_repository.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -40,6 +41,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   List<CareMember> _members = const [];
   List<Booking> _activeBookings = const [];
   List<BannerItem> _banners = const [];
+  int _unreadNotificationCount = 0;
 
   @override
   void initState() {
@@ -72,11 +74,24 @@ class _HomePageState extends ConsumerState<HomePage> {
         banners = const [];
       }
 
+      // Non-fatal for the same reason as banners: the bell badge is a nice-
+      // to-have, not worth blanking the rest of the home page over.
+      var unreadCount = 0;
+      try {
+        final (_, unread) = await ref
+            .read(notificationRepositoryProvider)
+            .list();
+        unreadCount = unread;
+      } catch (_) {
+        unreadCount = 0;
+      }
+
       if (!mounted) return;
       setState(() {
         _members = members;
         _activeBookings = bookings;
         _banners = banners;
+        _unreadNotificationCount = unreadCount;
         _isLoading = false;
       });
     } on ApiException catch (e) {
@@ -166,6 +181,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                               ),
                               const Spacer(),
                               _NotificationButton(
+                                unreadCount: _unreadNotificationCount,
                                 onTap: () =>
                                     context.goForward(AppRoutes.notifications),
                               ),
@@ -891,9 +907,10 @@ class _HomeAction {
 /// doc). Custom rather than [CircleIconAvatar] itself since this one needs
 /// a tap target.
 class _NotificationButton extends StatelessWidget {
-  const _NotificationButton({required this.onTap});
+  const _NotificationButton({required this.onTap, this.unreadCount = 0});
 
   final VoidCallback onTap;
+  final int unreadCount;
 
   @override
   Widget build(BuildContext context) {
@@ -903,29 +920,83 @@ class _NotificationButton extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
-        child: Container(
+        child: SizedBox(
           width: 40,
           height: 40,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.surface,
-            border: Border.all(
-              color: AppColors.primary.withValues(alpha: 0.16),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.18),
-                offset: const Offset(0, 4),
-                blurRadius: 14,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.surface,
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.16),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.18),
+                      offset: const Offset(0, 4),
+                      blurRadius: 14,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.notifications_none_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
               ),
+              if (unreadCount > 0)
+                Positioned(
+                  top: -2,
+                  right: -2,
+                  child: _UnreadCountBadge(count: unreadCount),
+                ),
             ],
           ),
-          child: const Icon(
-            Icons.notifications_none_rounded,
-            color: AppColors.primary,
-            size: 20,
+        ),
+      ),
+    );
+  }
+}
+
+/// Red/white unread-count pill on the notification bell. Caps the printed
+/// number at "9+" rather than growing unbounded — the badge is a glance
+/// signal, not an exact count display.
+class _UnreadCountBadge extends StatelessWidget {
+  const _UnreadCountBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: AppColors.danger,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: AppColors.surface, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.danger.withValues(alpha: 0.35),
+            offset: const Offset(0, 2),
+            blurRadius: 6,
           ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        count > 9 ? '9+' : '$count',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          height: 1,
         ),
       ),
     );

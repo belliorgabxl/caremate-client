@@ -706,66 +706,11 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
               ),
               const SizedBox(height: 20),
             ],
-            if (_mission != null && _mission!.checkpoints.isNotEmpty) ...[
-              const SectionHeader(
-                title: 'ความคืบหน้างาน',
-                icon: Icons.checklist_rounded,
-              ),
-              const SizedBox(height: 12),
-              AppCard(
-                child: Column(
-                  children: [
-                    for (final checkpoint in _mission!.checkpoints)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  checkpoint.isDone
-                                      ? Icons.check_circle_rounded
-                                      : Icons.radio_button_unchecked_rounded,
-                                  color: checkpoint.isDone
-                                      ? AppColors.success
-                                      : AppColors.border,
-                                  size: 22,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    checkpoint.labelTh.isNotEmpty
-                                        ? checkpoint.labelTh
-                                        : checkpoint.labelEn,
-                                    style: textTheme.bodyMedium?.copyWith(
-                                      fontWeight: checkpoint.isDone
-                                          ? FontWeight.w700
-                                          : FontWeight.w400,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (checkpoint.photoUrl != null) ...[
-                              const SizedBox(height: 8),
-                              Padding(
-                                padding: const EdgeInsets.only(left: 34),
-                                child: _CheckpointPhotoThumbnail(
-                                  url: checkpoint.photoUrl!,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ] else
-              const AppCard(
-                child: Text('พาร์ทเนอร์รับงานแล้ว กำลังเตรียมเดินทาง'),
-              ),
+            _mission != null && _mission!.checkpoints.isNotEmpty
+                ? _buildCheckpointsSection()
+                : const AppCard(
+                    child: Text('พาร์ทเนอร์รับงานแล้ว กำลังเตรียมเดินทาง'),
+                  ),
           ],
         );
 
@@ -951,6 +896,42 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
     }
   }
 
+  /// Renders `_mission!.checkpoints` (guaranteed non-empty by the caller) as
+  /// a connected step tracker rather than a flat checklist — the data is
+  /// already step-ordered with timestamps, so a timeline reads the sequence
+  /// at a glance instead of making the reader infer order from list position.
+  Widget _buildCheckpointsSection() {
+    final checkpoints = _mission!.checkpoints;
+    final doneCount = checkpoints.where((c) => c.isDone).length;
+    final currentIndex = checkpoints.indexWhere((c) => !c.isDone);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionHeader(
+          title: 'ความคืบหน้างาน',
+          subtitle: '$doneCount จาก ${checkpoints.length} ขั้นตอน',
+          icon: Icons.checklist_rounded,
+        ),
+        const SizedBox(height: 12),
+        AppCard(
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 2),
+          child: Column(
+            children: [
+              for (var i = 0; i < checkpoints.length; i++)
+                _CheckpointTile(
+                  checkpoint: checkpoints[i],
+                  isLast: i == checkpoints.length - 1,
+                  isCurrent: i == currentIndex,
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
   Widget _buildReviewForm(TextTheme textTheme) {
     return AppCard(
       child: Column(
@@ -1130,13 +1111,147 @@ class _DetailRow extends StatelessWidget {
   }
 }
 
-/// Small tappable thumbnail for a checkpoint photo — opens a full-screen
+String _formatCheckpointTime(DateTime dateTime) {
+  final hour = dateTime.hour.toString().padLeft(2, '0');
+  final minute = dateTime.minute.toString().padLeft(2, '0');
+  return '$hour:$minute น.';
+}
+
+/// One row of the "ความคืบหน้างาน" step tracker: a [CircleIconAvatar] node
+/// (done / current / upcoming, each with its own icon+color so status never
+/// reads from color alone) connected to the next row by a vertical line,
+/// plus the step's label, completion time, notes, and photo if the partner
+/// attached one. [IntrinsicHeight] lets the connector stretch to match
+/// however tall this step's own content (notes/photo) makes the row.
+class _CheckpointTile extends StatelessWidget {
+  const _CheckpointTile({
+    required this.checkpoint,
+    required this.isLast,
+    required this.isCurrent,
+  });
+
+  final MissionCheckpoint checkpoint;
+  final bool isLast;
+  final bool isCurrent;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final done = checkpoint.isDone;
+    final active = done || isCurrent;
+    final nodeColor = done
+        ? AppColors.success
+        : isCurrent
+        ? AppColors.primary
+        : AppColors.textTertiary;
+    final connectorColor = done ? AppColors.success : AppColors.border;
+    final label = checkpoint.labelTh.isNotEmpty
+        ? checkpoint.labelTh
+        : checkpoint.labelEn;
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 24,
+            child: Column(
+              children: [
+                CircleIconAvatar(
+                  icon: done
+                      ? Icons.check_rounded
+                      : isCurrent
+                      ? Icons.more_horiz_rounded
+                      : Icons.circle,
+                  color: nodeColor,
+                  radius: 12,
+                  iconSize: done || isCurrent ? 14 : 8,
+                  filled: active,
+                ),
+                if (!isLast)
+                  Expanded(
+                    child: Container(
+                      width: 2,
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      color: connectorColor,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 14 : 22, top: 3),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          label,
+                          style: textTheme.bodyMedium?.copyWith(
+                            fontWeight: active
+                                ? FontWeight.w700
+                                : FontWeight.w400,
+                            color: active
+                                ? AppColors.textPrimary
+                                : AppColors.textTertiary,
+                          ),
+                        ),
+                      ),
+                      if (done && checkpoint.completedAt != null) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          _formatCheckpointTime(checkpoint.completedAt!),
+                          style: textTheme.labelSmall?.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ] else if (isCurrent) ...[
+                        const SizedBox(width: 8),
+                        const StatusBadge(
+                          text: 'กำลังดำเนินการ',
+                          color: AppColors.primary,
+                          dense: true,
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (checkpoint.notes.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      checkpoint.notes,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                  if (checkpoint.photoUrl != null) ...[
+                    const SizedBox(height: 10),
+                    _CheckpointPhotoThumbnail(url: checkpoint.photoUrl!),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Tappable thumbnail for a checkpoint photo — opens a full-screen
 /// pinch-to-zoom viewer. Plain `Image.network`, no caching package in this
 /// project yet, so loading/error states are handled explicitly.
 class _CheckpointPhotoThumbnail extends StatelessWidget {
   const _CheckpointPhotoThumbnail({required this.url});
 
   final String url;
+
+  static const _size = 112.0;
 
   @override
   Widget build(BuildContext context) {
@@ -1146,36 +1261,66 @@ class _CheckpointPhotoThumbnail extends StatelessWidget {
         barrierColor: Colors.black,
         builder: (context) => _CheckpointPhotoViewer(url: url),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        child: Image.network(
-          url,
-          width: 96,
-          height: 96,
-          fit: BoxFit.cover,
-          loadingBuilder: (context, child, progress) {
-            if (progress == null) return child;
-            return Container(
-              width: 96,
-              height: 96,
-              color: AppColors.surfaceAlt,
-              alignment: Alignment.center,
-              child: const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) => Container(
-            width: 96,
-            height: 96,
-            color: AppColors.surfaceAlt,
-            alignment: Alignment.center,
-            child: const Icon(
-              Icons.broken_image_outlined,
-              color: AppColors.textTertiary,
+      child: Container(
+        width: _size,
+        height: _size,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+          border: Border.all(color: AppColors.border),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0D0F2A2E),
+              offset: Offset(0, 2),
+              blurRadius: 8,
             ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.sm - 1),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.network(
+                url,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return Container(
+                    color: AppColors.surfaceAlt,
+                    alignment: Alignment.center,
+                    child: const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: AppColors.surfaceAlt,
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.broken_image_outlined,
+                    color: AppColors.textTertiary,
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 6,
+                bottom: 6,
+                child: Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.black.withValues(alpha: 0.45),
+                  ),
+                  child: const Icon(
+                    Icons.zoom_in_rounded,
+                    size: 14,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1209,9 +1354,19 @@ class _CheckpointPhotoViewer extends StatelessWidget {
             ),
           ),
           SafeArea(
-            child: IconButton(
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.close_rounded, color: Colors.white),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: Material(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  shape: const CircleBorder(),
+                  child: IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded, color: Colors.white),
+                  ),
+                ),
+              ),
             ),
           ),
         ],
