@@ -10,12 +10,12 @@ class AppConfig {
   /// `localhost`; a physical device would need the host's LAN IP instead.
   ///  webBaseUrl = 'http://10.0.2.2:3001';
   ///  host = 'https://caremate-backend.nattavee.com';
-  static const webBaseUrl = 'https://caremate-backend.nattavee.com';
+  // TEMP (local Beam testing session, revert before commit): pointed at the
+  // backend running locally via `go run ./cmd/server` against the shared dev
+  // DB, since the deployed caremate-backend.nattavee.com doesn't have the
+  // new Beam payment code yet.
+  static const webBaseUrl = 'http://localhost:8084';
   static const apiBaseUrl = '$webBaseUrl/api/v1';
-
-  /// Recipient PromptPay ID for QR generation (mirrors caremate-client's
-  /// `PROMPTPAY_ID` env var — there's no backend endpoint for this).
-  static const promptPayId = '6352421543';
 
   /// Google Maps / Places key. The map itself doesn't read this — Android
   /// takes it from `android/local.properties` via the manifest and iOS from

@@ -10,8 +10,9 @@ Three repos:
   (was a BFF proxy layer, now bypassed — app calls the Go backend directly).
 - `D:\SandBox\StartUp\care-mate-backend` (Go/Fiber) — this app calls **this** directly.
   Has its own `CLAUDE.md`. `booking-flow.md` (repo root here) is the backend team's
-  frontend-facing spec for the booking/payment/matching API — read it before touching
-  that flow again.
+  frontend-facing spec for the booking/matching API — read it before touching that
+  flow again. `payment-flow.md` (repo root here) is the equivalent for payment
+  (Beam Checkout) — `booking-flow.md`'s own payment section is stale and defers to it.
 
 **Cross-repo writes are blocked from this session** (permission classifier). Backend/
 Next.js work needs a session opened in that repo. Reads across repos are fine and were
@@ -119,18 +120,25 @@ new features on top of the now-consistent system.
   conflate them again.
 - `care/services`' `requiresDestination` is `slug == 'transport'` exactly, not a
   loose heuristic.
-- No push/webhook for booking status — after `POST /payments/confirm`, the client must
-  **poll** `GET /bookings/:id/mission` (see `BookingStatusPage` for the reference
-  polling implementation: 5s while `PENDING`, 20s once `MATCHED`/`IN_PROGRESS`, stop on
-  terminal states, soft warning after 10min stuck `PENDING` per the backend's known
-  matching-retry gap).
+- No push/webhook for booking status — once the client's own payment poll (see
+  below) observes `paid`, it must **poll** `GET /bookings/:id/mission` (see
+  `BookingStatusPage` for the reference polling implementation: 5s while `PENDING`,
+  20s once `MATCHED`/`IN_PROGRESS`, stop on terminal states, soft warning after
+  10min stuck `PENDING` per the backend's known matching-retry gap).
 - Endpoint → repo: `authentication/*` → `auth_repository.dart`. `users/*` →
   `profile_repository.dart` / `booking_repository.dart`. `user-relatives` →
   `member_repository.dart`. `care/services`, `bookings*` → `booking_repository.dart`.
   `payments*` → `payment_repository.dart`.
-- PromptPay QR is generated **client-side** (`payment/data/promptpay_qr.dart`,
-  EMVCo/CRC16 algorithm) — no backend endpoint for it, ported from the old Next.js
-  proxy's `promptpay-qr` npm package. **Still unverified against a real bank app scan.**
+- **Payment is now real Beam Checkout (QR PromptPay), not self-reported.** See
+  `payment-flow.md` (repo root) for the full contract — this superseded
+  `booking-flow.md` §3.4. `POST /payments/confirm` is gone; `PaymentPage` now
+  calls `POST /payments/:paymentId/charge` to get a real QR image from Beam
+  (`Image.memory(base64Decode(...))`, no more client-side EMV generation —
+  `promptpay_qr.dart` and the `qr_flutter` dependency were both removed), then
+  polls `GET /payments/:paymentId` every 3s until the backend's webhook confirms
+  it (`status: "paid"`), auto-navigating to the success sheet with no button to
+  tap. `AppConfig.promptPayId` is gone too — the QR is Beam's, not a locally
+  generated EMV payload against a static PromptPay ID.
 
 ## Backend compatibility notes (audited against real Go source, not guessed)
 - `DELETE /user-relatives/{id}` doesn't exist on the backend yet — `softDelete()`
@@ -198,7 +206,35 @@ new features on top of the now-consistent system.
     calls this yet.
 
 ## Session log (most recent first)
-- **2026-08-06 (latest)**: Wired the real PDPA API (backend team handed over a
+- **2026-08-29 (latest)**: Replaced the fake/self-reported payment flow with real
+  Beam Checkout (QR PromptPay). Full contract now documented in `payment-flow.md`
+  (new, repo root) — `booking-flow.md` §3.4 is marked stale and points there.
+  `PaymentRepository.confirm()` and the client-side EMV QR generator
+  (`payment/data/promptpay_qr.dart`, `qr_flutter` dependency, `AppConfig.promptPayId`)
+  are all deleted; replaced with `createCharge()` calling the backend's new
+  `POST /payments/:paymentId/charge`, which returns a real PNG QR straight from
+  Beam. `PaymentPage` no longer has a "ฉันชำระเงินแล้ว" button — it polls
+  `GET /payments/:paymentId` every 3s and auto-navigates to the existing success
+  sheet the moment the backend's Beam webhook confirms payment, with no user
+  action. This was a paired change with `care-mate-backend` (new `pkg/beam`
+  client, `POST /payments/:paymentID/charge`, two fully separate webhook
+  routes/handlers/service methods — `POST /webhooks/beam/charges` and
+  `POST /webhooks/beam/refunds`, each with its own HMAC-SHA256 signature
+  check, deliberately not sharing one generic dispatcher — and a 30s
+  reconciliation sweep against Beam directly as a fallback in case a charge
+  webhook is ever lost) — both repos must ship together, the old
+  `POST /payments/confirm` no longer exists on the backend at all. Also added
+  a backend-only admin refund action (`POST /admin/payments/:paymentID/refund`,
+  `super_admin`/`operator` role) that actually calls Beam's Refunds API,
+  closing the loop on `CancelBookingByUser`'s existing `refundRequired` flag —
+  no admin UI wired to it yet, backend-complete only, per explicit scope
+  ("หน้าบ้านยังไม่ต้องทำ refund ทำแค่หลังบ้านรองรับไว้ให้สมบูรณ์ก่อน"). See
+  `payment-flow.md` for the full contract including the refund endpoint.
+  **Not yet run against a live backend or Beam's sandbox** — no
+  Flutter/Go toolchain was available in this session to build or `flutter
+  analyze` either side; reviewed by hand instead. Verify both before relying on
+  this.
+- **2026-08-06**: Wired the real PDPA API (backend team handed over a
   "PDPA API — Frontend Integration Guide" spec, `GET /pdpa`, `/pdpa/versions`,
   `/pdpa/:version`, public/no-auth, base path `/api/v1/pdpa`) — see "Backend
   compatibility notes" above for the full contract. Rewrote `PdpaPolicy`
@@ -305,8 +341,11 @@ new features on top of the now-consistent system.
   boot) with confusing leftover app state. Fix each time: `adb -s <id> emu kill` then
   cold-boot with `emulator -avd <name> -no-snapshot-load`. Don't assume a black screen
   or weird app state is a code bug without a screenshot + logcat check first.
-- PromptPay QR generator: logic/CRC verified against the official test vector, never
-  scan-tested against a real bank app.
+- ~~PromptPay QR generator: logic/CRC verified against the official test vector, never
+  scan-tested against a real bank app.~~ — resolved by removing it entirely; the QR
+  shown now comes straight from Beam Checkout, not a client-generated EMV payload.
+  New, not yet resolved: the whole Beam integration (backend + this page's rewrite)
+  has not been walked through against Beam's actual sandbox yet — see `payment-flow.md`.
 - Members page still has no map-picker integration for its own address field (the
   add/edit member sheet has no location field at all yet) — `LocationPickerPage` would
   drop in the same way it does for booking/profile addresses.

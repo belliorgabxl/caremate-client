@@ -43,7 +43,6 @@ dependencies:
   google_places_sdk_plus: ^1.1.0
   geolocator: ^14.0.2
   geocoding: ^4.0.0
-  qr_flutter: ^4.1.0
   flutter_html: ^3.0.0
   flutter_local_notifications: ^21.0.0
   url_launcher: ^6.3.2

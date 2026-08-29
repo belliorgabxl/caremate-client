@@ -1,10 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/config/app_config.dart';
 import '../../../core/network/api_client.dart';
+import '../../../shared/models/charge_info.dart';
 import '../../../shared/models/payment.dart';
-import 'promptpay_qr.dart';
 
 class PaymentRepository {
   PaymentRepository(this._api);
@@ -36,22 +35,19 @@ class PaymentRepository {
     }
   }
 
-  Future<Payment> confirm({required String bookingId, required String paymentId}) async {
+  /// Creates (or, if one already exists and hasn't expired, returns the
+  /// already-created) a real Beam QR PromptPay charge for a pending payment.
+  /// This never marks the payment paid — only Beam's webhook does that
+  /// server-side. Safe to call again (e.g. on a page reload); it won't
+  /// create a second charge.
+  Future<ChargeInfo> createCharge({required String paymentId}) async {
     try {
-      await _api.dio.post('/payments/confirm', data: {'bookingId': bookingId, 'paymentId': paymentId});
-      final payment = await getById(paymentId);
-      return payment.status == PaymentStatus.paid ? payment : payment.copyWith(status: PaymentStatus.paid, paidAt: DateTime.now());
+      final response = await _api.dio.post('/payments/${Uri.encodeComponent(paymentId)}/charge');
+      final data = _api.unwrap(response.data) as Map<String, dynamic>;
+      return ChargeInfo.fromJson(data);
     } on DioException catch (e) {
       _api.throwApiException(e);
     }
-  }
-
-  /// Generates the raw PromptPay EMV QR payload string to render (e.g. with
-  /// `QrImageView`), not an image itself. There's no backend endpoint for
-  /// this — it's computed locally the same way caremate-client's Next.js
-  /// proxy used to (see `promptpay_qr.dart`).
-  String getPromptPayQrPayload({required double amount}) {
-    return generatePromptPayPayload(promptPayId: AppConfig.promptPayId, amount: amount);
   }
 }
 

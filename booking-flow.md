@@ -6,6 +6,8 @@ Auth: unless noted "public", every endpoint requires the `caremate_session` cook
 
 > Scope note: booking, payment and matching-status endpoints below are the ones your app calls directly. The **matching/offer/mission** steps in the middle of the diagram are performed by the backend and the **partner app** (`/api/v1/partner/...`) — you don't call them, but understanding them explains why a booking's status changes asynchronously after payment.
 
+> **Payment section below is stale — see `payment-flow.md`.** `POST /payments/confirm` (§3.4 below) has been replaced by real Beam Checkout QR PromptPay charges (`POST /payments/:paymentID/charge`), confirmed server-side only via Beam's webhook. `payment-flow.md` (same repo root) is now the source of truth for the payment step; the rest of this document (booking creation, matching, mission polling) is unaffected and still accurate.
+
 ---
 
 ## 1. End-to-end sequence
@@ -17,6 +19,7 @@ sequenceDiagram
     participant API as Backend API
     participant DB as Postgres
     participant Redis
+    participant Beam as Beam Checkout
     participant Partner as Partner App
     participant LINE as LINE Messaging
 
@@ -25,12 +28,15 @@ sequenceDiagram
     API->>Redis: schedule payment-expiry key (TTL 15 min)
     API-->>Client: 201 { bookingId, paymentId, status, paymentStatus, totalAmount, ... }
 
-    Note over Client,API: Client shows payment UI, user pays
+    Note over Client,API: Client shows payment UI — see payment-flow.md for the full Beam sequence
 
-    Client->>API: POST /payments/confirm { bookingId, paymentId }
+    Client->>API: POST /payments/:paymentId/charge
+    API->>Beam: create QR PromptPay charge
+    API-->>Client: 200 { chargeId, qrImageBase64, qrExpiresAt }
+    Beam-->>API: webhook charge.succeeded (async, once the user actually pays)
     API->>DB: lock booking+payment, mark payment PAID, booking -> PENDING
     API->>Redis: cancel payment-expiry key
-    API-->>Client: 200 { message: "payment confirmed successfully" }
+    Client->>API: GET /payments/:paymentId (polling until status = paid)
 
     par async, detached from the request above
         API->>API: matchBookingAsync() (30s timeout, panic-safe goroutine)
@@ -52,7 +58,7 @@ sequenceDiagram
     end
 ```
 
-**Key implication for the frontend:** there is no push/webhook to the client app. After `POST /payments/confirm` returns `200`, matching happens in the background. The client must **poll** `GET /bookings/:bookingId/mission` (or `GET /bookings`) to observe `booking.status` moving from `PENDING` → `MATCHED` → `IN_PROGRESS` → `COMPLETED`, and to pick up `partner` details once matched.
+**Key implication for the frontend:** there is no push/webhook to the client app (Beam's webhook lands on the backend only). Once the client's own poll of `GET /payments/:paymentId` observes `status: "paid"`, matching has already been kicked off in the background by the backend. The client must then **poll** `GET /bookings/:bookingId/mission` (or `GET /bookings`) to observe `booking.status` moving from `PENDING` → `MATCHED` → `IN_PROGRESS` → `COMPLETED`, and to pick up `partner` details once matched.
 
 ---
 
@@ -61,7 +67,7 @@ sequenceDiagram
 ```mermaid
 stateDiagram-v2
     [*] --> AWAITING_PAYMENT: POST /bookings/create
-    AWAITING_PAYMENT --> PENDING: POST /payments/confirm
+    AWAITING_PAYMENT --> PENDING: Beam webhook charge.succeeded (see payment-flow.md)
     AWAITING_PAYMENT --> PAYMENT_EXPIRED: 15 min TTL elapses, unpaid
     PENDING --> MATCHED: partner accepts a job offer
     MATCHED --> IN_PROGRESS: partner starts the mission
@@ -74,7 +80,7 @@ Notes:
 - `CANCELLED` exists as a DB enum value but **no cancel-booking endpoint is currently implemented** for the client app — don't build a "cancel" button against this API yet.
 - **Known gap (backend, not yet fixed):** if no partner accepts within the 10-minute offer window, nothing currently retries or notifies — the booking can get silently stuck at `PENDING`. If you're polling and see a booking stay `PENDING` for a long time, that's this gap, not a bug in your polling logic. Worth surfacing a "still looking for a partner, this is taking longer than usual" state in the UI after ~10–15 min.
 
-Payment status (`payment.status`, separate field) — `pending` → `paid` (on confirm) / `expired` (on TTL) / `failed` / `refunded`. `CreateBookingResponse.paymentStatus` and `booking.status` are independent fields; don't conflate them.
+Payment status (`payment.status`, separate field) — `pending` → `paid` (on Beam webhook `charge.succeeded`, see `payment-flow.md`) / `expired` (on TTL) / `refunded`. `CreateBookingResponse.paymentStatus` and `booking.status` are independent fields; don't conflate them.
 
 ---
 
@@ -178,23 +184,9 @@ Error responses:
 | User already has a booking in progress | `409` | `BOOKING_IN_PROGRESS` |
 | Unexpected error | `500` | `INTERNAL_SERVER_ERROR` |
 
-### 3.4 `POST /payments/confirm` — auth required
+### 3.4 ~~`POST /payments/confirm`~~ — **removed**
 
-Marks the payment `paid` and the booking `PENDING`, cancels the expiry timer, and **fires matching in the background** (fire-and-forget — this call does not wait for a partner to be found).
-
-Request body:
-```json
-{ "bookingId": "uuid", "paymentId": "uuid" }
-```
-
-Response `200`:
-```json
-{ "message": "payment confirmed successfully" }
-```
-
-Note: on failure this currently returns a raw `500` with `err.Error()` as the message rather than a typed error code — don't pattern-match on message text; treat any non-`200` as "payment not confirmed, let the user retry."
-
-There is **no response body describing the booking/payment after confirmation** — immediately follow up with `GET /bookings/:bookingId/mission` (or `GET /payments/:paymentId`) to read the resulting state, and start polling from there.
+This endpoint let the client self-report a payment as paid, with nothing checked server-side — it's gone. Payment now goes through real Beam Checkout QR PromptPay charges, confirmed only by Beam's webhook. See **`payment-flow.md`** for the replacement endpoint (`POST /payments/:paymentID/charge`) and the full sequence.
 
 ### 3.5 `GET /bookings/:bookingID/mission` — auth required
 
@@ -268,7 +260,7 @@ These run on the partner app (`/api/v1/partner/...`) and are what actually advan
 
 ## 5. Suggested client polling strategy
 
-1. After `POST /payments/confirm` returns `200`, start polling `GET /bookings/:bookingId/mission` every ~5s.
+1. Once polling `GET /payments/:paymentId` (see `payment-flow.md`) observes `status: "paid"`, start polling `GET /bookings/:bookingId/mission` every ~5s.
 2. While `booking.status === "PENDING"`: show "finding a partner near you". If this exceeds ~10 min, show a soft warning (see gap noted in §2) and consider offering support contact / retry, since nothing currently auto-retries matching on the backend.
 3. On `MATCHED`: show partner info from the `partner` object, slow polling interval (e.g. 15–30s) or switch to on-demand refresh.
 4. On `IN_PROGRESS`: use `mission.checkpoints` to render progress.

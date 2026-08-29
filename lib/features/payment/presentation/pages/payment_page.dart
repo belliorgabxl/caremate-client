@@ -1,8 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/router/nav_direction.dart';
@@ -31,16 +32,15 @@ class PaymentPage extends ConsumerStatefulWidget {
 
 class _PaymentPageState extends ConsumerState<PaymentPage> {
   bool _isLoading = true;
-  bool _canConfirm = false;
-  bool _isConfirming = false;
   bool _isCancelling = false;
+  bool _paymentConfirmed = false;
 
   Booking? _booking;
   Payment? _payment;
   List<PaymentMethod> _methods = const [];
-  String? _qrPayload;
+  Uint8List? _qrImageBytes;
 
-  Timer? _unlockTimer;
+  Timer? _pollTimer;
   Timer? _countdownTimer;
   Duration _remaining = Duration.zero;
   bool _qrExpired = false;
@@ -53,7 +53,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
 
   @override
   void dispose() {
-    _unlockTimer?.cancel();
+    _pollTimer?.cancel();
     _countdownTimer?.cancel();
     super.dispose();
   }
@@ -80,32 +80,65 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
       _isLoading = false;
     });
 
-    if (payment != null) {
-      _startTimers(payment);
-      await _loadQrIfNeeded(payment);
+    if (payment == null) return;
+
+    if (payment.status == PaymentStatus.paid) {
+      // Already confirmed server-side (e.g. re-opened this page after the
+      // webhook landed) — nothing left to show but the success flow.
+      _onPaymentConfirmed();
+      return;
     }
+
+    _startExpiryCountdown(payment);
+    await _createChargeIfNeeded(payment);
+    _startPolling(payment);
   }
 
-  Future<void> _loadQrIfNeeded(Payment payment) async {
+  /// Creates the real Beam QR charge for this payment (or fetches the
+  /// already-created one — safe to call again). QR PromptPay only for now;
+  /// other methods have no gateway integration yet.
+  Future<void> _createChargeIfNeeded(Payment payment) async {
     final method = _selectedMethod;
     if (method?.slug != 'qr_promptpay') return;
 
-    final payload = ref
-        .read(paymentRepositoryProvider)
-        .getPromptPayQrPayload(amount: payment.totalAmount);
+    try {
+      final charge = await ref
+          .read(paymentRepositoryProvider)
+          .createCharge(paymentId: payment.id);
 
-    if (!mounted) return;
-    setState(() => _qrPayload = payload);
+      if (!mounted) return;
+      setState(() => _qrImageBytes = base64Decode(charge.qrImageBase64));
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
+    }
   }
 
-  void _startTimers(Payment payment) {
-    _canConfirm = false;
-    _qrExpired = false;
-    _unlockTimer?.cancel();
-    _unlockTimer = Timer(const Duration(seconds: 5), () {
-      if (mounted) setState(() => _canConfirm = true);
-    });
+  /// Polls for the backend to confirm payment (via Beam's webhook) — the
+  /// client can no longer assert payment succeeded itself.
+  void _startPolling(Payment payment) {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
+      if (!mounted || _paymentConfirmed) return;
 
+      final latest = await ref
+          .read(paymentRepositoryProvider)
+          .getById(payment.id);
+
+      if (!mounted) return;
+
+      if (latest.status == PaymentStatus.paid) {
+        _pollTimer?.cancel();
+        setState(() => _payment = latest);
+        _onPaymentConfirmed();
+      }
+    });
+  }
+
+  void _startExpiryCountdown(Payment payment) {
+    _qrExpired = false;
     _countdownTimer?.cancel();
     _updateRemaining(payment);
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -124,11 +157,11 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     final isExpired = remaining.isNegative;
     setState(() {
       _remaining = isExpired ? Duration.zero : remaining;
-      // Once the QR's own expiry passes, the "ฉันชำระเงินแล้ว" action can no
-      // longer succeed server-side — stop offering it rather than letting the
-      // user tap into a guaranteed failure.
       if (isExpired) _qrExpired = true;
     });
+    // The payment can no longer succeed server-side past its own expiry —
+    // stop polling instead of hammering the endpoint indefinitely.
+    if (isExpired) _pollTimer?.cancel();
   }
 
   String get _countdownLabel {
@@ -259,7 +292,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                 ),
                 const SizedBox(height: 12),
                 _PromptPayQrCard(
-                  payload: _qrPayload,
+                  imageBytes: _qrImageBytes,
                   reference: payment.reference,
                   countdownLabel: _countdownLabel,
                   isExpired: _qrExpired,
@@ -321,6 +354,9 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     );
   }
 
+  /// There is nothing left for the user to tap — payment is confirmed only
+  /// by Beam's webhook, picked up by `_startPolling`, which auto-advances to
+  /// the success screen on its own. This bar just reflects that state.
   Widget _buildBottomBar(Payment payment) {
     final textTheme = Theme.of(context).textTheme;
 
@@ -348,19 +384,43 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                 ],
               ),
             ),
-            SizedBox(
-              width: 200,
-              child: PrimaryButton(
-                label: _qrExpired
-                    ? 'QR หมดอายุ'
-                    : (_canConfirm ? 'ฉันชำระเงินแล้ว' : 'กรุณาสแกน QR ก่อน'),
-                icon: _qrExpired ? Icons.error_outline_rounded : Icons.lock_rounded,
-                isLoading: _isConfirming,
-                onPressed: (_canConfirm && !_isConfirming && !_qrExpired)
-                    ? () => _confirmPayment(payment)
-                    : null,
+            if (_qrExpired)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    size: 18,
+                    color: AppColors.danger,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'QR หมดอายุ',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: AppColors.danger,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              )
+            else
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      'กำลังตรวจสอบการชำระเงิน...',
+                      style: textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
               ),
-            ),
           ],
         ),
       ),
@@ -420,7 +480,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     }
 
     if (!mounted) return;
-    _unlockTimer?.cancel();
+    _pollTimer?.cancel();
     _countdownTimer?.cancel();
     setState(() => _isCancelling = false);
 
@@ -430,34 +490,28 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     context.goBack(AppRoutes.home);
   }
 
-  Future<void> _confirmPayment(Payment payment) async {
-    setState(() => _isConfirming = true);
+  /// Called once polling observes the payment flip to `paid` — the backend
+  /// already confirmed it via Beam's webhook by this point. No user action
+  /// triggers this; it fires on its own.
+  void _onPaymentConfirmed() {
+    if (_paymentConfirmed) return;
+    _paymentConfirmed = true;
 
-    try {
-      await ref
-          .read(paymentRepositoryProvider)
-          .confirm(bookingId: payment.bookingId, paymentId: payment.id);
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() => _isConfirming = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
-      return;
-    }
+    _pollTimer?.cancel();
+    _countdownTimer?.cancel();
 
     ref.read(bookingRepositoryProvider).clearPendingPayment();
     _scheduleBookingReminder(_booking);
 
     if (!mounted) return;
-    setState(() => _isConfirming = false);
-    _showSuccessSheet(_booking!);
+    final booking = _booking;
+    if (booking != null) _showSuccessSheet(booking);
   }
 
   /// Best-effort nicety layered on top of a successful payment confirmation
   /// — a failure here (permission denied, plugin not ready, etc.) must never
   /// surface as an error on what is otherwise a completed, paid booking.
-  /// Fire-and-forget (not awaited from [_confirmPayment]); `.catchError`
+  /// Fire-and-forget (not awaited from [_onPaymentConfirmed]); `.catchError`
   /// (rather than a synchronous try/catch, which can't see errors thrown
   /// after an `await` inside the scheduling call) makes sure a failure here
   /// only ever reaches `debugPrint`.
@@ -539,13 +593,15 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
 
 class _PromptPayQrCard extends StatelessWidget {
   const _PromptPayQrCard({
-    required this.payload,
+    required this.imageBytes,
     required this.reference,
     required this.countdownLabel,
     required this.isExpired,
   });
 
-  final String? payload;
+  /// The real QR image PNG bytes from Beam — not a payload string, nothing
+  /// renders/generates this client-side anymore.
+  final Uint8List? imageBytes;
   final String reference;
   final String countdownLabel;
   final bool isExpired;
@@ -553,7 +609,7 @@ class _PromptPayQrCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final hasPayload = payload != null && payload!.isNotEmpty;
+    final hasImage = imageBytes != null && imageBytes!.isNotEmpty;
 
     return AppCard(
       elevated: true,
@@ -577,11 +633,8 @@ class _PromptPayQrCard extends StatelessWidget {
                       color: AppColors.textSecondary,
                     ),
                   )
-                : (hasPayload
-                      ? QrImageView(
-                          data: payload!,
-                          backgroundColor: AppColors.surfaceAlt,
-                        )
+                : (hasImage
+                      ? Image.memory(imageBytes!, fit: BoxFit.contain)
                       : const Center(
                           child: SizedBox(
                             width: 28,
