@@ -6,6 +6,7 @@ class AppRoutes {
   static const booking = '/booking';
   static const members = '/members';
   static const payment = '/payment';
+  static const paymentSuccess = '/payment/success';
   static const profile = '/profile';
   static const profilePersonalInformation = '/profile/personal-information';
   static const profileHealthInformation = '/profile/health-information';

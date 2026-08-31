@@ -430,7 +430,7 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
               children: [
                 FloatingActionButton(
                   heroTag: 'call1669',
-                  backgroundColor: AppColors.warning,
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   onPressed: _call1669,
                   tooltip: 'โทร 1669',
@@ -511,7 +511,7 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
                   const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton.icon(
+                    child: FilledButton.icon(
                       onPressed: _isCancelling
                           ? null
                           : () => _cancelBooking(booking),
@@ -519,17 +519,18 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
                           ? const SizedBox(
                               width: 16,
                               height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
                           : const Icon(Icons.close_rounded),
                       label: Text(
                         _isCancelling ? 'กำลังยกเลิก...' : 'ยกเลิกการจอง',
                       ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.danger,
-                        side: BorderSide(
-                          color: AppColors.danger.withValues(alpha: 0.5),
-                        ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.danger,
+                        foregroundColor: Colors.white,
                       ),
                     ),
                   ),
@@ -537,8 +538,12 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
-                  child: OutlinedButton(
+                  child: FilledButton(
                     onPressed: () => context.goBack(AppRoutes.home),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
                     child: const Text('กลับหน้าหลัก'),
                   ),
                 ),

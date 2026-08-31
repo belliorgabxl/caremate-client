@@ -126,9 +126,13 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   double get _estimatedFee {
     final service = _selectedService;
     if (service == null || !_isTimeRangeValid) return 0;
-    return calculateTotal(
+    return calculateEstimatedTotal(
+      pricingModel: service.pricingModel,
       baseFeePerHour: service.baseFeePerHour,
+      ratePerKm: service.ratePerKm,
+      baseFeeFirstKm: service.baseFeeFirstKm,
       durationMinutes: _selectedDurationMinutes,
+      distanceKm: _estimatedDistanceKm,
     );
   }
 

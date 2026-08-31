@@ -24,6 +24,9 @@ class CareService {
     required this.requiresDestination,
     required this.durationMinutes,
     required this.typicalDistanceKm,
+    required this.pricingModel,
+    required this.ratePerKm,
+    required this.baseFeeFirstKm,
   });
 
   final String id;
@@ -36,6 +39,21 @@ class CareService {
   final bool requiresDestination;
   final int durationMinutes;
   final double typicalDistanceKm;
+
+  /// Selects the fee formula `calculateEstimatedFee` should use — mirrors
+  /// the backend's `pricing_model` (`internal/domain/pricing_config.go`).
+  /// `DISTANCE_TIERED` (currently only "transport") prices purely by
+  /// distance, ignoring [baseFeePerHour] entirely; every other value falls
+  /// back to the hourly formula.
+  final String pricingModel;
+
+  /// Per-km rate beyond the first km — only meaningful when [pricingModel]
+  /// is `DISTANCE_TIERED`.
+  final double ratePerKm;
+
+  /// Minimum fare covering the first km — only meaningful when
+  /// [pricingModel] is `DISTANCE_TIERED`.
+  final double baseFeeFirstKm;
 
   /// Maps a backend `BackendCareService` (`GET /api/service`). The catalog
   /// doesn't carry a subtitle, default duration, or typical distance — those
@@ -57,6 +75,9 @@ class CareService {
       requiresDestination: slug == 'transport',
       durationMinutes: 60,
       typicalDistanceKm: 0,
+      pricingModel: json['pricing_model'] as String? ?? '',
+      ratePerKm: (json['rate_per_km'] as num?)?.toDouble() ?? 0,
+      baseFeeFirstKm: (json['base_fee_first_km'] as num?)?.toDouble() ?? 0,
     );
   }
 }

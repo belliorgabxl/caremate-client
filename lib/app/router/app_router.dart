@@ -13,6 +13,7 @@ import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/members/presentation/pages/members_page.dart';
 import '../../features/notifications/presentation/pages/notification_center_page.dart';
 import '../../features/payment/presentation/pages/payment_page.dart';
+import '../../features/payment/presentation/pages/payment_success_page.dart';
 import '../../features/profile/presentation/pages/addresses_page.dart';
 import '../../features/profile/presentation/pages/health_information_page.dart';
 import '../../features/profile/presentation/pages/personal_information_page.dart';
@@ -144,6 +145,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.payment,
         pageBuilder: (context, state) =>
             _slidePage(state, const PaymentPage()),
+      ),
+      GoRoute(
+        path: AppRoutes.paymentSuccess,
+        pageBuilder: (context, state) => _slidePage(
+          state,
+          PaymentSuccessPage(booking: state.extra as Booking),
+        ),
       ),
       GoRoute(
         path: AppRoutes.profilePersonalInformation,

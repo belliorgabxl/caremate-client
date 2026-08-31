@@ -8,13 +8,11 @@ class AppConfig {
   /// care-mate-backend (Go/Fiber), called directly — no more Next.js proxy.
   /// `10.0.2.2` is the Android-emulator-only alias for the host machine's
   /// `localhost`; a physical device would need the host's LAN IP instead.
-  ///  webBaseUrl = 'http://10.0.2.2:3001';
   ///  host = 'https://caremate-backend.nattavee.com';
-  // TEMP (local Beam testing session, revert before commit): pointed at the
-  // backend running locally via `go run ./cmd/server` against the shared dev
-  // DB, since the deployed caremate-backend.nattavee.com doesn't have the
-  // new Beam payment code yet.
-  static const webBaseUrl = 'http://localhost:8084';
+  // Pointed at the backend running locally (`care-mate-backend/.env`'s
+  // APP_PORT=3001), since the deployed caremate-backend.nattavee.com doesn't
+  // have the new Beam payment code yet.
+  static const webBaseUrl = 'http://10.0.2.2:3001';
   static const apiBaseUrl = '$webBaseUrl/api/v1';
 
   /// Google Maps / Places key. The map itself doesn't read this — Android

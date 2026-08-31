@@ -17,7 +17,6 @@ import '../../../../shared/models/payment.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/aurora_background.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
-import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/section_header.dart';
 import '../../../../shared/widgets/status_badge.dart';
 import '../../../booking/data/booking_repository.dart';
@@ -83,8 +82,6 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     if (payment == null) return;
 
     if (payment.status == PaymentStatus.paid) {
-      // Already confirmed server-side (e.g. re-opened this page after the
-      // webhook landed) — nothing left to show but the success flow.
       _onPaymentConfirmed();
       return;
     }
@@ -94,9 +91,6 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     _startPolling(payment);
   }
 
-  /// Creates the real Beam QR charge for this payment (or fetches the
-  /// already-created one — safe to call again). QR PromptPay only for now;
-  /// other methods have no gateway integration yet.
   Future<void> _createChargeIfNeeded(Payment payment) async {
     final method = _selectedMethod;
     if (method?.slug != 'qr_promptpay') return;
@@ -402,24 +396,6 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                     ),
                   ),
                 ],
-              )
-            else
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Text(
-                      'กำลังตรวจสอบการชำระเงิน...',
-                      style: textTheme.bodyMedium,
-                    ),
-                  ),
-                ],
               ),
           ],
         ),
@@ -505,7 +481,9 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
 
     if (!mounted) return;
     final booking = _booking;
-    if (booking != null) _showSuccessSheet(booking);
+    if (booking != null) {
+      context.goForward(AppRoutes.paymentSuccess, extra: booking);
+    }
   }
 
   /// Best-effort nicety layered on top of a successful payment confirmation
@@ -529,66 +507,6 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     });
   }
 
-  void _showSuccessSheet(Booking booking) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) {
-        final textTheme = Theme.of(context).textTheme;
-
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircleIconAvatar(
-                icon: Icons.check_circle_rounded,
-                color: AppColors.success,
-                radius: 42,
-                filled: true,
-                iconSize: 44,
-              ),
-              const SizedBox(height: 16),
-              Text('ชำระเงินสำเร็จ', style: textTheme.headlineSmall),
-              const SizedBox(height: 8),
-              Text(
-                'ระบบได้บันทึกรายการชำระเงินเรียบร้อยแล้ว',
-                textAlign: TextAlign.center,
-                style: textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 22),
-              PrimaryButton(
-                label: 'ติดตามสถานะการจอง',
-                icon: Icons.track_changes_rounded,
-                onPressed: () {
-                  Navigator.pop(context);
-                  context.goForward(
-                    AppRoutes.bookingStatusPath(booking.id),
-                    extra: booking,
-                  );
-                },
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: OutlinedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    context.goBack(AppRoutes.home);
-                  },
-                  child: const Text('กลับหน้าหลัก'),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 }
 
 class _PromptPayQrCard extends StatelessWidget {
