@@ -3,6 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/app_config.dart';
 import '../storage/local_storage.dart';
+import 'demo_backend.dart';
+import 'demo_mode.dart';
+
+/// Session cookie value `DemoInterceptor` stamps on a successful demo login
+/// (`AppConfig.demoPhone`/`demoOtp`) — stored via the same
+/// `LocalStorage.saveSessionCookie` path as a real session, so a reviewer
+/// backgrounding/restarting the app mid-demo stays logged in. Checked here
+/// (not just at login time) because a cold start reads this cookie back
+/// before [DemoMode.enabled] has had any chance to be set for this process.
+const _demoSessionCookie = 'caremate_session=demo-mode-session';
 
 /// Thin wrapper around Dio pointed at caremate-client's `/api/*` BFF routes.
 /// Auth is a single HttpOnly `caremate_session` cookie set by the backend on
@@ -38,11 +48,13 @@ class ApiClient {
           final cookie = await _localStorage.readSessionCookie();
           if (cookie != null) {
             options.headers['Cookie'] = cookie;
+            if (cookie == _demoSessionCookie) DemoMode.enabled.value = true;
           }
           handler.next(options);
         },
       ),
     );
+    dio.interceptors.add(DemoInterceptor());
   }
 
   final Dio dio;

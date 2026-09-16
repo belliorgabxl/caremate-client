@@ -19,6 +19,16 @@ val localProperties = Properties().apply {
 }
 val googleMapsApiKey: String = localProperties.getProperty("googleMapsApiKey") ?: ""
 
+// Release signing lives in `android/key.properties` (gitignored) + the
+// keystore file it points at — never committed, per Play Store's own
+// guidance on protecting your upload key.
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("key.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
+}
+
 android {
     namespace = "com.caremate.client_app"
     compileSdk = flutter.compileSdkVersion
@@ -45,11 +55,28 @@ android {
         manifestPlaceholders["googleMapsApiKey"] = googleMapsApiKey
     }
 
+    signingConfigs {
+        create("release") {
+            if (keystoreProperties.getProperty("storeFile") != null) {
+                storeFile = rootProject.file("app/${keystoreProperties.getProperty("storeFile")}")
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Falls back to the debug key when key.properties isn't present
+            // (e.g. a fresh checkout without the upload keystore) so
+            // `flutter run --release` still works locally; real Play Store
+            // builds need the real upload-keystore.jks + key.properties.
+            signingConfig = if (keystoreProperties.getProperty("storeFile") != null) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/demo_backend.dart';
+import '../../../../core/network/demo_mode.dart';
 import '../../../../core/services/push_notifications_service.dart';
 import '../../data/auth_repository.dart';
 import '../../data/models/app_user.dart';
@@ -110,6 +112,10 @@ class AuthController extends ChangeNotifier {
 
   Future<void> logout() async {
     await _repo.logout();
+    if (DemoMode.enabled.value) {
+      DemoMode.enabled.value = false;
+      DemoBackend.reset();
+    }
     _user = null;
     _step = AuthStep.loggedOut;
     notifyListeners();
@@ -117,5 +123,8 @@ class AuthController extends ChangeNotifier {
 }
 
 final authControllerProvider = ChangeNotifierProvider<AuthController>((ref) {
-  return AuthController(ref.read(authRepositoryProvider), ref.read(apiClientProvider));
+  return AuthController(
+    ref.read(authRepositoryProvider),
+    ref.read(apiClientProvider),
+  );
 });

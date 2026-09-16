@@ -24,6 +24,8 @@ import '../../../../shared/widgets/section_header.dart';
 import '../../../../shared/widgets/status_badge.dart';
 import '../../../members/data/member_repository.dart';
 import '../../../payment/data/payment_repository.dart';
+import '../../../profile/data/profile_repository.dart';
+import '../../../profile/presentation/widgets/bank_account_required_sheet.dart';
 import '../../data/booking_repository.dart';
 import '../../domain/booking_calculations.dart';
 
@@ -167,6 +169,21 @@ class _BookingPageState extends ConsumerState<BookingPage> {
 
   Future<void> _load() async {
     setState(() => _isLoading = true);
+
+    final profileRepo = ref.read(profileRepositoryProvider);
+    final hasBankAccount = await profileRepo.hasBankAccount();
+    if (!mounted) return;
+    if (!hasBankAccount) {
+      final saved = await BankAccountRequiredSheet.show(
+        context,
+        repository: profileRepo,
+      );
+      if (!mounted) return;
+      if (!saved) {
+        context.goForward(AppRoutes.home);
+        return;
+      }
+    }
 
     final services = await ref.read(bookingRepositoryProvider).getServices();
     if (!mounted) return;
