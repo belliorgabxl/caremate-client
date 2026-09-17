@@ -8,6 +8,7 @@ import '../../../../app/router/booking_wizard_dirty.dart';
 import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../shared/models/address.dart';
 import '../../../../shared/models/booking_prefill.dart';
 import '../../../../shared/models/care_member.dart';
@@ -42,6 +43,7 @@ class BookingPage extends ConsumerStatefulWidget {
 
 class _BookingPageState extends ConsumerState<BookingPage> {
   bool _isLoading = true;
+  String? _loadError;
   bool _isSubmitting = false;
 
   final _pageController = PageController();
@@ -168,8 +170,29 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   }
 
   Future<void> _load() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
 
+    try {
+      await _loadInner();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _loadError = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _loadError = 'โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+      });
+    }
+  }
+
+  Future<void> _loadInner() async {
     final profileRepo = ref.read(profileRepositoryProvider);
     final hasBankAccount = await profileRepo.hasBankAccount();
     if (!mounted) return;
@@ -264,6 +287,36 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       return Scaffold(
         appBar: AppBar(title: const Text('จองบริการ')),
         body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final loadError = _loadError;
+    if (loadError != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('จองบริการ')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.wifi_off_rounded,
+                  size: 40,
+                  color: AppColors.textSecondary,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  loadError,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 16),
+                PrimaryButton(label: 'ลองใหม่', onPressed: _load),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
