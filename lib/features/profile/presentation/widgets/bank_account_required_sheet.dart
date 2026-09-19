@@ -122,12 +122,18 @@ class _BankAccountSheetBodyState extends State<_BankAccountSheetBody> {
             const SizedBox(height: 20),
             DropdownButtonFormField<String>(
               initialValue: _bankName,
+              isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'ธนาคาร',
                 prefixIcon: Icon(Icons.account_balance_outlined),
               ),
               items: thaiBanks
-                  .map((b) => DropdownMenuItem(value: b, child: Text(b)))
+                  .map(
+                    (b) => DropdownMenuItem(
+                      value: b,
+                      child: Text(b, overflow: TextOverflow.ellipsis),
+                    ),
+                  )
                   .toList(),
               onChanged: (v) => setState(() => _bankName = v),
               validator: (v) => v == null ? 'กรุณาเลือกธนาคาร' : null,

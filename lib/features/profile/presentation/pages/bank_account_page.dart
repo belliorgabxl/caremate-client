@@ -180,13 +180,17 @@ class _BankAccountPageState extends ConsumerState<BankAccountPage> {
                     children: [
                       DropdownButtonFormField<String>(
                         initialValue: _bankName,
+                        isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'ธนาคาร',
                           prefixIcon: Icon(Icons.account_balance_outlined),
                         ),
                         items: thaiBanks
                             .map(
-                              (b) => DropdownMenuItem(value: b, child: Text(b)),
+                              (b) => DropdownMenuItem(
+                                value: b,
+                                child: Text(b, overflow: TextOverflow.ellipsis),
+                              ),
                             )
                             .toList(),
                         onChanged: (v) => setState(() => _bankName = v),
