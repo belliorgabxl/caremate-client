@@ -7,6 +7,18 @@
 // square centered on the mark's horizontal content, so it stays correct if
 // the source logo is ever re-exported at a different size/padding.
 //
+// The mark itself is already a rounded square (squircle), not a flat-edge
+// square — cropping straight to its bounding box leaves transparent corner
+// slivers inside the output. iOS/Android then mask *that* with their own
+// rounded-corner shape, so the two roundings don't line up and a sliver of
+// white (remove_alpha_ios fills transparency with white) shows at the
+// corners — the "white edge inside the app icon frame" artifact. Fixed by
+// inset-cropping past the squircle's own corner radius (detected by
+// scanning inward from a corner until content starts) and scaling back up
+// to full size, so the output is a flat-edge square that bleeds to every
+// edge — the standard shape platform icon pipelines expect, since they do
+// their own corner rounding on top.
+//
 // Run with: dart run tool/crop_icon.dart
 
 import 'dart:io';
@@ -61,6 +73,30 @@ void main() {
 
   final cropped = img.copyCrop(source, x: x, y: 0, width: side, height: side);
 
-  File(outputPath).writeAsBytesSync(img.encodePng(cropped));
-  stdout.writeln('Wrote $outputPath (${cropped.width}x${cropped.height})');
+  // Detect the squircle's corner radius by scanning inward from the
+  // top-left corner of the crop until a pixel actually has content.
+  int inset = 0;
+  while (inset < side ~/ 2 &&
+      cropped.getPixel(inset, inset).a <= 10) {
+    inset++;
+  }
+
+  final bled = inset == 0
+      ? cropped
+      : img.copyResize(
+          img.copyCrop(
+            cropped,
+            x: inset,
+            y: inset,
+            width: side - inset * 2,
+            height: side - inset * 2,
+          ),
+          width: side,
+          height: side,
+        );
+
+  File(outputPath).writeAsBytesSync(img.encodePng(bled));
+  stdout.writeln(
+    'Wrote $outputPath (${bled.width}x${bled.height}, corner inset $inset px)',
+  );
 }
