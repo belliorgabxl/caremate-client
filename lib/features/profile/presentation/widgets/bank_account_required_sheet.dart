@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/thai_banks.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../data/profile_repository.dart';
@@ -40,15 +41,14 @@ class _BankAccountSheetBody extends StatefulWidget {
 
 class _BankAccountSheetBodyState extends State<_BankAccountSheetBody> {
   final _formKey = GlobalKey<FormState>();
-  final _bankNameController = TextEditingController();
   final _bankAccountController = TextEditingController();
   final _bankAccountNameController = TextEditingController();
+  String? _bankName;
   String? _error;
   bool _isSaving = false;
 
   @override
   void dispose() {
-    _bankNameController.dispose();
     _bankAccountController.dispose();
     _bankAccountNameController.dispose();
     super.dispose();
@@ -63,7 +63,7 @@ class _BankAccountSheetBodyState extends State<_BankAccountSheetBody> {
     });
     try {
       await widget.repository.saveBankAccount(
-        bankName: _bankNameController.text.trim(),
+        bankName: _bankName!,
         bankAccount: _bankAccountController.text.trim(),
         bankAccountName: _bankAccountNameController.text.trim(),
       );
@@ -120,13 +120,17 @@ class _BankAccountSheetBodyState extends State<_BankAccountSheetBody> {
               ),
             ),
             const SizedBox(height: 20),
-            AppTextField(
-              controller: _bankNameController,
-              label: 'ธนาคาร',
-              prefixIcon: Icons.account_balance_outlined,
-              validator: (v) => (v == null || v.trim().isEmpty)
-                  ? 'กรุณากรอกชื่อธนาคาร'
-                  : null,
+            DropdownButtonFormField<String>(
+              initialValue: _bankName,
+              decoration: const InputDecoration(
+                labelText: 'ธนาคาร',
+                prefixIcon: Icon(Icons.account_balance_outlined),
+              ),
+              items: thaiBanks
+                  .map((b) => DropdownMenuItem(value: b, child: Text(b)))
+                  .toList(),
+              onChanged: (v) => setState(() => _bankName = v),
+              validator: (v) => v == null ? 'กรุณาเลือกธนาคาร' : null,
             ),
             const SizedBox(height: 12),
             AppTextField(
@@ -145,6 +149,34 @@ class _BankAccountSheetBodyState extends State<_BankAccountSheetBody> {
               prefixIcon: Icons.person_outline,
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'กรุณากรอกชื่อบัญชี' : null,
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.warningBg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.info_outline_rounded,
+                    size: 18,
+                    color: AppColors.warning,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'ข้อมูลบัญชีนี้ใช้สำหรับการคืนเงินกรณียกเลิกธุรกรรมเท่านั้น '
+                      'หากชื่อบัญชีไม่ตรงกับธนาคารเจ้าของบัญชี ระบบจะไม่สามารถคืนเงินให้ได้',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: AppColors.warning,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             if (_error != null) ...[
               const SizedBox(height: 8),

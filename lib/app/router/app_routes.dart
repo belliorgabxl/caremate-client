@@ -11,6 +11,7 @@ class AppRoutes {
   static const profilePersonalInformation = '/profile/personal-information';
   static const profileHealthInformation = '/profile/health-information';
   static const profileAddresses = '/profile/addresses';
+  static const profileBankAccount = '/profile/bank-account';
   static const profileSettings = '/profile/settings';
   static const bookingHistory = '/booking/history';
   static const bookingStatus = '/booking/status/:bookingId';

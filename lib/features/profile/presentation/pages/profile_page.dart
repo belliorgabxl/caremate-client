@@ -77,6 +77,13 @@ const _menuItems = [
     route: AppRoutes.payment,
   ),
   _MenuItem(
+    icon: Icons.account_balance_outlined,
+    color: AppColors.success,
+    title: 'บัญชีธนาคาร',
+    subtitle: 'จัดการบัญชีธนาคารสำหรับการคืนเงิน',
+    route: AppRoutes.profileBankAccount,
+  ),
+  _MenuItem(
     icon: Icons.settings_outlined,
     color: AppColors.textSecondary,
     title: 'ตั้งค่าความปลอดภัย',

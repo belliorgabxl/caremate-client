@@ -183,7 +183,10 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('ชำระเงิน')),
+        appBar: AppBar(
+          title: const Text('ชำระเงิน'),
+          leading: BackButton(onPressed: () => context.goBack(AppRoutes.home)),
+        ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -193,7 +196,10 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
 
     if (booking == null || payment == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('ชำระเงิน')),
+        appBar: AppBar(
+          title: const Text('ชำระเงิน'),
+          leading: BackButton(onPressed: () => context.goBack(AppRoutes.home)),
+        ),
         body: const Center(child: Text('ไม่มีรายการที่รอชำระเงิน')),
       );
     }
@@ -205,6 +211,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('ชำระเงิน'),
+        leading: BackButton(onPressed: () => context.goBack(AppRoutes.home)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,

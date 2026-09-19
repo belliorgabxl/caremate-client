@@ -194,9 +194,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
 
   Future<void> _loadInner() async {
     final profileRepo = ref.read(profileRepositoryProvider);
-    final hasBankAccount = await profileRepo.hasBankAccount();
+    final bankAccount = await profileRepo.getBankAccount();
     if (!mounted) return;
-    if (!hasBankAccount) {
+    if (!bankAccount.hasBankAccount) {
       final saved = await BankAccountRequiredSheet.show(
         context,
         repository: profileRepo,

@@ -15,6 +15,7 @@ import '../../features/notifications/presentation/pages/notification_center_page
 import '../../features/payment/presentation/pages/payment_page.dart';
 import '../../features/payment/presentation/pages/payment_success_page.dart';
 import '../../features/profile/presentation/pages/addresses_page.dart';
+import '../../features/profile/presentation/pages/bank_account_page.dart';
 import '../../features/profile/presentation/pages/health_information_page.dart';
 import '../../features/profile/presentation/pages/personal_information_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
@@ -167,6 +168,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.profileAddresses,
         pageBuilder: (context, state) =>
             _slidePage(state, const AddressesPage()),
+      ),
+      GoRoute(
+        path: AppRoutes.profileBankAccount,
+        pageBuilder: (context, state) =>
+            _slidePage(state, const BankAccountPage()),
       ),
       GoRoute(
         path: AppRoutes.profileSettings,

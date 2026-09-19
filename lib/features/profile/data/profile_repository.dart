@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../shared/models/bank_account.dart';
 import '../../../shared/models/user_profile.dart';
 import '../../auth/data/models/app_user.dart';
 
@@ -61,16 +62,18 @@ class ProfileRepository {
 
   /// Used as a booking gate — a customer must have a bank account on file
   /// before booking, so finance has somewhere to send a manual refund if
-  /// Beam can't refund the original charge automatically.
-  Future<bool> hasBankAccount() async {
+  /// Beam can't refund the original charge automatically. Also backs the
+  /// profile "แก้ไขบัญชีธนาคาร" screen, which needs the saved values, not
+  /// just the boolean.
+  Future<BankAccount> getBankAccount() async {
     try {
       final response = await _api.dio.get('/users/bank-account');
       final data = _api.unwrap(response.data) as Map<String, dynamic>?;
-      return data?['has_bank_account'] as bool? ?? false;
+      return data == null ? BankAccount.empty : BankAccount.fromJson(data);
     } on DioException catch (e) {
       // No user_informations row yet (first login, address/health never
       // saved either) reads as 404 — same as "no bank account yet".
-      if (e.response?.statusCode == 404) return false;
+      if (e.response?.statusCode == 404) return BankAccount.empty;
       _api.throwApiException(e);
     }
   }
