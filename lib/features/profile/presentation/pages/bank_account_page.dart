@@ -11,6 +11,7 @@ import '../../../../core/utils/error_messages.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/aurora_background.dart';
+import '../../../../shared/widgets/bank_logo_avatar.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/section_header.dart';
@@ -31,7 +32,7 @@ class _BankAccountPageState extends ConsumerState<BankAccountPage> {
   final _formKey = GlobalKey<FormState>();
   final _bankAccountController = TextEditingController();
   final _bankAccountNameController = TextEditingController();
-  String? _bankName;
+  ThaiBank? _bank;
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -62,7 +63,12 @@ class _BankAccountPageState extends ConsumerState<BankAccountPage> {
           .getBankAccount();
       if (!mounted) return;
       setState(() {
-        _bankName = account.bankName.isEmpty ? null : account.bankName;
+        _bank = account.bankName.isEmpty
+            ? null
+            : thaiBanks.cast<ThaiBank?>().firstWhere(
+                (b) => b!.name == account.bankName,
+                orElse: () => null,
+              );
         _bankAccountController.text = account.bankAccount;
         _bankAccountNameController.text = account.bankAccountName;
         _isLoading = false;
@@ -88,7 +94,7 @@ class _BankAccountPageState extends ConsumerState<BankAccountPage> {
       await ref
           .read(profileRepositoryProvider)
           .saveBankAccount(
-            bankName: _bankName!,
+            bankName: _bank!.name,
             bankAccount: _bankAccountController.text.trim(),
             bankAccountName: _bankAccountNameController.text.trim(),
           );
@@ -178,22 +184,46 @@ class _BankAccountPageState extends ConsumerState<BankAccountPage> {
                 AppCard(
                   child: Column(
                     children: [
-                      DropdownButtonFormField<String>(
-                        initialValue: _bankName,
+                      DropdownButtonFormField<ThaiBank>(
+                        initialValue: _bank,
                         isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'ธนาคาร',
-                          prefixIcon: Icon(Icons.account_balance_outlined),
-                        ),
+                        decoration: const InputDecoration(labelText: 'ธนาคาร'),
                         items: thaiBanks
                             .map(
                               (b) => DropdownMenuItem(
                                 value: b,
-                                child: Text(b, overflow: TextOverflow.ellipsis),
+                                child: Row(
+                                  children: [
+                                    BankLogoAvatar(bank: b, radius: 13),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        b.name,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             )
                             .toList(),
-                        onChanged: (v) => setState(() => _bankName = v),
+                        selectedItemBuilder: (context) => thaiBanks
+                            .map(
+                              (b) => Row(
+                                children: [
+                                  BankLogoAvatar(bank: b, radius: 13),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      b.name,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (v) => setState(() => _bank = v),
                         validator: (v) => v == null ? 'กรุณาเลือกธนาคาร' : null,
                       ),
                       const SizedBox(height: 14),

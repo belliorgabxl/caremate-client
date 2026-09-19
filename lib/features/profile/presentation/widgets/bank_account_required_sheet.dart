@@ -5,6 +5,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/thai_banks.dart';
 import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/bank_logo_avatar.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../data/profile_repository.dart';
 
@@ -43,7 +44,7 @@ class _BankAccountSheetBodyState extends State<_BankAccountSheetBody> {
   final _formKey = GlobalKey<FormState>();
   final _bankAccountController = TextEditingController();
   final _bankAccountNameController = TextEditingController();
-  String? _bankName;
+  ThaiBank? _bank;
   String? _error;
   bool _isSaving = false;
 
@@ -63,7 +64,7 @@ class _BankAccountSheetBodyState extends State<_BankAccountSheetBody> {
     });
     try {
       await widget.repository.saveBankAccount(
-        bankName: _bankName!,
+        bankName: _bank!.name,
         bankAccount: _bankAccountController.text.trim(),
         bankAccountName: _bankAccountNameController.text.trim(),
       );
@@ -120,22 +121,43 @@ class _BankAccountSheetBodyState extends State<_BankAccountSheetBody> {
               ),
             ),
             const SizedBox(height: 20),
-            DropdownButtonFormField<String>(
-              initialValue: _bankName,
+            DropdownButtonFormField<ThaiBank>(
+              initialValue: _bank,
               isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'ธนาคาร',
-                prefixIcon: Icon(Icons.account_balance_outlined),
-              ),
+              decoration: const InputDecoration(labelText: 'ธนาคาร'),
               items: thaiBanks
                   .map(
                     (b) => DropdownMenuItem(
                       value: b,
-                      child: Text(b, overflow: TextOverflow.ellipsis),
+                      child: Row(
+                        children: [
+                          BankLogoAvatar(bank: b, radius: 13),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              b.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   )
                   .toList(),
-              onChanged: (v) => setState(() => _bankName = v),
+              selectedItemBuilder: (context) => thaiBanks
+                  .map(
+                    (b) => Row(
+                      children: [
+                        BankLogoAvatar(bank: b, radius: 13),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(b.name, overflow: TextOverflow.ellipsis),
+                        ),
+                      ],
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) => setState(() => _bank = v),
               validator: (v) => v == null ? 'กรุณาเลือกธนาคาร' : null,
             ),
             const SizedBox(height: 12),
