@@ -16,6 +16,7 @@ import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/section_header.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../data/profile_repository.dart';
+import '../account_deletion_failure.dart';
 
 class _MenuItem {
   const _MenuItem({
@@ -216,25 +217,40 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     if (confirmed != true || !mounted) return;
 
     setState(() => _isDeleting = true);
+    AccountDeletionFailure? failure;
     try {
       await ref.read(profileRepositoryProvider).deleteAccount();
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() => _isDeleting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            e.statusCode == 409
-                ? 'ยังลบบัญชีไม่ได้ เพราะมีรายการจองที่ยังดำเนินอยู่ หรือรอคืนเงิน '
-                      'กรุณารอให้รายการเสร็จสิ้น หรือติดต่อฝ่ายสนับสนุน'
-                : friendlyErrorMessage(e),
-          ),
-        ),
-      );
-      return;
+    } catch (e) {
+      // Any error, not just ApiException — otherwise an unexpected one would
+      // leave _isDeleting true and the delete row disabled for good.
+      failure = AccountDeletionFailure.from(e);
     }
 
     if (!mounted) return;
+
+    if (failure != null) {
+      setState(() => _isDeleting = false);
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(failure.message),
+          duration: failure.offerSupport
+              ? const Duration(seconds: 8)
+              : const Duration(seconds: 4),
+          action: failure.offerSupport
+              ? SnackBarAction(
+                  label: 'ติดต่อฝ่ายสนับสนุน',
+                  onPressed: () => context.goForward(AppRoutes.helpCenter),
+                )
+              : null,
+        ),
+      );
+      if (failure.sessionExpired) {
+        await ref.read(authControllerProvider).logout();
+      }
+      return;
+    }
+
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('ลบบัญชีเรียบร้อยแล้ว')));
