@@ -316,6 +316,12 @@ class DemoBackend {
       _bankAccount = _body(o);
       return _ok(o, {'ok': true});
     }
+    // Deleting the demo account only ends the demo session (the client logs
+    // out right after, which resets DemoBackend) — the reviewer can log in
+    // again with the same demo credentials.
+    if (_matches(o, 'DELETE', '/users/account')) {
+      return _ok(o, {'deleted': true});
+    }
     if (_matches(o, 'GET', '/users/referral')) {
       return _ok(o, demoReferral());
     }

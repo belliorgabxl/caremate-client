@@ -117,6 +117,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   bool _isLoading = true;
   String? _loadError;
   UserProfile? _profile;
+  bool _isDeleting = false;
 
   @override
   void initState() {
@@ -181,6 +182,62 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
 
     if (confirmed != true) return;
+    await ref.read(authControllerProvider).logout();
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ลบบัญชีถาวร'),
+        content: const Text(
+          'ข้อมูลส่วนตัวของคุณ (ชื่อ เบอร์โทร อีเมล ที่อยู่ ข้อมูลสุขภาพ '
+          'สมาชิกที่ดูแล และบัญชีธนาคาร) จะถูกลบถาวร และไม่สามารถกู้คืนได้\n\n'
+          'ประวัติการจองและการชำระเงินที่เกิดขึ้นแล้วจะถูกเก็บไว้ตาม'
+          'ข้อกำหนดทางกฎหมายและบัญชี\n\n'
+          'หากมีรายการจองที่ยังดำเนินอยู่ หรือรอคืนเงิน จะยังลบบัญชีไม่ได้',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'ลบบัญชีถาวร',
+              style: TextStyle(color: AppColors.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isDeleting = true);
+    try {
+      await ref.read(profileRepositoryProvider).deleteAccount();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _isDeleting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.statusCode == 409
+                ? 'ยังลบบัญชีไม่ได้ เพราะมีรายการจองที่ยังดำเนินอยู่ หรือรอคืนเงิน '
+                      'กรุณารอให้รายการเสร็จสิ้น หรือติดต่อฝ่ายสนับสนุน'
+                : friendlyErrorMessage(e),
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('ลบบัญชีเรียบร้อยแล้ว')));
     await ref.read(authControllerProvider).logout();
   }
 
@@ -364,6 +421,35 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                             const SizedBox(width: 14),
                             Text(
                               'ออกจากระบบ',
+                              style: textTheme.bodyLarge?.copyWith(
+                                color: AppColors.danger,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      AppCard(
+                        onTap: _isDeleting ? null : _confirmDeleteAccount,
+                        child: Row(
+                          children: [
+                            _isDeleting
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      color: AppColors.danger,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.delete_forever_outlined,
+                                    color: AppColors.danger,
+                                  ),
+                            const SizedBox(width: 14),
+                            Text(
+                              _isDeleting ? 'กำลังลบบัญชี...' : 'ลบบัญชี',
                               style: textTheme.bodyLarge?.copyWith(
                                 color: AppColors.danger,
                                 fontWeight: FontWeight.w700,

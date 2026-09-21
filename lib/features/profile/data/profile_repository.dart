@@ -78,6 +78,18 @@ class ProfileRepository {
     }
   }
 
+  /// Customer self-service account deletion (App Store guideline 5.1.1(v)).
+  /// The backend scrubs personal data and deactivates the account; a 409
+  /// means a booking is still in flight or a paid booking is still owed a
+  /// refund, so the account can't be deleted yet.
+  Future<void> deleteAccount() async {
+    try {
+      await _api.dio.delete('/users/account');
+    } on DioException catch (e) {
+      _api.throwApiException(e);
+    }
+  }
+
   Future<void> saveBankAccount({
     required String bankName,
     required String bankAccount,
