@@ -22,22 +22,17 @@ import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/settings_page.dart';
 import '../../features/splash/presentation/pages/splash_page.dart';
 import '../../features/support/presentation/pages/help_center_page.dart';
-import '../../features/support/presentation/pages/referral_page.dart';
 import '../../shared/models/booking.dart';
 import '../../shared/models/booking_prefill.dart';
 import '../../shared/widgets/main_scaffold.dart';
 import 'app_routes.dart';
 import 'nav_direction.dart';
 
-/// Every ordinary navigation (any plain `context.go()`, or explicitly via
-/// [GoRouterBackExtension.goForward]) slides the new page in from the right
-/// (right → left). Only an explicit "return to the previous screen" action
-/// — anything that navigates via [GoRouterBackExtension.goBack] — slides
-/// the new (previous) page in from the left (left → right) instead. Since
-/// this app never uses `push`/`pop` (see CLAUDE.md), Flutter has no real
-/// navigation stack to auto-derive that distinction from, hence
-/// [navDirection] as an explicit signal, read once per page build then
-/// reset to forward.
+/// Every route change is an instant cut — no slide, no fade. [navDirection]
+/// is still reset here so a stale `back` value from
+/// [GoRouterBackExtension.goBack] never leaks into an unrelated later
+/// navigation; nothing currently reads the direction for the transition
+/// itself.
 ///
 /// Applied to every route in this router, *including* the four bottom-tab
 /// routes inside the `ShellRoute` below. Those cannot use the `builder` +
@@ -48,24 +43,16 @@ import 'nav_direction.dart';
 /// widget pair to animate between; the only place a transition is actually
 /// visible is the shell's own *inner* Navigator (a real, distinct Navigator
 /// per `ShellRoute`, with working Page transitions), i.e. right here.
-/// `MainScaffold._onTap` sets [navDirection] by comparing the tapped tab's
-/// index to the current one before calling `context.go()`.
 CustomTransitionPage<void> _slidePage(GoRouterState state, Widget child) {
-  final isBack = navDirection.value == NavDirection.back;
   navDirection.value = NavDirection.forward;
 
   return CustomTransitionPage<void>(
     key: state.pageKey,
     child: child,
-    transitionDuration: const Duration(milliseconds: 300),
-    reverseTransitionDuration: const Duration(milliseconds: 260),
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      final entrance = Tween<Offset>(
-        begin: Offset(isBack ? -1 : 1, 0),
-        end: Offset.zero,
-      ).chain(CurveTween(curve: Curves.easeOutCubic)).animate(animation);
-      return SlideTransition(position: entrance, child: child);
-    },
+    transitionDuration: Duration.zero,
+    reverseTransitionDuration: Duration.zero,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+        child,
   );
 }
 
@@ -144,8 +131,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.payment,
-        pageBuilder: (context, state) =>
-            _slidePage(state, const PaymentPage()),
+        pageBuilder: (context, state) => _slidePage(state, const PaymentPage()),
       ),
       GoRoute(
         path: AppRoutes.paymentSuccess,
@@ -193,11 +179,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             seed: state.extra is Booking ? state.extra as Booking : null,
           ),
         ),
-      ),
-      GoRoute(
-        path: AppRoutes.referral,
-        pageBuilder: (context, state) =>
-            _slidePage(state, const ReferralPage()),
       ),
       GoRoute(
         path: AppRoutes.helpCenter,

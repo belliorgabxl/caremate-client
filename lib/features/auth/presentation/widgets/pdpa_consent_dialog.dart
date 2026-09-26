@@ -179,7 +179,7 @@ class _PdpaConsentDialogState extends ConsumerState<PdpaConsentDialog> {
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const SizedBox.shrink()
           : Column(
               children: [
                 Expanded(
@@ -275,7 +275,7 @@ class _PdpaConsentDialogState extends ConsumerState<PdpaConsentDialog> {
                               value: _accepted,
                               onChanged: _scrolledToEnd
                                   ? (v) =>
-                                      setState(() => _accepted = v ?? false)
+                                        setState(() => _accepted = v ?? false)
                                   : null,
                               controlAffinity: ListTileControlAffinity.leading,
                               title: const Text(

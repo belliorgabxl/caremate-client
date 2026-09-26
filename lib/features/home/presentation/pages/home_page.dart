@@ -36,18 +36,34 @@ class HomePage extends ConsumerStatefulWidget {
   ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends ConsumerState<HomePage> {
+class _HomePageState extends ConsumerState<HomePage>
+    with SingleTickerProviderStateMixin {
   bool _isLoading = true;
+  bool _isRefreshing = false;
   String? _error;
   List<CareMember> _members = const [];
   List<Booking> _activeBookings = const [];
   List<BannerItem> _banners = const [];
   int _unreadNotificationCount = 0;
 
+  /// Drives the brand mark's spin in [_BrandPullIcon] — always running,
+  /// shown/hidden via opacity so starting it fresh on every pull never
+  /// stutters mid-spin.
+  late final AnimationController _refreshSpinController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat();
+
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _refreshSpinController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -57,45 +73,9 @@ class _HomePageState extends ConsumerState<HomePage> {
     });
 
     try {
-      final members = await ref.read(memberRepositoryProvider).list();
+      await _fetchData();
       if (!mounted) return;
-      final bookings = await ref
-          .read(bookingRepositoryProvider)
-          .getActiveBookings();
-
-      if (!mounted) return;
-
-      // Non-fatal: an announcements fetch failing must never blank the rest
-      // of the home page, so it gets its own inner try/catch instead of
-      // joining the outer one.
-      var banners = const <BannerItem>[];
-      try {
-        banners = await ref.read(bannerRepositoryProvider).getActive();
-      } catch (_) {
-        banners = const [];
-      }
-
-      // Non-fatal for the same reason as banners: the bell badge is a nice-
-      // to-have, not worth blanking the rest of the home page over.
-      var unreadCount = 0;
-      try {
-        final (_, unread) = await ref
-            .read(notificationRepositoryProvider)
-            .list();
-        unreadCount = unread;
-        await AppBadgeService.setCount(unread);
-      } catch (_) {
-        unreadCount = 0;
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _members = members;
-        _activeBookings = bookings;
-        _banners = banners;
-        _unreadNotificationCount = unreadCount;
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -105,11 +85,76 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
   }
 
+  /// Pull-to-refresh: keeps the current content on screen throughout (see
+  /// [_BrandPullIcon]) instead of [_load]'s full-page loading state — a
+  /// transient fetch failure here just keeps the last-good data and says so
+  /// in a snackbar, rather than blanking a page the user can already see.
+  Future<void> _refresh() async {
+    setState(() => _isRefreshing = true);
+    try {
+      // The demo/offline data source resolves near-instantly, which would
+      // otherwise pop the icon on and off before its own fade/scale can
+      // play — a real network fetch earns this time honestly; a fast one
+      // borrows a little so the animation always actually reads as one.
+      await Future.wait([
+        _fetchData(),
+        Future.delayed(const Duration(milliseconds: 900)),
+      ]);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('รีเฟรชไม่สำเร็จ: ${e.message}')));
+    } finally {
+      if (mounted) setState(() => _isRefreshing = false);
+    }
+  }
+
+  Future<void> _fetchData() async {
+    final members = await ref.read(memberRepositoryProvider).list();
+    if (!mounted) return;
+    final bookings = await ref
+        .read(bookingRepositoryProvider)
+        .getActiveBookings();
+
+    if (!mounted) return;
+
+    // Non-fatal: an announcements fetch failing must never blank the rest
+    // of the home page, so it gets its own inner try/catch instead of
+    // joining the outer one.
+    var banners = const <BannerItem>[];
+    try {
+      banners = await ref.read(bannerRepositoryProvider).getActive();
+    } catch (_) {
+      banners = const [];
+    }
+
+    // Non-fatal for the same reason as banners: the bell badge is a nice-
+    // to-have, not worth blanking the rest of the home page over.
+    var unreadCount = 0;
+    try {
+      final (_, unread) = await ref.read(notificationRepositoryProvider).list();
+      unreadCount = unread;
+      await AppBadgeService.setCount(unread);
+    } catch (_) {
+      unreadCount = 0;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _members = members;
+      _activeBookings = bookings;
+      _banners = banners;
+      _unreadNotificationCount = unreadCount;
+    });
+  }
+
   List<BannerItem> get _visibleBanners {
-    final banners = _banners
-        .where((b) => b.isActive && b.id.isNotEmpty && b.title.isNotEmpty)
-        .toList()
-      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final banners =
+        _banners
+            .where((b) => b.isActive && b.id.isNotEmpty && b.title.isNotEmpty)
+            .toList()
+          ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     return banners;
   }
 
@@ -127,7 +172,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     return Scaffold(
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const SizedBox.shrink()
           : _error != null
           ? ListView(
               padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
@@ -154,7 +199,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                   child: AuroraBackground(height: 320),
                 ),
                 RefreshIndicator(
-                  onRefresh: _load,
+                  onRefresh: _refresh,
+                  color: Colors.transparent,
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 110),
                     children: [
@@ -184,53 +232,22 @@ class _HomePageState extends ConsumerState<HomePage> {
                               const Spacer(),
                               _NotificationButton(
                                 unreadCount: _unreadNotificationCount,
-                                onTap: () =>
-                                    context.goForward(AppRoutes.notifications),
+                                onTap: () => context.pushForward(
+                                  AppRoutes.notifications,
+                                ),
                               ),
                             ],
                           ),
                         ),
                       ),
-                      Text(
-                        'สวัสดีครับ, ${user?.displayName ?? 'ผู้ใช้งาน'}',
-                        style: Theme.of(context).textTheme.headlineMedium,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'วันนี้ต้องการให้ CareMate ช่วยดูแลอะไรครับ?',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: FilledButton.icon(
-                              onPressed: () => context.goForward(AppRoutes.booking),
-                              icon: const Icon(Icons.add_circle_rounded),
-                              label: const Text('จองบริการ'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          IconButton.filled(
-                            onPressed: () => context.goForward(AppRoutes.members),
-                            icon: const Icon(Icons.groups_rounded),
-                            style: IconButton.styleFrom(
-                              backgroundColor: AppColors.primaryLight,
-                              foregroundColor: AppColors.onPrimaryContainer,
-                              minimumSize: const Size(56, 56),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  AppRadius.md,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                      _HomeHeroCard(
+                        greetingName: user?.displayName ?? 'ผู้ใช้งาน',
+                        memberCount: _members.length,
+                        bookingCount: _activeBookings.length,
+                        pendingPaymentCount: pendingPayments.length,
                       ),
                       if (_visibleBanners.isNotEmpty) ...[
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 6),
                         const SectionHeader(
                           title: 'ประกาศ',
                           subtitle: 'ข่าวสารและโปรโมชันล่าสุดจาก CareMate',
@@ -240,12 +257,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                         _BannerCarousel(banners: _visibleBanners),
                       ],
                       const SizedBox(height: 20),
-                      _StatsCard(
-                        memberCount: _members.length,
-                        bookingCount: _activeBookings.length,
-                        pendingPaymentCount: pendingPayments.length,
-                      ),
-                      const SizedBox(height: 28),
 
                       // Urgent-first: whichever needs the user's attention leads.
                       if (hasPendingPayment) ...[
@@ -253,7 +264,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                           title: 'การชำระเงิน',
                           subtitle: 'สรุปรายการชำระเงินล่าสุด',
                           actionText: 'ดูเพิ่ม',
-                          onActionTap: () => context.goForward(AppRoutes.payment),
+                          onActionTap: () =>
+                              context.pushForward(AppRoutes.payment),
                         ),
                         const SizedBox(height: 12),
                         _PaymentSummaryCard(pendingBookings: pendingPayments),
@@ -264,7 +276,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                           title: 'นัดหมายล่าสุด',
                           subtitle: 'รายการจองที่กำลังจะมาถึง',
                           actionText: 'ดูรายการ',
-                          onActionTap: () => context.goForward(AppRoutes.booking),
+                          onActionTap: () =>
+                              context.goForward(AppRoutes.booking),
                         ),
                         const SizedBox(height: 12),
                         _UpcomingBookingCard(booking: _activeBookings.first),
@@ -280,7 +293,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                           title: 'ยังไม่มีนัดหมาย',
                           message: 'จองบริการใหม่เพื่อเริ่มดูแลคนที่คุณรัก',
                           action: FilledButton.icon(
-                            onPressed: () => context.goForward(AppRoutes.booking),
+                            onPressed: () =>
+                                context.goForward(AppRoutes.booking),
                             icon: const Icon(Icons.add),
                             label: const Text('จองบริการ'),
                           ),
@@ -325,58 +339,223 @@ class _HomePageState extends ConsumerState<HomePage> {
                     ],
                   ),
                 ),
+                Positioned(
+                  top: MediaQuery.paddingOf(context).top + 12,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: Center(
+                      child: _BrandPullIcon(
+                        visible: _isRefreshing,
+                        spin: _refreshSpinController,
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
     );
   }
 }
 
-class _StatsCard extends StatelessWidget {
-  const _StatsCard({
+/// The pull-to-refresh glyph — Material's [RefreshIndicator] has no slot to
+/// swap its own spinner for a custom icon, so that indicator is made fully
+/// transparent (see its `color`/`backgroundColor` above) and this sits on
+/// top instead: a small branded badge that spins while [visible] and
+/// scales/fades away once the fetch settles.
+class _BrandPullIcon extends StatelessWidget {
+  const _BrandPullIcon({required this.visible, required this.spin});
+
+  final bool visible;
+  final AnimationController spin;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedScale(
+      scale: visible ? 1 : 0.6,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      child: AnimatedOpacity(
+        opacity: visible ? 1 : 0,
+        duration: const Duration(milliseconds: 220),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.primary,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.32),
+                offset: const Offset(0, 4),
+                blurRadius: 14,
+              ),
+            ],
+          ),
+          child: RotationTransition(
+            turns: spin,
+            child: const Icon(
+              Icons.autorenew_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The page's one "peak" surface — a deep teal→ink gradient card (the same
+/// accessible `primary`/`primaryDark` pair used for text-bearing chrome
+/// elsewhere, not the raw decorative logo gradient) carries the greeting and
+/// primary CTA, with the at-a-glance stats on a separate white card that
+/// overlaps its bottom edge. Two distinct surfaces reading as one composed
+/// unit — depth through real layering, not a bigger flat box, and the stats
+/// no longer read as a same-card afterthought tacked under a divider.
+class _HomeHeroCard extends StatelessWidget {
+  const _HomeHeroCard({
+    required this.greetingName,
     required this.memberCount,
     required this.bookingCount,
     required this.pendingPaymentCount,
   });
 
+  final String greetingName;
   final int memberCount;
   final int bookingCount;
   final int pendingPaymentCount;
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
-      glass: true,
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: _StatItem(
-              icon: Icons.groups_rounded,
-              color: AppColors.primary,
-              value: '$memberCount',
-              label: 'สมาชิก',
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(22, 24, 22, 42),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.primary, AppColors.primaryDark],
+            ),
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primaryDark.withValues(alpha: 0.32),
+                offset: const Offset(0, 14),
+                blurRadius: 30,
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: 'สวัสดีครับ, ',
+                      style: textTheme.titleMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    TextSpan(
+                      text: greetingName,
+                      style: textTheme.headlineSmall?.copyWith(
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'วันนี้ต้องการให้ CareMate ช่วยดูแลอะไรครับ?',
+                style: textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.78),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => context.goForward(AppRoutes.booking),
+                      icon: const Icon(Icons.add_circle_rounded),
+                      label: const Text('จองบริการ'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppColors.primaryDark,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton.filled(
+                    onPressed: () => context.goForward(AppRoutes.members),
+                    icon: const Icon(Icons.groups_rounded),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.white.withValues(alpha: 0.16),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(56, 56),
+                      shape: const CircleBorder(),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Transform.translate(
+          offset: const Offset(0, -26),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: AppCard(
+              elevated: true,
+              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _StatItem(
+                      icon: Icons.groups_rounded,
+                      color: AppColors.primary,
+                      value: '$memberCount',
+                      label: 'สมาชิก',
+                    ),
+                  ),
+                  const _StatDivider(),
+                  Expanded(
+                    child: _StatItem(
+                      icon: Icons.calendar_month_rounded,
+                      color: AppColors.primary,
+                      value: '$bookingCount',
+                      label: 'นัดหมาย',
+                    ),
+                  ),
+                  const _StatDivider(),
+                  Expanded(
+                    child: _StatItem(
+                      icon: Icons.receipt_long_rounded,
+                      // Only the one stat that's an actual call to action
+                      // earns the warning color — matching hues on the other
+                      // two would just be decoration, not a signal.
+                      color: pendingPaymentCount > 0
+                          ? AppColors.warning
+                          : AppColors.primary,
+                      value: '$pendingPaymentCount',
+                      label: 'รอชำระ',
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          const _StatDivider(),
-          Expanded(
-            child: _StatItem(
-              icon: Icons.calendar_month_rounded,
-              color: AppColors.serviceHomeCare,
-              value: '$bookingCount',
-              label: 'นัดหมาย',
-            ),
-          ),
-          const _StatDivider(),
-          Expanded(
-            child: _StatItem(
-              icon: Icons.receipt_long_rounded,
-              color: AppColors.warning,
-              value: '$pendingPaymentCount',
-              label: 'รอชำระ',
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -455,49 +634,82 @@ class _QuickActionsGrid extends StatelessWidget {
       ),
     ];
 
-    return GridView.builder(
-      itemCount: actions.length,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 14,
-        mainAxisSpacing: 14,
-        childAspectRatio: 1.22,
-      ),
-      itemBuilder: (context, index) {
-        final action = actions[index];
-        final textTheme = Theme.of(context).textTheme;
+    final textTheme = Theme.of(context).textTheme;
+    final featured = actions.first;
+    final rest = actions.skip(1).toList();
 
-        return AppCard(
-          onTap: () => context.goForward(action.route),
+    // One featured action (the flagship "book transport now" scenario from
+    // PRODUCT.md) at full width, the rest as compact tiles below — actual
+    // size hierarchy instead of four identical boxes standing in for it.
+    return Column(
+      children: [
+        AppCard(
+          onTap: () => context.goForward(featured.route),
           padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          color: featured.color.withValues(alpha: 0.08),
+          borderColor: featured.color.withValues(alpha: 0.22),
+          child: Row(
             children: [
               CircleIconAvatar(
-                icon: action.icon,
-                color: action.color,
-                radius: 22,
+                icon: featured.icon,
+                color: featured.color,
+                radius: 26,
+                iconSize: 26,
               ),
-              const Spacer(),
-              Text(
-                action.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: textTheme.titleSmall,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(featured.title, style: textTheme.titleMedium),
+                    const SizedBox(height: 3),
+                    Text(featured.subtitle, style: textTheme.bodySmall),
+                  ],
+                ),
               ),
-              const SizedBox(height: 3),
-              Text(
-                action.subtitle,
-                style: textTheme.labelMedium,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: featured.color,
               ),
             ],
           ),
-        );
-      },
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            for (var i = 0; i < rest.length; i++) ...[
+              if (i != 0) const SizedBox(width: 12),
+              Expanded(
+                child: AppCard(
+                  onTap: () => context.goForward(rest[i].route),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 10,
+                  ),
+                  child: Column(
+                    children: [
+                      CircleIconAvatar(
+                        icon: rest[i].icon,
+                        color: rest[i].color,
+                        radius: 20,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        rest[i].title,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.labelMedium,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
     );
   }
 }
@@ -512,7 +724,7 @@ class _UpcomingBookingCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return AppCard(
-      glass: true,
+      elevated: true,
       padding: const EdgeInsets.all(22),
       child: Column(
         children: [
@@ -577,7 +789,7 @@ class _UpcomingBookingCard extends StatelessWidget {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => context.goForward(
+                  onPressed: () => context.pushForward(
                     AppRoutes.bookingStatusPath(booking.id),
                     extra: booking,
                   ),
@@ -589,7 +801,7 @@ class _UpcomingBookingCard extends StatelessWidget {
               Expanded(
                 child: booking.status == BookingStatus.awaitingPayment
                     ? FilledButton.icon(
-                        onPressed: () => context.goForward(AppRoutes.payment),
+                        onPressed: () => context.pushForward(AppRoutes.payment),
                         icon: const Icon(Icons.payment_rounded),
                         label: const Text('ชำระเงิน'),
                       )
@@ -663,7 +875,6 @@ class _FamilyPreview extends StatelessWidget {
                     icon: member.icon,
                     color: member.color,
                     radius: 30,
-                    filled: true,
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -704,7 +915,7 @@ class _PaymentSummaryCard extends StatelessWidget {
     );
 
     return AppCard(
-      glass: true,
+      elevated: true,
       padding: const EdgeInsets.all(22),
       child: Row(
         children: [
@@ -732,7 +943,7 @@ class _PaymentSummaryCard extends StatelessWidget {
             ),
           ),
           FilledButton(
-            onPressed: () => context.goForward(AppRoutes.payment),
+            onPressed: () => context.pushForward(AppRoutes.payment),
             style: FilledButton.styleFrom(
               minimumSize: const Size(0, 44),
               padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -843,15 +1054,18 @@ class _BannerCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const CircleIconAvatar(
-                  icon: Icons.campaign_rounded,
-                  color: AppColors.primary,
-                  radius: 18,
-                  iconSize: 18,
+                Expanded(
+                  child: Text(
+                    banner.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: textTheme.titleSmall,
+                  ),
                 ),
                 if (hasLink) ...[
-                  const Spacer(),
+                  const SizedBox(width: 6),
                   const Icon(
                     Icons.open_in_new_rounded,
                     size: 16,
@@ -859,13 +1073,6 @@ class _BannerCard extends StatelessWidget {
                   ),
                 ],
               ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              banner.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: textTheme.titleSmall,
             ),
             if (banner.body != null && banner.body!.isNotEmpty) ...[
               const SizedBox(height: 4),

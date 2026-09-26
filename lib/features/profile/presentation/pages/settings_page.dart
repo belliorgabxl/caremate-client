@@ -5,26 +5,11 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
-import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/utils/confirm_dialogs.dart';
 import '../../../../shared/widgets/aurora_background.dart';
-import '../../../../shared/widgets/circle_icon_avatar.dart';
-import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/back_circle_button.dart';
 import '../../../../shared/widgets/section_header.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
-
-class _SecurityItem {
-  _SecurityItem({
-    required this.title,
-    required this.description,
-    required this.icon,
-    required this.enabled,
-  });
-
-  final String title;
-  final String description;
-  final IconData icon;
-  bool enabled;
-}
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -34,56 +19,9 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
-  final _items = [
-    _SecurityItem(
-      title: 'แจ้งเตือนการเข้าสู่ระบบ',
-      description: 'แจ้งเตือนเมื่อมีการเข้าสู่ระบบจากอุปกรณ์ใหม่',
-      icon: Icons.notifications_active_outlined,
-      enabled: true,
-    ),
-    _SecurityItem(
-      title: 'ล็อกด้วยไบโอเมตริก',
-      description: 'ใช้ Face ID หรือลายนิ้วมือก่อนเข้าหน้าสำคัญ',
-      icon: Icons.fingerprint_rounded,
-      enabled: false,
-    ),
-    _SecurityItem(
-      title: 'ยืนยันตัวตนก่อนชำระเงิน',
-      description: 'ยืนยันตัวตนก่อนชำระเงินหรือทำรายการสำคัญ',
-      icon: Icons.verified_user_outlined,
-      enabled: true,
-    ),
-  ];
-
-  int get _activeCount => _items.where((item) => item.enabled).length;
-
-  Future<void> _confirmSignOutAllDevices() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('ออกจากระบบทุกอุปกรณ์'),
-        content: const Text(
-          'คุณต้องการออกจากระบบในทุกอุปกรณ์ใช่หรือไม่? คุณจะต้องเข้าสู่ระบบใหม่อีกครั้ง',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('ยกเลิก'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'ออกจากระบบ',
-              style: TextStyle(color: AppColors.danger),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      await ref.read(authControllerProvider).logout();
-    }
+  Future<void> _confirmSignOut() async {
+    if (!await confirmLogout(context)) return;
+    await ref.read(authControllerProvider).logout();
   }
 
   @override
@@ -91,14 +29,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text('ตั้งค่าความปลอดภัย'),
-        leading: BackButton(onPressed: () => context.goBack(AppRoutes.profile)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-      ),
       body: Stack(
         children: [
           const Positioned(
@@ -115,134 +45,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               32,
             ),
             children: [
-              AppCard(
-                glass: true,
-                padding: const EdgeInsets.all(22),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'ระดับความปลอดภัย',
-                            style: textTheme.labelMedium?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            '$_activeCount/${_items.length}',
-                            style: textTheme.headlineMedium,
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'เปิดใช้งานมาตรการความปลอดภัยแล้ว $_activeCount รายการ',
-                            style: textTheme.bodySmall?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const CircleIconAvatar(
-                      icon: Icons.shield_rounded,
-                      color: AppColors.primary,
-                      radius: 26,
-                      iconSize: 28,
-                      filled: true,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
               const SectionHeader(
-                title: 'การป้องกันบัญชี',
-                icon: Icons.security_rounded,
+                title: 'บัญชีของฉัน',
+                icon: Icons.manage_accounts_rounded,
               ),
               const SizedBox(height: 12),
-              ..._items.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: AppCard(
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 22,
-                          backgroundColor: AppColors.primaryLight,
-                          child: Icon(item.icon, color: AppColors.primary),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(item.title, style: textTheme.titleSmall),
-                              const SizedBox(height: 3),
-                              Text(
-                                item.description,
-                                style: textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Switch(
-                          value: item.enabled,
-                          onChanged: (v) => setState(() => item.enabled = v),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              AppCard(
-                child: Row(
-                  children: [
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'รหัสผ่านบัญชี',
-                            style: TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'เปลี่ยนรหัสผ่านหรือรีเซ็ตการเข้าสู่ระบบ',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                    OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(0, 44),
-                      ),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('ฟีเจอร์นี้อยู่ระหว่างการพัฒนา'),
-                          ),
-                        );
-                      },
-                      child: const Text('เปลี่ยนรหัสผ่าน'),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              const SectionHeader(
-                title: 'ประวัติการเข้าสู่ระบบ',
-                icon: Icons.history_rounded,
-              ),
-              const SizedBox(height: 12),
-              const EmptyState(
-                icon: Icons.history_toggle_off_rounded,
-                title: 'ฟีเจอร์นี้ยังไม่พร้อมใช้งาน',
-                message: 'ประวัติการเข้าสู่ระบบจะเปิดให้ใช้งานเร็ว ๆ นี้',
-              ),
-              const SizedBox(height: 24),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -258,13 +65,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     Row(
                       children: [
                         const Icon(
-                          Icons.warning_amber_rounded,
+                          Icons.logout_rounded,
                           color: AppColors.danger,
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'ออกจากระบบทุกอุปกรณ์',
+                            'ออกจากระบบ',
                             style: textTheme.titleSmall?.copyWith(
                               color: AppColors.danger,
                             ),
@@ -274,7 +81,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'ใช้เมื่อต้องการออกจากระบบทุกอุปกรณ์ หากสงสัยว่าบัญชีถูกใช้งานโดยคนอื่น',
+                      'ออกจากระบบบัญชีนี้บนอุปกรณ์นี้ ต้องเข้าสู่ระบบใหม่ในครั้งถัดไป',
                       style: textTheme.bodySmall?.copyWith(
                         color: AppColors.danger,
                       ),
@@ -286,14 +93,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.danger,
                         ),
-                        onPressed: _confirmSignOutAllDevices,
-                        child: const Text('ออกจากระบบทุกอุปกรณ์'),
+                        onPressed: _confirmSignOut,
+                        child: const Text('ออกจากระบบ'),
                       ),
                     ),
                   ],
                 ),
               ),
             ],
+          ),
+          // Painted after the ListView so it stays on top for hit-testing.
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 8,
+            left: 20,
+            child: BackCircleButton(
+              onTap: () => context.popBack(AppRoutes.profile),
+            ),
           ),
         ],
       ),

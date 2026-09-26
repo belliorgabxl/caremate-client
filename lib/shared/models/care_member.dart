@@ -79,19 +79,27 @@ class CareMember {
     }
     final relationship = json['relationship'] as String? ?? '';
     final registerAs = json['registerAs'] as String? ?? '';
-    final isSelf = registerAs.toLowerCase() == 'self' || relationship == 'ตัวเอง';
+    final isSelf =
+        registerAs.toLowerCase() == 'self' || relationship == 'ตัวเอง';
 
     final addressLine = json['addressLine'] as String? ?? '';
     final latitude = (json['latitude'] as num?)?.toDouble();
     final longitude = (json['longitude'] as num?)?.toDouble();
 
     final dobRaw = json['dateOfBirth'] as String?;
-    final dob = dobRaw == null || dobRaw.isEmpty ? null : DateTime.tryParse(dobRaw);
-    final age = dob == null ? 0 : (DateTime.now().difference(dob).inDays / 365.25).floor();
+    final dob = dobRaw == null || dobRaw.isEmpty
+        ? null
+        : DateTime.tryParse(dobRaw);
+    final age = dob == null
+        ? 0
+        : (DateTime.now().difference(dob).inDays / 365.25).floor();
 
     final allergies = json['allergies'] as String? ?? '';
     final congenitalDiseases = json['congenitalDiseases'] as String? ?? '';
-    final tags = [allergies, congenitalDiseases].where((t) => t.isNotEmpty).toList();
+    final tags = [
+      allergies,
+      congenitalDiseases,
+    ].where((t) => t.isNotEmpty).toList();
 
     return CareMember(
       id: json['id'] as String? ?? '',
@@ -112,10 +120,15 @@ class CareMember {
       icon: isSelf ? Icons.person : _memberIcons[seq % _memberIcons.length],
       tags: tags,
       careNote: json['careNote'] as String? ?? '',
-      address: Address(addressLine: addressLine, latitude: latitude, longitude: longitude),
+      address: Address(
+        addressLine: addressLine,
+        latitude: latitude,
+        longitude: longitude,
+      ),
       emergencyContactName: json['emergencyContactName'] as String? ?? '',
       emergencyContactPhone: json['emergencyContactPhone'] as String? ?? '',
-      emergencyContactRelationship: json['emergencyContactRelationship'] as String? ?? '',
+      emergencyContactRelationship:
+          json['emergencyContactRelationship'] as String? ?? '',
     );
   }
 
@@ -156,8 +169,10 @@ class CareMember {
       careNote: careNote ?? this.careNote,
       address: address ?? this.address,
       emergencyContactName: emergencyContactName ?? this.emergencyContactName,
-      emergencyContactPhone: emergencyContactPhone ?? this.emergencyContactPhone,
-      emergencyContactRelationship: emergencyContactRelationship ?? this.emergencyContactRelationship,
+      emergencyContactPhone:
+          emergencyContactPhone ?? this.emergencyContactPhone,
+      emergencyContactRelationship:
+          emergencyContactRelationship ?? this.emergencyContactRelationship,
     );
   }
 }

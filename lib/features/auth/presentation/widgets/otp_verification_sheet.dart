@@ -6,7 +6,6 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/primary_button.dart';
 
-
 class OtpVerificationSheet {
   static Future<String?> show(
     BuildContext context, {
@@ -20,11 +19,8 @@ class OtpVerificationSheet {
       useSafeArea: true,
       isDismissible: false,
       enableDrag: false,
-      builder: (_) => _OtpSheetBody(
-        phone: phone,
-        onVerify: onVerify,
-        onResend: onResend,
-      ),
+      builder: (_) =>
+          _OtpSheetBody(phone: phone, onVerify: onVerify, onResend: onResend),
     );
   }
 }

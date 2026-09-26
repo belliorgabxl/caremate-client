@@ -27,7 +27,9 @@ class LocalNotificationsService {
     // `Location` is passed, so scheduling still fires at the correct wall-
     // clock moment even though `tz.local`'s *label* stays "UTC".
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const iosSettings = DarwinInitializationSettings();
     const settings = InitializationSettings(
       android: androidSettings,
@@ -119,6 +121,11 @@ class LocalNotificationsService {
       iOS: DarwinNotificationDetails(),
     );
 
-    await _plugin.show(id: id, title: title, body: body, notificationDetails: details);
+    await _plugin.show(
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: details,
+    );
   }
 }

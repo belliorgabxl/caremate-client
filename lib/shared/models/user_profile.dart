@@ -47,7 +47,9 @@ class UserProfile {
     Map<String, dynamic>? address,
   }) {
     final info = me['information'] as Map<String, dynamic>?;
-    final nameParts = (me['name'] as String? ?? '').trim().split(RegExp(r'\s+'));
+    final nameParts = (me['name'] as String? ?? '').trim().split(
+      RegExp(r'\s+'),
+    );
 
     final addressLine = address?['address_line'] as String?;
 
@@ -69,8 +71,10 @@ class UserProfile {
       currentMedications: health?['current_medications'] as String? ?? '',
       careNote: health?['care_note'] as String? ?? '',
       emergencyContactName: health?['emergency_contact_name'] as String? ?? '',
-      emergencyContactPhone: health?['emergency_contact_phone'] as String? ?? '',
-      emergencyContactRelationship: health?['emergency_contact_relationship'] as String? ?? '',
+      emergencyContactPhone:
+          health?['emergency_contact_phone'] as String? ?? '',
+      emergencyContactRelationship:
+          health?['emergency_contact_relationship'] as String? ?? '',
       address: (addressLine == null || addressLine.isEmpty)
           ? null
           : Address(
@@ -87,24 +91,26 @@ class UserProfile {
   }
 
   Map<String, dynamic> toPersonalInformationJson() => {
-        'firstName': firstName,
-        'lastName': lastName,
-        'phone': phone,
-        'dateOfBirth': dateOfBirth == null ? '' : dateOfBirth!.toIso8601String().split('T').first,
-        'gender': gender,
-        'email': email,
-      };
+    'firstName': firstName,
+    'lastName': lastName,
+    'phone': phone,
+    'dateOfBirth': dateOfBirth == null
+        ? ''
+        : dateOfBirth!.toIso8601String().split('T').first,
+    'gender': gender,
+    'email': email,
+  };
 
   Map<String, dynamic> toHealthInformationJson() => {
-        'emergency_contact_name': emergencyContactName,
-        'emergency_contact_phone': emergencyContactPhone,
-        'emergency_contact_relationship': emergencyContactRelationship,
-        'blood_type': bloodType,
-        'allergies': allergies,
-        'congenital_diseases': congenitalDiseases,
-        'current_medications': currentMedications,
-        'care_note': careNote,
-      };
+    'emergency_contact_name': emergencyContactName,
+    'emergency_contact_phone': emergencyContactPhone,
+    'emergency_contact_relationship': emergencyContactRelationship,
+    'blood_type': bloodType,
+    'allergies': allergies,
+    'congenital_diseases': congenitalDiseases,
+    'current_medications': currentMedications,
+    'care_note': careNote,
+  };
 
   /// Null when there's no address to persist yet — callers should skip the
   /// PATCH call in that case rather than send an empty/invalid address.
@@ -154,8 +160,10 @@ class UserProfile {
       currentMedications: currentMedications ?? this.currentMedications,
       careNote: careNote ?? this.careNote,
       emergencyContactName: emergencyContactName ?? this.emergencyContactName,
-      emergencyContactPhone: emergencyContactPhone ?? this.emergencyContactPhone,
-      emergencyContactRelationship: emergencyContactRelationship ?? this.emergencyContactRelationship,
+      emergencyContactPhone:
+          emergencyContactPhone ?? this.emergencyContactPhone,
+      emergencyContactRelationship:
+          emergencyContactRelationship ?? this.emergencyContactRelationship,
       address: address ?? this.address,
     );
   }

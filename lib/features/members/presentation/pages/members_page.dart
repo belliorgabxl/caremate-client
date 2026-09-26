@@ -1,6 +1,7 @@
-// Aurora Glass members list — aurora blobs behind the hero summary card;
-// stat tiles and member rows stay plain solid cards. See DESIGN.md ("Aurora
-// & Glass") — glass is reserved for the one hero moment, not every row.
+// Tidewater members list — the page's one "peak" surface is a solid
+// primary→primaryDark gradient hero (matching HomePage's `_HomeHeroCard`),
+// with counts on a white card overlapping its bottom edge. Stat tiles and
+// member rows stay plain solid cards; see DESIGN.md.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_radius.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/error_messages.dart';
 import '../../../../shared/models/care_member.dart';
@@ -18,7 +20,6 @@ import '../../../../shared/widgets/aurora_background.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/primary_button.dart';
-import '../../../../shared/widgets/stat_card.dart';
 import '../../../../shared/widgets/status_badge.dart';
 import '../../data/member_repository.dart';
 
@@ -110,30 +111,28 @@ class _MembersPageState extends ConsumerState<MembersPage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('สมาชิก')),
-        body: const Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: SafeArea(child: SizedBox.shrink()));
     }
 
     if (_error != null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('สมาชิก')),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
-          children: [
-            EmptyState(
-              icon: Icons.error_outline_rounded,
-              title: 'โหลดข้อมูลไม่สำเร็จ',
-              message: _error!,
-              action: PrimaryButton(
-                label: 'ลองอีกครั้ง',
-                icon: Icons.refresh_rounded,
-                expanded: false,
-                onPressed: _load,
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
+            children: [
+              EmptyState(
+                icon: Icons.error_outline_rounded,
+                title: 'โหลดข้อมูลไม่สำเร็จ',
+                message: _error!,
+                action: PrimaryButton(
+                  label: 'ลองอีกครั้ง',
+                  icon: Icons.refresh_rounded,
+                  expanded: false,
+                  onPressed: _load,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
@@ -143,13 +142,10 @@ class _MembersPageState extends ConsumerState<MembersPage> {
     final atMaxRelatives = _members.length >= AppConfig.maxRelatives;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('สมาชิก')),
       floatingActionButton: atMaxRelatives
           ? FloatingActionButton.extended(
               onPressed: null,
-              backgroundColor: AppColors.textSecondary.withValues(
-                alpha: 0.4,
-              ),
+              backgroundColor: AppColors.textSecondary.withValues(alpha: 0.4),
               icon: const Icon(Icons.block_rounded),
               label: Text('ถึงจำนวนสูงสุด (${AppConfig.maxRelatives} คน)'),
             )
@@ -169,12 +165,15 @@ class _MembersPageState extends ConsumerState<MembersPage> {
           RefreshIndicator(
             onRefresh: _load,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                MediaQuery.paddingOf(context).top + 12,
+                20,
+                110,
+              ),
               children: [
                 _buildHeroCard(),
-                const SizedBox(height: 18),
-                _buildSummarySection(),
-                const SizedBox(height: 18),
+                const SizedBox(height: 6),
                 _buildSearchBox(),
                 const SizedBox(height: 14),
                 _buildFilters(),
@@ -220,102 +219,152 @@ class _MembersPageState extends ConsumerState<MembersPage> {
     );
   }
 
+  /// Same composed-hero language as `HomePage`'s `_HomeHeroCard`: a deep
+  /// teal→ink gradient card for the page intent (+ the default-member
+  /// banner, when one exists) with the at-a-glance counts on a separate
+  /// white card overlapping its bottom edge — one designed unit instead of
+  /// a glass hero stacked above three separate same-shape `StatCard`s.
   Widget _buildHeroCard() {
     final defaultMember = _members.where((m) => m.isDefault).isEmpty
         ? null
         : _members.firstWhere((member) => member.isDefault);
     final textTheme = Theme.of(context).textTheme;
+    final withNotes = _members
+        .where((m) => m.careNote.trim().isNotEmpty)
+        .length;
+    final atMax = _members.length >= AppConfig.maxRelatives;
 
-    return AppCard(
-      glass: true,
-      padding: const EdgeInsets.all(22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const CircleIconAvatar(
-                icon: Icons.groups_rounded,
-                color: AppColors.primary,
-                radius: 28,
-                filled: true,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('จัดการคนที่คุณดูแล', style: textTheme.titleMedium),
-                    const SizedBox(height: 4),
-                    Text(
-                      'เลือกสมาชิกเพื่อจองบริการ ดูข้อมูลสุขภาพ หรือจัดการผู้ติดต่อฉุกเฉิน',
-                      style: textTheme.bodySmall,
-                    ),
-                  ],
-                ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(22, 22, 22, 40),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.primary, AppColors.primaryDark],
+            ),
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primaryDark.withValues(alpha: 0.32),
+                offset: const Offset(0, 14),
+                blurRadius: 30,
               ),
             ],
           ),
-          if (defaultMember != null) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceAlt,
-                borderRadius: BorderRadius.circular(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.16),
+                    ),
+                    child: const Icon(
+                      Icons.groups_rounded,
+                      color: Colors.white,
+                      size: 26,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'จัดการคนที่คุณดูแล',
+                          style: textTheme.titleMedium?.copyWith(
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'เลือกสมาชิกเพื่อจองบริการ ดูข้อมูลสุขภาพ หรือจัดการผู้ติดต่อฉุกเฉิน',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.78),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
+              if (defaultMember != null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.star_rounded, color: Colors.white),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'ค่าเริ่มต้น: ${defaultMember.nickname} (${defaultMember.relationship})',
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        Transform.translate(
+          offset: const Offset(0, -26),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: AppCard(
+              elevated: true,
+              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
               child: Row(
                 children: [
-                  const Icon(Icons.star_rounded, color: AppColors.badgeDefault),
-                  const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      'ค่าเริ่มต้น: ${defaultMember.nickname} (${defaultMember.relationship})',
-                      style: textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                    child: _MemberStatItem(
+                      icon: Icons.people_alt_rounded,
+                      color: AppColors.primary,
+                      value: '${_members.length}',
+                      label: 'สมาชิก',
+                    ),
+                  ),
+                  const _MemberStatDivider(),
+                  Expanded(
+                    child: _MemberStatItem(
+                      icon: Icons.star_rounded,
+                      // Only earns the warning color once it's actually
+                      // blocking the user from adding another member.
+                      color: atMax ? AppColors.warning : AppColors.primary,
+                      value: '${AppConfig.maxRelatives}',
+                      label: 'จำนวนสูงสุด',
+                    ),
+                  ),
+                  const _MemberStatDivider(),
+                  Expanded(
+                    child: _MemberStatItem(
+                      icon: Icons.medical_information_rounded,
+                      color: AppColors.primary,
+                      value: '$withNotes',
+                      label: 'มีโน้ตดูแล',
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummarySection() {
-    final withNotes = _members
-        .where((m) => m.careNote.trim().isNotEmpty)
-        .length;
-
-    return Row(
-      children: [
-        Expanded(
-          child: StatCard(
-            title: '${_members.length}',
-            subtitle: 'สมาชิก',
-            icon: Icons.people_alt_rounded,
-            color: AppColors.primary,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: StatCard(
-            title: '${AppConfig.maxRelatives}',
-            subtitle: 'จำนวนสูงสุด',
-            icon: Icons.star_rounded,
-            color: AppColors.badgeDefault,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: StatCard(
-            title: '$withNotes',
-            subtitle: 'มีโน้ตดูแล',
-            icon: Icons.medical_information_rounded,
-            color: AppColors.serviceHomeCare,
           ),
         ),
       ],
@@ -453,6 +502,11 @@ class _MembersPageState extends ConsumerState<MembersPage> {
 
     showModalBottomSheet(
       context: context,
+      // See BankAccountRequiredSheet for why: the nearest (shell-nested)
+      // Navigator sits under MainScaffold's floating bottom nav in paint
+      // order, so this sheet would show with the nav pill poking through
+      // on top of it instead of covering the whole screen.
+      useRootNavigator: true,
       showDragHandle: true,
       isScrollControlled: true,
       builder: (context) {
@@ -472,250 +526,266 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                 if (leave && context.mounted) Navigator.of(context).pop();
               },
               child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                24,
-                8,
-                24,
-                MediaQuery.of(context).viewInsets.bottom + 28,
-              ),
-              child: SingleChildScrollView(
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircleIconAvatar(
-                        icon: isEditing
-                            ? Icons.edit_rounded
-                            : Icons.person_add_alt_1_rounded,
-                        color: AppColors.primary,
-                        radius: 32,
-                        iconSize: 36,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        isEditing ? 'แก้ไขข้อมูลสมาชิก' : 'เพิ่มสมาชิกใหม่',
-                        textAlign: TextAlign.center,
-                        style: textTheme.headlineSmall,
-                      ),
-                      const SizedBox(height: 18),
-                      AppTextField(
-                        controller: firstNameController,
-                        label: 'ชื่อจริง',
-                        hint: 'เช่น สมชาย',
-                        prefixIcon: Icons.badge_outlined,
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'กรุณากรอกชื่อจริง'
-                            : null,
-                      ),
-                      const SizedBox(height: 12),
-                      AppTextField(
-                        controller: lastNameController,
-                        label: 'นามสกุล',
-                        hint: 'เช่น ใจดี',
-                        prefixIcon: Icons.badge_outlined,
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'กรุณากรอกนามสกุล'
-                            : null,
-                      ),
-                      const SizedBox(height: 12),
-                      AppTextField(
-                        controller: nicknameController,
-                        label: 'ชื่อเล่น',
-                        prefixIcon: Icons.face_outlined,
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'กรุณากรอกชื่อเล่น'
-                            : null,
-                      ),
-                      const SizedBox(height: 12),
-                      AppTextField(
-                        controller: relationshipController,
-                        label: 'ความสัมพันธ์',
-                        hint: 'เช่น บิดา, มารดา, ญาติ',
-                        prefixIcon: Icons.diversity_3_outlined,
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'กรุณากรอกความสัมพันธ์'
-                            : null,
-                      ),
-                      const SizedBox(height: 12),
-                      AppTextField(
-                        controller: phoneController,
-                        label: 'เบอร์โทรศัพท์',
-                        keyboardType: TextInputType.phone,
-                        prefixIcon: Icons.phone_outlined,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        validator: (v) =>
-                            (v == null || !RegExp(r'^0[0-9]{9}$').hasMatch(v))
-                            ? 'เบอร์โทรไม่ถูกต้อง'
-                            : null,
-                      ),
-                      const SizedBox(height: 12),
-                      AppTextField(
-                        controller: ageController,
-                        label: 'อายุ',
-                        keyboardType: TextInputType.number,
-                        prefixIcon: Icons.cake_outlined,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) {
-                            return 'กรุณากรอกอายุ';
-                          }
-                          final age = int.tryParse(v.trim());
-                          if (age == null || age < 0 || age > 120) {
-                            return 'กรุณากรอกอายุระหว่าง 0-120 ปี';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              initialValue: gender,
-                              decoration: const InputDecoration(
-                                labelText: 'เพศ',
-                              ),
-                              items: _genderOptions
-                                  .map(
-                                    (g) => DropdownMenuItem(
-                                      value: g.$1,
-                                      child: Text(g.$2),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (v) =>
-                                  setSheetState(() => gender = v ?? gender),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              initialValue: bloodType,
-                              decoration: const InputDecoration(
-                                labelText: 'กรุ๊ปเลือด',
-                              ),
-                              items: _bloodTypeOptions
-                                  .map(
-                                    (b) => DropdownMenuItem(
-                                      value: b,
-                                      child: Text(b),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (v) => setSheetState(
-                                () => bloodType = v ?? bloodType,
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  8,
+                  24,
+                  MediaQuery.of(context).viewInsets.bottom + 28,
+                ),
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircleIconAvatar(
+                          icon: isEditing
+                              ? Icons.edit_rounded
+                              : Icons.person_add_alt_1_rounded,
+                          color: AppColors.primary,
+                          radius: 32,
+                          iconSize: 36,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          isEditing ? 'แก้ไขข้อมูลสมาชิก' : 'เพิ่มสมาชิกใหม่',
+                          textAlign: TextAlign.center,
+                          style: textTheme.headlineSmall,
+                        ),
+                        const SizedBox(height: 18),
+                        AppTextField(
+                          controller: firstNameController,
+                          label: 'ชื่อจริง',
+                          hint: 'เช่น สมชาย',
+                          prefixIcon: Icons.badge_outlined,
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'กรุณากรอกชื่อจริง'
+                              : null,
+                        ),
+                        const SizedBox(height: 12),
+                        AppTextField(
+                          controller: lastNameController,
+                          label: 'นามสกุล',
+                          hint: 'เช่น ใจดี',
+                          prefixIcon: Icons.badge_outlined,
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'กรุณากรอกนามสกุล'
+                              : null,
+                        ),
+                        const SizedBox(height: 12),
+                        AppTextField(
+                          controller: nicknameController,
+                          label: 'ชื่อเล่น',
+                          prefixIcon: Icons.face_outlined,
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'กรุณากรอกชื่อเล่น'
+                              : null,
+                        ),
+                        const SizedBox(height: 12),
+                        AppTextField(
+                          controller: relationshipController,
+                          label: 'ความสัมพันธ์',
+                          hint: 'เช่น บิดา, มารดา, ญาติ',
+                          prefixIcon: Icons.diversity_3_outlined,
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'กรุณากรอกความสัมพันธ์'
+                              : null,
+                        ),
+                        const SizedBox(height: 12),
+                        AppTextField(
+                          controller: phoneController,
+                          label: 'เบอร์โทรศัพท์',
+                          keyboardType: TextInputType.phone,
+                          prefixIcon: Icons.phone_outlined,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          validator: (v) =>
+                              (v == null || !RegExp(r'^0[0-9]{9}$').hasMatch(v))
+                              ? 'เบอร์โทรไม่ถูกต้อง'
+                              : null,
+                        ),
+                        const SizedBox(height: 12),
+                        AppTextField(
+                          controller: ageController,
+                          label: 'อายุ',
+                          keyboardType: TextInputType.number,
+                          prefixIcon: Icons.cake_outlined,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) {
+                              return 'กรุณากรอกอายุ';
+                            }
+                            final age = int.tryParse(v.trim());
+                            if (age == null || age < 0 || age > 120) {
+                              return 'กรุณากรอกอายุระหว่าง 0-120 ปี';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                initialValue: gender,
+                                decoration: const InputDecoration(
+                                  labelText: 'เพศ',
+                                ),
+                                items: _genderOptions
+                                    .map(
+                                      (g) => DropdownMenuItem(
+                                        value: g.$1,
+                                        child: Text(g.$2),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (v) =>
+                                    setSheetState(() => gender = v ?? gender),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      AppTextField(
-                        controller: careNoteController,
-                        label: 'หมายเหตุการดูแล',
-                        maxLines: 3,
-                      ),
-                      const SizedBox(height: 20),
-                      PrimaryButton(
-                        label: isSubmitting
-                            ? 'กำลังบันทึก...'
-                            : (isEditing ? 'บันทึกการแก้ไข' : 'เพิ่มสมาชิก'),
-                        icon: isEditing ? Icons.save_rounded : Icons.add,
-                        isLoading: isSubmitting,
-                        onPressed: isSubmitting
-                            ? null
-                            : () async {
-                                final isValid =
-                                    formKey.currentState?.validate() ?? false;
-                                if (!isValid) return;
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                initialValue: bloodType,
+                                decoration: const InputDecoration(
+                                  labelText: 'กรุ๊ปเลือด',
+                                ),
+                                items: _bloodTypeOptions
+                                    .map(
+                                      (b) => DropdownMenuItem(
+                                        value: b,
+                                        child: Text(b),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (v) => setSheetState(
+                                  () => bloodType = v ?? bloodType,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        AppTextField(
+                          controller: careNoteController,
+                          label: 'หมายเหตุการดูแล',
+                          maxLines: 3,
+                        ),
+                        const SizedBox(height: 20),
+                        PrimaryButton(
+                          label: isSubmitting
+                              ? 'กำลังบันทึก...'
+                              : (isEditing ? 'บันทึกการแก้ไข' : 'เพิ่มสมาชิก'),
+                          icon: isEditing ? Icons.save_rounded : Icons.add,
+                          isLoading: isSubmitting,
+                          onPressed: isSubmitting
+                              ? null
+                              : () async {
+                                  final isValid =
+                                      formKey.currentState?.validate() ?? false;
+                                  if (!isValid) return;
 
-                                setSheetState(() => isSubmitting = true);
-                                try {
-                                  final repo = ref.read(
-                                    memberRepositoryProvider,
-                                  );
-                                  if (isEditing) {
-                                    await repo.update(
-                                      id: member.id,
-                                      firstName: firstNameController.text
-                                          .trim(),
-                                      lastName: lastNameController.text.trim(),
-                                      nickname: nicknameController.text.trim(),
-                                      relationship: relationshipController.text
-                                          .trim(),
-                                      phone: phoneController.text.trim(),
-                                      age:
-                                          int.tryParse(
-                                            ageController.text.trim(),
-                                          ) ??
-                                          0,
-                                      gender: gender,
-                                      bloodType: bloodType,
-                                      careNote: careNoteController.text.trim(),
+                                  setSheetState(() => isSubmitting = true);
+                                  try {
+                                    final repo = ref.read(
+                                      memberRepositoryProvider,
                                     );
-                                  } else {
-                                    await repo.create(
-                                      firstName: firstNameController.text
-                                          .trim(),
-                                      lastName: lastNameController.text.trim(),
-                                      nickname: nicknameController.text.trim(),
-                                      relationship: relationshipController.text
-                                          .trim(),
-                                      phone: phoneController.text.trim(),
-                                      age:
-                                          int.tryParse(
-                                            ageController.text.trim(),
-                                          ) ??
-                                          0,
-                                      gender: gender,
-                                      bloodType: bloodType,
-                                      careNote: careNoteController.text.trim(),
-                                    );
+                                    if (isEditing) {
+                                      await repo.update(
+                                        id: member.id,
+                                        firstName: firstNameController.text
+                                            .trim(),
+                                        lastName: lastNameController.text
+                                            .trim(),
+                                        nickname: nicknameController.text
+                                            .trim(),
+                                        relationship: relationshipController
+                                            .text
+                                            .trim(),
+                                        phone: phoneController.text.trim(),
+                                        age:
+                                            int.tryParse(
+                                              ageController.text.trim(),
+                                            ) ??
+                                            0,
+                                        gender: gender,
+                                        bloodType: bloodType,
+                                        careNote: careNoteController.text
+                                            .trim(),
+                                      );
+                                    } else {
+                                      await repo.create(
+                                        firstName: firstNameController.text
+                                            .trim(),
+                                        lastName: lastNameController.text
+                                            .trim(),
+                                        nickname: nicknameController.text
+                                            .trim(),
+                                        relationship: relationshipController
+                                            .text
+                                            .trim(),
+                                        phone: phoneController.text.trim(),
+                                        age:
+                                            int.tryParse(
+                                              ageController.text.trim(),
+                                            ) ??
+                                            0,
+                                        gender: gender,
+                                        bloodType: bloodType,
+                                        careNote: careNoteController.text
+                                            .trim(),
+                                      );
+                                    }
+                                    if (context.mounted) Navigator.pop(context);
+                                    await _load();
+                                  } on MaxRelativesReachedException catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(content: Text(e.toString())),
+                                      );
+                                    }
+                                  } on ApiException catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            friendlyErrorMessage(e),
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            friendlyErrorMessage(e),
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  } finally {
+                                    if (context.mounted) {
+                                      setSheetState(() => isSubmitting = false);
+                                    }
                                   }
-                                  if (context.mounted) Navigator.pop(context);
-                                  await _load();
-                                } on MaxRelativesReachedException catch (e) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text(e.toString())),
-                                    );
-                                  }
-                                } on ApiException catch (e) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(friendlyErrorMessage(e)),
-                                      ),
-                                    );
-                                  }
-                                } catch (e) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(friendlyErrorMessage(e)),
-                                      ),
-                                    );
-                                  }
-                                } finally {
-                                  if (context.mounted) {
-                                    setSheetState(
-                                      () => isSubmitting = false,
-                                    );
-                                  }
-                                }
-                              },
-                      ),
-                    ],
+                                },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
             );
           },
         );
@@ -726,6 +796,7 @@ class _MembersPageState extends ConsumerState<MembersPage> {
   void _showMemberDetail(CareMember member) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       showDragHandle: true,
       isScrollControlled: true,
       builder: (context) {
@@ -941,6 +1012,44 @@ class _MemberCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _MemberStatDivider extends StatelessWidget {
+  const _MemberStatDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(width: 1, height: 40, color: AppColors.divider);
+  }
+}
+
+class _MemberStatItem extends StatelessWidget {
+  const _MemberStatItem({
+    required this.icon,
+    required this.color,
+    required this.value,
+    required this.label,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      children: [
+        CircleIconAvatar(icon: icon, color: color, radius: 18, iconSize: 18),
+        const SizedBox(height: 8),
+        Text(value, style: textTheme.titleLarge),
+        const SizedBox(height: 2),
+        Text(label, style: textTheme.labelMedium),
+      ],
     );
   }
 }

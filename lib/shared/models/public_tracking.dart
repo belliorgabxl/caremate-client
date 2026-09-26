@@ -28,18 +28,25 @@ class PublicTracking {
   final DateTime? expiresAt;
 
   factory PublicTracking.fromJson(Map<String, dynamic> json) {
-    final expiresRaw = pickField(json, const ['expiresAt', 'expires_at']) as String?;
+    final expiresRaw =
+        pickField(json, const ['expiresAt', 'expires_at']) as String?;
 
     return PublicTracking(
       bookingStatus: BookingStatusX.fromApi(
-        pickField(json, const ['bookingStatus', 'booking_status', 'status']) as String?,
+        pickField(json, const ['bookingStatus', 'booking_status', 'status'])
+            as String?,
       ),
-      partnerName: pickField(json, const ['partnerName', 'partner_name']) as String?,
-      partnerLat: (pickField(json, const ['partnerLat', 'partner_lat']) as num?)?.toDouble(),
-      partnerLng: (pickField(json, const ['partnerLng', 'partner_lng']) as num?)?.toDouble(),
-      pickupAddress: pickField(json, const ['pickupAddress', 'pickup_address']) as String?,
+      partnerName:
+          pickField(json, const ['partnerName', 'partner_name']) as String?,
+      partnerLat: (pickField(json, const ['partnerLat', 'partner_lat']) as num?)
+          ?.toDouble(),
+      partnerLng: (pickField(json, const ['partnerLng', 'partner_lng']) as num?)
+          ?.toDouble(),
+      pickupAddress:
+          pickField(json, const ['pickupAddress', 'pickup_address']) as String?,
       destinationAddress:
-          pickField(json, const ['destinationAddress', 'destination_address']) as String?,
+          pickField(json, const ['destinationAddress', 'destination_address'])
+              as String?,
       expiresAt: expiresRaw == null ? null : DateTime.tryParse(expiresRaw),
     );
   }

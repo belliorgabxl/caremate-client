@@ -176,7 +176,9 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
     }
   }
 
-  Future<void> _selectPrediction(places.AutocompletePrediction prediction) async {
+  Future<void> _selectPrediction(
+    places.AutocompletePrediction prediction,
+  ) async {
     // Every field on the fork's prediction is nullable; without a place id
     // there's nothing to look up.
     final placeId = prediction.placeId;
@@ -391,10 +393,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
           return InkWell(
             onTap: () => _selectPrediction(prediction),
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 12,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               child: Row(
                 children: [
                   const Icon(

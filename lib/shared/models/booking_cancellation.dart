@@ -54,10 +54,14 @@ class BookingCancellation {
       bookingId: json['bookingId'] as String? ?? '',
       reference: json['reference'] as String? ?? '',
       previousStatus: BookingStatusX.fromApi(json['previousStatus'] as String?),
-      cancelledAt: cancelledAtRaw == null ? null : DateTime.tryParse(cancelledAtRaw),
+      cancelledAt: cancelledAtRaw == null
+          ? null
+          : DateTime.tryParse(cancelledAtRaw),
       cancelledBy: json['cancelledBy'] as String? ?? 'user',
       refundRequired: json['refundRequired'] as bool? ?? false,
-      reason: (json['reason'] as String?)?.trim().isEmpty == true ? null : json['reason'] as String?,
+      reason: (json['reason'] as String?)?.trim().isEmpty == true
+          ? null
+          : json['reason'] as String?,
       paymentId: json['paymentId'] as String?,
       paymentStatus: json['paymentStatus'] as String?,
     );

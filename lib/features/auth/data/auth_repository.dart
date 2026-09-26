@@ -50,7 +50,6 @@ class AuthRepository {
   Future<void> requestRegisterOtp(String phone) =>
       _requestOtp(phone, 'register');
 
-
   Future<AppUser> login(String phone, String code) async {
     try {
       final response = await _api.dio.post(
@@ -64,7 +63,6 @@ class AuthRepository {
     }
   }
 
- 
   Future<AppUser> register({
     required String phone,
     required String code,
@@ -103,7 +101,6 @@ class AuthRepository {
       _api.throwApiException(e);
     }
   }
-
 
   Future<PdpaPolicy> fetchPdpaPolicy() async {
     try {

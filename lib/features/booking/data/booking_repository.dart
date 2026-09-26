@@ -55,7 +55,8 @@ class BookingRepository {
           .toList(growable: false);
 
       return [
-        for (var i = 0; i < services.length; i++) CareService.fromJson(services[i], seq: i),
+        for (var i = 0; i < services.length; i++)
+          CareService.fromJson(services[i], seq: i),
       ];
     } on DioException catch (e) {
       _api.throwApiException(e);
@@ -65,9 +66,16 @@ class BookingRepository {
   Future<List<Booking>> getAllBookings() async {
     try {
       final response = await _api.dio.get('/bookings/history');
-      final items = _extractList(response.data, const ['bookings', 'history', 'items']);
+      final items = _extractList(response.data, const [
+        'bookings',
+        'history',
+        'items',
+      ]);
 
-      final bookings = [for (final item in items) Booking.fromJson(item as Map<String, dynamic>)];
+      final bookings = [
+        for (final item in items)
+          Booking.fromJson(item as Map<String, dynamic>),
+      ];
       bookings.sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
       return bookings;
     } on DioException catch (e) {
@@ -80,7 +88,10 @@ class BookingRepository {
       final response = await _api.dio.get('/bookings');
       final items = _extractList(response.data, const ['bookings']);
 
-      return [for (final item in items) Booking.fromJson(item as Map<String, dynamic>)]
+      return [
+            for (final item in items)
+              Booking.fromJson(item as Map<String, dynamic>),
+          ]
           .where(
             (b) =>
                 b.status != BookingStatus.completed &&
@@ -103,26 +114,32 @@ class BookingRepository {
     String? notes,
     required String paymentMethodId,
   }) async {
-    final includeDestination = service.requiresDestination && destinationAddress != null;
+    final includeDestination =
+        service.requiresDestination && destinationAddress != null;
 
     try {
-      final response = await _api.dio.post('/bookings/create', data: {
-        'serviceTypeId': service.id,
-        'paymentMethodId': paymentMethodId,
-        'isForSelf': member.isSelf,
-        'relativeId': member.isSelf ? null : member.id,
-        'scheduledStartAt': _toRfc3339(scheduledAt),
-        'scheduledEndAt': _toRfc3339(scheduledEndAt),
-        'pickupAddress': pickupAddress.addressLine,
-        'pickupLat': pickupAddress.latitude,
-        'pickupLng': pickupAddress.longitude,
-        if (includeDestination) 'destinationAddress': destinationAddress.addressLine,
-        if (includeDestination) 'destinationLat': destinationAddress.latitude,
-        if (includeDestination) 'destinationLng': destinationAddress.longitude,
-        'contactName': member.fullName,
-        'contactPhone': member.phone,
-        'specialNotes': notes,
-      });
+      final response = await _api.dio.post(
+        '/bookings/create',
+        data: {
+          'serviceTypeId': service.id,
+          'paymentMethodId': paymentMethodId,
+          'isForSelf': member.isSelf,
+          'relativeId': member.isSelf ? null : member.id,
+          'scheduledStartAt': _toRfc3339(scheduledAt),
+          'scheduledEndAt': _toRfc3339(scheduledEndAt),
+          'pickupAddress': pickupAddress.addressLine,
+          'pickupLat': pickupAddress.latitude,
+          'pickupLng': pickupAddress.longitude,
+          if (includeDestination)
+            'destinationAddress': destinationAddress.addressLine,
+          if (includeDestination) 'destinationLat': destinationAddress.latitude,
+          if (includeDestination)
+            'destinationLng': destinationAddress.longitude,
+          'contactName': member.fullName,
+          'contactPhone': member.phone,
+          'specialNotes': notes,
+        },
+      );
 
       final data = _api.unwrap(response.data) as Map<String, dynamic>;
 
@@ -135,7 +152,9 @@ class BookingRepository {
         memberName: member.fullName,
         scheduledAt: scheduledAt,
         pickupAddress: pickupAddress.addressLine,
-        destinationAddress: includeDestination ? destinationAddress.addressLine : null,
+        destinationAddress: includeDestination
+            ? destinationAddress.addressLine
+            : null,
         distanceKm: (data['distanceKm'] as num?)?.toDouble(),
         notes: notes,
         totalAmount: (data['totalAmount'] as num?)?.toDouble() ?? 0,
@@ -202,7 +221,8 @@ class BookingRepository {
       final response = await _api.dio.post(
         '/bookings/$bookingId/cancel',
         data: {
-          if (trimmedReason != null && trimmedReason.isNotEmpty) 'reason': trimmedReason,
+          if (trimmedReason != null && trimmedReason.isNotEmpty)
+            'reason': trimmedReason,
         },
       );
       final data = _api.unwrap(response.data) as Map<String, dynamic>;
@@ -236,14 +256,25 @@ class BookingRepository {
       final bookingJson = item['booking'] as Map<String, dynamic>? ?? const {};
       final paymentJson = item['payment'] as Map<String, dynamic>? ?? const {};
 
-      final scheduledRaw = pickField(bookingJson, const ['scheduled_at', 'scheduledAt']) as String?;
-      final totalAmount = (pickField(paymentJson, const ['total_amount', 'totalAmount']) as num?)?.toDouble() ?? 0;
+      final scheduledRaw =
+          pickField(bookingJson, const ['scheduled_at', 'scheduledAt'])
+              as String?;
+      final totalAmount =
+          (pickField(paymentJson, const ['total_amount', 'totalAmount'])
+                  as num?)
+              ?.toDouble() ??
+          0;
 
       final booking = Booking(
         id: bookingJson['id'] as String? ?? '',
         reference: bookingJson['reference'] as String? ?? '',
-        memberName: (pickField(bookingJson, const ['patientName', 'patient_name']) as String?) ?? '-',
-        scheduledAt: scheduledRaw == null ? DateTime.now() : DateTime.tryParse(scheduledRaw) ?? DateTime.now(),
+        memberName:
+            (pickField(bookingJson, const ['patientName', 'patient_name'])
+                as String?) ??
+            '-',
+        scheduledAt: scheduledRaw == null
+            ? DateTime.now()
+            : DateTime.tryParse(scheduledRaw) ?? DateTime.now(),
         pickupAddress: '-',
         totalAmount: totalAmount,
         status: BookingStatus.awaitingPayment,
@@ -286,7 +317,8 @@ class BookingRepository {
         '/bookings/$bookingId/emergency',
         data: {
           'type': type,
-          if (trimmedNotes != null && trimmedNotes.isNotEmpty) 'notes': trimmedNotes,
+          if (trimmedNotes != null && trimmedNotes.isNotEmpty)
+            'notes': trimmedNotes,
         },
       );
     } on DioException catch (e) {
@@ -299,9 +331,12 @@ class BookingRepository {
   /// meant to be handed to family via the native share sheet.
   Future<ShareLocationLink> createShareLink(String bookingId) async {
     try {
-      final response = await _api.dio.post('/bookings/$bookingId/share-location');
+      final response = await _api.dio.post(
+        '/bookings/$bookingId/share-location',
+      );
       final data = _api.unwrap(response.data) as Map<String, dynamic>;
-      final expiresRaw = pickField(data, const ['expiresAt', 'expires_at']) as String?;
+      final expiresRaw =
+          pickField(data, const ['expiresAt', 'expires_at']) as String?;
 
       return ShareLocationLink(
         token: pickField(data, const ['token']) as String? ?? '',
@@ -343,7 +378,8 @@ class BookingRepository {
         '/bookings/$bookingId/review',
         data: {
           'rating': rating,
-          if (trimmedComment != null && trimmedComment.isNotEmpty) 'comment': trimmedComment,
+          if (trimmedComment != null && trimmedComment.isNotEmpty)
+            'comment': trimmedComment,
         },
       );
     } on DioException catch (e) {

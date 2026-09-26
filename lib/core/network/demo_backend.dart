@@ -129,6 +129,13 @@ class _DemoBooking {
         'label_en': 'In progress',
         'notes': '',
         'completed_at': at(inProgress, _inProgressDelay),
+        // Demo-only stand-in for a partner-uploaded checkpoint photo — a
+        // public placeholder, not a real upload, so a reviewer walking the
+        // demo account actually sees the photo-thumbnail UI at least once
+        // instead of every checkpoint being photo-less.
+        'photo_url': inProgress
+            ? 'https://picsum.photos/seed/caremate-$id/400'
+            : null,
       },
       {
         'id': '$id-cp4',
@@ -321,9 +328,6 @@ class DemoBackend {
     // again with the same demo credentials.
     if (_matches(o, 'DELETE', '/users/account')) {
       return _ok(o, {'deleted': true});
-    }
-    if (_matches(o, 'GET', '/users/referral')) {
-      return _ok(o, demoReferral());
     }
     if (_matches(o, 'GET', '/users/payment-check')) {
       return _ok(o, {'hasPayment': false, 'items': const []});

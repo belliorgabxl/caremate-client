@@ -32,7 +32,8 @@ class BannerItem {
   factory BannerItem.fromJson(Map<String, dynamic> json) {
     final startsAtRaw = pickField(json, ['starts_at', 'startsAt']) as String?;
     final endsAtRaw = pickField(json, ['ends_at', 'endsAt']) as String?;
-    final createdAtRaw = pickField(json, ['created_at', 'createdAt']) as String?;
+    final createdAtRaw =
+        pickField(json, ['created_at', 'createdAt']) as String?;
 
     return BannerItem(
       id: json['id'] as String? ?? '',
@@ -41,7 +42,8 @@ class BannerItem {
       imageUrl: pickField(json, ['image_url', 'imageUrl']) as String?,
       linkUrl: pickField(json, ['link_url', 'linkUrl']) as String?,
       isActive: (pickField(json, ['is_active', 'isActive']) as bool?) ?? true,
-      sortOrder: (pickField(json, ['sort_order', 'sortOrder']) as num?)?.toInt() ?? 0,
+      sortOrder:
+          (pickField(json, ['sort_order', 'sortOrder']) as num?)?.toInt() ?? 0,
       startsAt: startsAtRaw == null ? null : DateTime.tryParse(startsAtRaw),
       endsAt: endsAtRaw == null ? null : DateTime.tryParse(endsAtRaw),
       createdAt: createdAtRaw == null ? null : DateTime.tryParse(createdAtRaw),

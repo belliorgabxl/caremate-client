@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/router/nav_direction.dart';
@@ -16,6 +17,7 @@ import '../../../../shared/models/booking_cancellation.dart';
 import '../../../../shared/models/payment.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/aurora_background.dart';
+import '../../../../shared/widgets/back_circle_button.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../../shared/widgets/section_header.dart';
 import '../../../../shared/widgets/status_badge.dart';
@@ -170,6 +172,37 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     return '$minutes:$seconds';
   }
 
+  /// Beam only hands back a rendered PNG (`ChargeInfo.qrImageBase64`), never
+  /// a raw EMV payload string, so there's nothing text-copyable here — this
+  /// hands the image itself to the OS share sheet, where iOS exposes a real
+  /// "Copy" action and Android lets the user drop it straight into LINE/
+  /// gallery/etc. `XFile.fromData` keeps this in memory, no temp file needed.
+  Future<void> _copyQrCode() async {
+    final bytes = _qrImageBytes;
+    if (bytes == null) return;
+
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [
+            XFile.fromData(
+              bytes,
+              name: 'caremate-qr.png',
+              mimeType: 'image/png',
+            ),
+          ],
+          text:
+              'QR พร้อมเพย์ชำระเงิน CareMate อ้างอิง ${_payment?.reference ?? ''}',
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('คัดลอก QR code ไม่สำเร็จ กรุณาลองใหม่')),
+      );
+    }
+  }
+
   PaymentMethod? get _selectedMethod {
     final payment = _payment;
     if (payment == null || _methods.isEmpty) return null;
@@ -183,11 +216,18 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('ชำระเงิน'),
-          leading: BackButton(onPressed: () => context.goBack(AppRoutes.home)),
+        body: Stack(
+          children: [
+            const SafeArea(child: SizedBox.shrink()),
+            Positioned(
+              top: MediaQuery.paddingOf(context).top + 8,
+              left: 20,
+              child: BackCircleButton(
+                onTap: () => context.popBack(AppRoutes.home),
+              ),
+            ),
+          ],
         ),
-        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -196,11 +236,20 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
 
     if (booking == null || payment == null) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('ชำระเงิน'),
-          leading: BackButton(onPressed: () => context.goBack(AppRoutes.home)),
+        body: Stack(
+          children: [
+            const SafeArea(
+              child: Center(child: Text('ไม่มีรายการที่รอชำระเงิน')),
+            ),
+            Positioned(
+              top: MediaQuery.paddingOf(context).top + 8,
+              left: 20,
+              child: BackCircleButton(
+                onTap: () => context.popBack(AppRoutes.home),
+              ),
+            ),
+          ],
         ),
-        body: const Center(child: Text('ไม่มีรายการที่รอชำระเงิน')),
       );
     }
 
@@ -208,14 +257,6 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     final method = _selectedMethod;
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text('ชำระเงิน'),
-        leading: BackButton(onPressed: () => context.goBack(AppRoutes.home)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-      ),
       bottomNavigationBar: _buildBottomBar(payment),
       body: Stack(
         children: [
@@ -297,6 +338,9 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                   reference: payment.reference,
                   countdownLabel: _countdownLabel,
                   isExpired: _qrExpired,
+                  onCopy: _qrImageBytes == null || _qrExpired
+                      ? null
+                      : _copyQrCode,
                 ),
               ] else if (method != null) ...[
                 const SectionHeader(
@@ -349,6 +393,14 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                 ),
               ),
             ],
+          ),
+          // Painted after the ListView so it stays on top for hit-testing.
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 8,
+            left: 20,
+            child: BackCircleButton(
+              onTap: () => context.popBack(AppRoutes.home),
+            ),
           ),
         ],
       ),
@@ -470,7 +522,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('ยกเลิกรายการจองเรียบร้อยแล้ว')),
     );
-    context.goBack(AppRoutes.home);
+    context.popBack(AppRoutes.home);
   }
 
   /// Called once polling observes the payment flip to `paid` — the backend
@@ -489,7 +541,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     if (!mounted) return;
     final booking = _booking;
     if (booking != null) {
-      context.goForward(AppRoutes.paymentSuccess, extra: booking);
+      context.pushForward(AppRoutes.paymentSuccess, extra: booking);
     }
   }
 
@@ -506,14 +558,14 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     LocalNotificationsService.scheduleBookingReminder(
       id: booking.id.hashCode,
       title: 'ใกล้ถึงเวลานัดหมายแล้ว',
-      body: '${booking.serviceTitle} สำหรับ ${booking.memberName} '
+      body:
+          '${booking.serviceTitle} สำหรับ ${booking.memberName} '
           'อีก 30 นาทีจะถึงเวลานัดหมาย',
       scheduledFor: booking.scheduledAt,
     ).catchError((Object e) {
       debugPrint('scheduleBookingReminder failed: $e');
     });
   }
-
 }
 
 class _PromptPayQrCard extends StatelessWidget {
@@ -522,6 +574,7 @@ class _PromptPayQrCard extends StatelessWidget {
     required this.reference,
     required this.countdownLabel,
     required this.isExpired,
+    required this.onCopy,
   });
 
   /// The real QR image PNG bytes from Beam — not a payload string, nothing
@@ -530,6 +583,10 @@ class _PromptPayQrCard extends StatelessWidget {
   final String reference;
   final String countdownLabel;
   final bool isExpired;
+
+  /// Null while there's nothing to copy yet (still loading) or once the QR
+  /// has expired.
+  final VoidCallback? onCopy;
 
   @override
   Widget build(BuildContext context) {
@@ -581,7 +638,9 @@ class _PromptPayQrCard extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                isExpired ? 'QR หมดอายุแล้ว กรุณาทำรายการใหม่' : 'QR หมดอายุใน $countdownLabel นาที',
+                isExpired
+                    ? 'QR หมดอายุแล้ว กรุณาทำรายการใหม่'
+                    : 'QR หมดอายุใน $countdownLabel',
                 style: textTheme.bodySmall?.copyWith(
                   color: AppColors.danger,
                   fontWeight: FontWeight.w700,
@@ -589,6 +648,14 @@ class _PromptPayQrCard extends StatelessWidget {
               ),
             ],
           ),
+          if (onCopy != null) ...[
+            const SizedBox(height: 10),
+            TextButton.icon(
+              onPressed: onCopy,
+              icon: const Icon(Icons.copy_rounded, size: 18),
+              label: const Text('คัดลอก QR code'),
+            ),
+          ],
         ],
       ),
     );

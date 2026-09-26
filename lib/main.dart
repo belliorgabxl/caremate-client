@@ -11,9 +11,5 @@ void main() {
   LocalNotificationsService.init();
   PushNotificationsService.init();
 
-  runApp(
-    const ProviderScope(
-      child: CareMateApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: CareMateApp()));
 }

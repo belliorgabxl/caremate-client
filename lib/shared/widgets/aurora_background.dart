@@ -71,7 +71,10 @@ class AuroraBackground extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: RadialGradient(
-            colors: [color.withValues(alpha: alpha), Colors.transparent],
+            colors: [
+              color.withValues(alpha: alpha),
+              Colors.transparent,
+            ],
           ),
         ),
       ),

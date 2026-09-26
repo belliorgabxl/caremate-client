@@ -41,7 +41,9 @@ class PushNotificationsService {
 
       _initialized = true;
     } catch (e) {
-      debugPrint('PushNotificationsService.init failed (Firebase not configured?): $e');
+      debugPrint(
+        'PushNotificationsService.init failed (Firebase not configured?): $e',
+      );
     }
   }
 
@@ -53,7 +55,9 @@ class PushNotificationsService {
   /// re-registers on token refresh.
   static Future<void> syncToken(ApiClient api) async {
     if (!_initialized) await init();
-    if (!_initialized) return; // Firebase genuinely unavailable — nothing to do.
+    if (!_initialized) {
+      return; // Firebase genuinely unavailable — nothing to do.
+    }
 
     try {
       final settings = await FirebaseMessaging.instance.requestPermission();
@@ -76,7 +80,9 @@ class PushNotificationsService {
         '/devices/register',
         data: {
           'token': token,
-          'platform': defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
+          'platform': defaultTargetPlatform == TargetPlatform.iOS
+              ? 'ios'
+              : 'android',
           'app': 'client_app',
         },
       );

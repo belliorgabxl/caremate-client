@@ -8,10 +8,12 @@ import '../../../../core/constants/app_radius.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/error_messages.dart';
 import '../../../../shared/models/user_profile.dart';
+import '../../../../shared/utils/confirm_dialogs.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/aurora_background.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/initials_avatar.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/section_header.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
@@ -73,8 +75,8 @@ const _menuItems = [
   _MenuItem(
     icon: Icons.payment_outlined,
     color: AppColors.info,
-    title: 'การชำระเงิน',
-    subtitle: 'ตรวจสอบสถานะการชำระเงินล่าสุด',
+    title: 'รายการที่รอชำระเงิน',
+    subtitle: 'มีรายการจองที่ยังไม่ได้ชำระเงินอยู่หรือไม่',
     route: AppRoutes.payment,
   ),
   _MenuItem(
@@ -90,13 +92,6 @@ const _menuItems = [
     title: 'ตั้งค่าความปลอดภัย',
     subtitle: 'จัดการความปลอดภัยของบัญชี',
     route: AppRoutes.profileSettings,
-  ),
-  _MenuItem(
-    icon: Icons.card_giftcard_outlined,
-    color: AppColors.serviceErrand,
-    title: 'ชวนเพื่อน',
-    subtitle: 'แชร์รหัสชวนเพื่อนและดูจำนวนคนที่ชวนมาแล้ว',
-    route: AppRoutes.referral,
   ),
   _MenuItem(
     icon: Icons.help_outline_rounded,
@@ -156,33 +151,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     }
   }
 
-  /// Mirrors `SettingsPage._confirmSignOutAllDevices` so both logout paths ask
-  /// the same way — this one used to sign the user out on a single stray tap.
   Future<void> _confirmLogout() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('ออกจากระบบ'),
-        content: const Text(
-          'คุณต้องการออกจากระบบใช่หรือไม่? คุณจะต้องเข้าสู่ระบบใหม่อีกครั้ง',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('ยกเลิก'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'ออกจากระบบ',
-              style: TextStyle(color: AppColors.danger),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
+    if (!await confirmLogout(context)) return;
     await ref.read(authControllerProvider).logout();
   }
 
@@ -240,7 +210,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           action: failure.offerSupport
               ? SnackBarAction(
                   label: 'ติดต่อฝ่ายสนับสนุน',
-                  onPressed: () => context.goForward(AppRoutes.helpCenter),
+                  onPressed: () => context.pushForward(AppRoutes.helpCenter),
                 )
               : null,
         ),
@@ -265,9 +235,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final profile = _profile;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('โปรไฟล์')),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const SizedBox.shrink()
           : _loadError != null
           ? ListView(
               padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
@@ -296,19 +265,21 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 RefreshIndicator(
                   onRefresh: _load,
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      MediaQuery.paddingOf(context).top + 12,
+                      20,
+                      110,
+                    ),
                     children: [
                       AppCard(
                         glass: true,
                         padding: const EdgeInsets.all(20),
                         child: Row(
                           children: [
-                            const CircleIconAvatar(
-                              icon: Icons.person,
-                              color: AppColors.primary,
-                              radius: 32,
-                              filled: true,
-                              iconSize: 34,
+                            InitialsAvatar(
+                              name: user?.displayName ?? '',
+                              size: 64,
                             ),
                             const SizedBox(width: 16),
                             Expanded(
@@ -393,7 +364,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         (item) => Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: AppCard(
-                            onTap: () => context.goForward(item.route),
+                            // `members` is a bottom-tab route (a tab switch,
+                            // not a sub-page) — everything else here is a
+                            // real drill-down that should return to this
+                            // exact list on back, not always jump to Home.
+                            onTap: () => item.route == AppRoutes.members
+                                ? context.goForward(item.route)
+                                : context.pushForward(item.route),
                             child: Row(
                               children: [
                                 CircleIconAvatar(

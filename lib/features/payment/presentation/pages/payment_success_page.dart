@@ -54,7 +54,7 @@ class PaymentSuccessPage extends StatelessWidget {
                   PrimaryButton(
                     label: 'ติดตามสถานะการจอง',
                     icon: Icons.track_changes_rounded,
-                    onPressed: () => context.goForward(
+                    onPressed: () => context.pushForward(
                       AppRoutes.bookingStatusPath(booking.id),
                       extra: booking,
                     ),

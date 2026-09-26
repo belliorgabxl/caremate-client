@@ -7,6 +7,7 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/aurora_background.dart';
+import '../../../../shared/widgets/back_circle_button.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../../shared/widgets/section_header.dart';
 
@@ -114,14 +115,6 @@ class HelpCenterPage extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text('ศูนย์ช่วยเหลือ'),
-        leading: BackButton(onPressed: () => context.goBack(AppRoutes.profile)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-      ),
       body: Stack(
         children: [
           const Positioned(
@@ -174,9 +167,9 @@ class HelpCenterPage extends StatelessWidget {
               AppCard(
                 padding: EdgeInsets.zero,
                 child: Theme(
-                  data: Theme.of(context).copyWith(
-                    dividerColor: Colors.transparent,
-                  ),
+                  data: Theme.of(
+                    context,
+                  ).copyWith(dividerColor: Colors.transparent),
                   child: Column(
                     children: [
                       for (var i = 0; i < _faqs.length; i++) ...[
@@ -283,6 +276,14 @@ class HelpCenterPage extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          // Painted after the ListView so it stays on top for hit-testing.
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 8,
+            left: 20,
+            child: BackCircleButton(
+              onTap: () => context.popBack(AppRoutes.profile),
+            ),
           ),
         ],
       ),

@@ -4,16 +4,16 @@ enum PaymentStatus { pending, paid, expired }
 
 extension PaymentStatusX on PaymentStatus {
   String get label => switch (this) {
-        PaymentStatus.pending => 'รอชำระ',
-        PaymentStatus.paid => 'ชำระแล้ว',
-        PaymentStatus.expired => 'หมดอายุ',
-      };
+    PaymentStatus.pending => 'รอชำระ',
+    PaymentStatus.paid => 'ชำระแล้ว',
+    PaymentStatus.expired => 'หมดอายุ',
+  };
 
   static PaymentStatus fromApi(String? value) => switch (value) {
-        'PAID' => PaymentStatus.paid,
-        'EXPIRED' => PaymentStatus.expired,
-        _ => PaymentStatus.pending,
-      };
+    'PAID' => PaymentStatus.paid,
+    'EXPIRED' => PaymentStatus.expired,
+    _ => PaymentStatus.pending,
+  };
 }
 
 // Keyed by the real `icon_name` values from `GET /payments/methods`
@@ -50,7 +50,9 @@ class PaymentMethod {
       slug: slug,
       title: json['name_th'] as String? ?? json['name_en'] as String? ?? slug,
       subtitle: json['name_en'] as String? ?? '',
-      icon: _paymentMethodIcons[json['icon_name'] as String? ?? slug] ?? Icons.payment_rounded,
+      icon:
+          _paymentMethodIcons[json['icon_name'] as String? ?? slug] ??
+          Icons.payment_rounded,
     );
   }
 }

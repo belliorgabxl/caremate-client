@@ -67,7 +67,9 @@ class CareService {
       slug: slug,
       title: json['name_th'] as String? ?? json['name_en'] as String? ?? slug,
       subtitle: json['name_en'] as String? ?? '',
-      icon: _iconsByName[json['icon_name'] as String? ?? slug] ?? Icons.medical_services_rounded,
+      icon:
+          _iconsByName[json['icon_name'] as String? ?? slug] ??
+          Icons.medical_services_rounded,
       color: AppColors.serviceColors[seq % AppColors.serviceColors.length],
       baseFeePerHour: (json['base_fee'] as num?)?.toDouble() ?? 0,
       // Per booking-flow.md §3.3: destination fields are required only when

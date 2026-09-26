@@ -11,6 +11,7 @@ import '../../../../core/utils/error_messages.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/aurora_background.dart';
+import '../../../../shared/widgets/back_circle_button.dart';
 import '../../../../shared/widgets/bank_logo_avatar.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/primary_button.dart';
@@ -110,52 +111,53 @@ class _BankAccountPageState extends ConsumerState<BankAccountPage> {
     if (!mounted) return;
     setState(() => _isSaving = false);
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('บันทึกบัญชีธนาคารเรียบร้อยแล้ว')));
-    context.goBack(AppRoutes.profile);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('บันทึกบัญชีธนาคารเรียบร้อยแล้ว')),
+    );
+    context.popBack(AppRoutes.profile);
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading || _loadError != null) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('บัญชีธนาคาร'),
-          leading: BackButton(onPressed: () => context.goBack(AppRoutes.profile)),
-        ),
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : ListView(
-                padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
-                children: [
-                  EmptyState(
-                    icon: Icons.error_outline_rounded,
-                    title: 'โหลดข้อมูลไม่สำเร็จ',
-                    message: _loadError!,
-                    action: PrimaryButton(
-                      label: 'ลองอีกครั้ง',
-                      icon: Icons.refresh_rounded,
-                      expanded: false,
-                      onPressed: _load,
+        body: Stack(
+          children: [
+            SafeArea(
+              child: _isLoading
+                  ? const SizedBox.shrink()
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
+                      children: [
+                        EmptyState(
+                          icon: Icons.error_outline_rounded,
+                          title: 'โหลดข้อมูลไม่สำเร็จ',
+                          message: _loadError!,
+                          action: PrimaryButton(
+                            label: 'ลองอีกครั้ง',
+                            icon: Icons.refresh_rounded,
+                            expanded: false,
+                            onPressed: _load,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+            ),
+            Positioned(
+              top: MediaQuery.paddingOf(context).top + 8,
+              left: 20,
+              child: BackCircleButton(
+                onTap: () => context.popBack(AppRoutes.profile),
               ),
+            ),
+          ],
+        ),
       );
     }
 
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text('บัญชีธนาคาร'),
-        leading: BackButton(onPressed: () => context.goBack(AppRoutes.profile)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-      ),
       body: Stack(
         children: [
           const Positioned(
@@ -175,7 +177,7 @@ class _BankAccountPageState extends ConsumerState<BankAccountPage> {
               ),
               children: [
                 const SectionHeader(
-                  title: 'บัญชีธนาคารสำหรับคืนเงิน',
+                  title: 'บัญชีธนาคารของผู้ใช้',
                   subtitle:
                       'จำเป็นสำหรับการคืนเงินในกรณีที่ระบบไม่สามารถคืนเงินอัตโนมัติได้',
                   icon: Icons.account_balance_outlined,
@@ -295,6 +297,17 @@ class _BankAccountPageState extends ConsumerState<BankAccountPage> {
                   onPressed: _isSaving ? null : _save,
                 ),
               ],
+            ),
+          ),
+          // Painted after the Form/ListView so it stays on top for
+          // hit-testing — listed before it, the ListView's own (invisible)
+          // top padding sat above it in the Stack and swallowed the tap,
+          // making this back button silently do nothing.
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 8,
+            left: 20,
+            child: BackCircleButton(
+              onTap: () => context.popBack(AppRoutes.profile),
             ),
           ),
         ],

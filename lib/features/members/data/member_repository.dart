@@ -9,7 +9,8 @@ class MaxRelativesReachedException implements Exception {
   const MaxRelativesReachedException();
 
   @override
-  String toString() => 'สามารถเพิ่มสมาชิกที่ดูแลได้สูงสุด ${AppConfig.maxRelatives} คน';
+  String toString() =>
+      'สามารถเพิ่มสมาชิกที่ดูแลได้สูงสุด ${AppConfig.maxRelatives} คน';
 }
 
 class MemberRepository {
@@ -54,22 +55,25 @@ class MemberRepository {
     final dateOfBirthIso = approxDateOfBirth.toIso8601String().split('T').first;
 
     try {
-      final response = await _api.dio.post('/user-relatives', data: {
-        'firstName': firstName.trim(),
-        'lastName': lastName.trim(),
-        'phone': phone,
-        'email': null,
-        'dateOfBirth': dateOfBirthIso,
-        'gender': gender,
-        'registerAs': null,
-        'addressLine': null,
-        'province': null,
-        'emergencyContactName': null,
-        'emergencyContactPhone': null,
-        'careNote': careNote,
-        'relationship': relationship,
-        'isDefault': false,
-      });
+      final response = await _api.dio.post(
+        '/user-relatives',
+        data: {
+          'firstName': firstName.trim(),
+          'lastName': lastName.trim(),
+          'phone': phone,
+          'email': null,
+          'dateOfBirth': dateOfBirthIso,
+          'gender': gender,
+          'registerAs': null,
+          'addressLine': null,
+          'province': null,
+          'emergencyContactName': null,
+          'emergencyContactPhone': null,
+          'careNote': careNote,
+          'relationship': relationship,
+          'isDefault': false,
+        },
+      );
       final data = _api.unwrap(response.data) as Map<String, dynamic>;
 
       // `POST /user-relatives` (CreateUserRelativeRequest) has no nickname/
@@ -79,11 +83,14 @@ class MemberRepository {
       // as NULL in `user_informations`.
       final createdId = data['id'] as String?;
       if (createdId != null) {
-        await _api.dio.patch('/user-relatives/$createdId', data: {
-          'nickname': nickname,
-          'bloodType': bloodType,
-          'dateOfBirth': dateOfBirthIso,
-        });
+        await _api.dio.patch(
+          '/user-relatives/$createdId',
+          data: {
+            'nickname': nickname,
+            'bloodType': bloodType,
+            'dateOfBirth': dateOfBirthIso,
+          },
+        );
       }
 
       return CareMember.fromJson(data, seq: current.length);
@@ -108,17 +115,20 @@ class MemberRepository {
     final approxDateOfBirth = DateTime(now.year - age, now.month, now.day);
 
     try {
-      await _api.dio.patch('/user-relatives/$id', data: {
-        'firstName': firstName.trim(),
-        'lastName': lastName.trim(),
-        'nickname': nickname,
-        'relationship': relationship,
-        'phone': phone,
-        'dateOfBirth': approxDateOfBirth.toIso8601String().split('T').first,
-        'gender': gender,
-        'bloodType': bloodType,
-        'careNote': careNote,
-      });
+      await _api.dio.patch(
+        '/user-relatives/$id',
+        data: {
+          'firstName': firstName.trim(),
+          'lastName': lastName.trim(),
+          'nickname': nickname,
+          'relationship': relationship,
+          'phone': phone,
+          'dateOfBirth': approxDateOfBirth.toIso8601String().split('T').first,
+          'gender': gender,
+          'bloodType': bloodType,
+          'careNote': careNote,
+        },
+      );
     } on DioException catch (e) {
       _api.throwApiException(e);
     }
@@ -137,35 +147,41 @@ class MemberRepository {
   Future<void> setDefault(String id) async {
     try {
       final detailResponse = await _api.dio.get('/user-relatives/$id');
-      final unwrapped = _api.unwrap(detailResponse.data) as Map<String, dynamic>;
-      final detail = (unwrapped['relative'] as Map<String, dynamic>?) ?? unwrapped;
+      final unwrapped =
+          _api.unwrap(detailResponse.data) as Map<String, dynamic>;
+      final detail =
+          (unwrapped['relative'] as Map<String, dynamic>?) ?? unwrapped;
 
-      await _api.dio.patch('/user-relatives/$id', data: {
-        'firstName': detail['firstName'],
-        'lastName': detail['lastName'],
-        'phone': detail['phone'],
-        'email': detail['email'],
-        'dateOfBirth': detail['dateOfBirth'],
-        'gender': detail['gender'],
-        'registerAs': null,
-        'relationship': detail['relationship'],
-        'addressLine': detail['addressLine'],
-        'subdistrict': detail['subdistrict'],
-        'district': detail['district'],
-        'province': detail['province'],
-        'latitude': (detail['latitude'] as num?)?.toDouble() ?? 0,
-        'longitude': (detail['longitude'] as num?)?.toDouble() ?? 0,
-        'postalCode': detail['postalCode'],
-        'emergencyContactName': detail['emergencyContactName'],
-        'emergencyContactPhone': detail['emergencyContactPhone'],
-        'emergencyContactRelationship': detail['emergencyContactRelationship'],
-        'bloodType': detail['bloodType'],
-        'allergies': detail['allergies'],
-        'congenitalDiseases': detail['congenitalDiseases'],
-        'currentMedications': detail['currentMedications'],
-        'careNote': detail['careNote'],
-        'isDefault': true,
-      });
+      await _api.dio.patch(
+        '/user-relatives/$id',
+        data: {
+          'firstName': detail['firstName'],
+          'lastName': detail['lastName'],
+          'phone': detail['phone'],
+          'email': detail['email'],
+          'dateOfBirth': detail['dateOfBirth'],
+          'gender': detail['gender'],
+          'registerAs': null,
+          'relationship': detail['relationship'],
+          'addressLine': detail['addressLine'],
+          'subdistrict': detail['subdistrict'],
+          'district': detail['district'],
+          'province': detail['province'],
+          'latitude': (detail['latitude'] as num?)?.toDouble() ?? 0,
+          'longitude': (detail['longitude'] as num?)?.toDouble() ?? 0,
+          'postalCode': detail['postalCode'],
+          'emergencyContactName': detail['emergencyContactName'],
+          'emergencyContactPhone': detail['emergencyContactPhone'],
+          'emergencyContactRelationship':
+              detail['emergencyContactRelationship'],
+          'bloodType': detail['bloodType'],
+          'allergies': detail['allergies'],
+          'congenitalDiseases': detail['congenitalDiseases'],
+          'currentMedications': detail['currentMedications'],
+          'careNote': detail['careNote'],
+          'isDefault': true,
+        },
+      );
     } on DioException catch (e) {
       _api.throwApiException(e);
     }

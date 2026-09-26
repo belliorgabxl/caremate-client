@@ -22,7 +22,8 @@ class NotificationItem {
   bool get isRead => readAt != null;
 
   factory NotificationItem.fromJson(Map<String, dynamic> json) {
-    final createdRaw = pickField(json, const ['created_at', 'createdAt']) as String?;
+    final createdRaw =
+        pickField(json, const ['created_at', 'createdAt']) as String?;
     final readRaw = pickField(json, const ['read_at', 'readAt']) as String?;
 
     return NotificationItem(

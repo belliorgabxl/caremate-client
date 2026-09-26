@@ -1,9 +1,5 @@
 class Address {
-  const Address({
-    required this.addressLine,
-    this.latitude,
-    this.longitude,
-  });
+  const Address({required this.addressLine, this.latitude, this.longitude});
 
   final String addressLine;
   final double? latitude;
@@ -16,7 +12,9 @@ class Address {
   /// still force the user through the map picker rather than silently
   /// passing this gate.
   bool get hasCoordinates =>
-      latitude != null && longitude != null && (latitude != 0 || longitude != 0);
+      latitude != null &&
+      longitude != null &&
+      (latitude != 0 || longitude != 0);
 
   Address copyWith({String? addressLine, double? latitude, double? longitude}) {
     return Address(

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/router/booking_wizard_dirty.dart';
@@ -143,8 +144,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   double get _estimatedDistanceKm {
     final pickup = _pickupLocation;
     final destination = _destinationLocation;
-    if (pickup?.hasCoordinates != true || destination?.hasCoordinates != true)
+    if (pickup?.hasCoordinates != true || destination?.hasCoordinates != true) {
       return 0;
+    }
 
     const earthRadiusKm = 6371.0;
     final lat1 = pickup!.latitude! * math.pi / 180;
@@ -203,7 +205,19 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       );
       if (!mounted) return;
       if (!saved) {
-        context.goForward(AppRoutes.home);
+        // The user may already have tapped away to a different bottom tab
+        // while this sheet was pending — `showModalBottomSheet` attaches to
+        // the shell's own inner Navigator, not the outer one the bottom nav
+        // lives in, so that tap isn't blocked by the sheet the way it looks.
+        // `mounted` alone doesn't catch this (this State can still be
+        // mounted when the callback resumes), so also check we're still
+        // actually showing the booking route before yanking the user back
+        // to Home out from under whatever tab they've since switched to.
+        if (GoRouterState.of(
+          context,
+        ).uri.toString().startsWith(AppRoutes.booking)) {
+          context.goForward(AppRoutes.home);
+        }
         return;
       }
     }
@@ -284,36 +298,34 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('จองบริการ')),
-        body: const Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: SafeArea(child: SizedBox.shrink()));
     }
 
     final loadError = _loadError;
     if (loadError != null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('จองบริการ')),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.wifi_off_rounded,
-                  size: 40,
-                  color: AppColors.textSecondary,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  loadError,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 16),
-                PrimaryButton(label: 'ลองใหม่', onPressed: _load),
-              ],
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.wifi_off_rounded,
+                    size: 40,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    loadError,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  PrimaryButton(label: 'ลองใหม่', onPressed: _load),
+                ],
+              ),
             ),
           ),
         ),
@@ -321,17 +333,13 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     }
 
     if (_members.isEmpty) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Booking')),
-        body: _buildNoMemberGate(),
-      );
+      return Scaffold(body: _buildNoMemberGate());
     }
 
     final service = _selectedService;
     final member = _selectedMember;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('จองบริการ')),
       bottomNavigationBar: _buildBottomBar(),
       body: Stack(
         children: [
@@ -343,16 +351,19 @@ class _BookingPageState extends ConsumerState<BookingPage> {
           ),
           Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                child: Column(
-                  children: [
-                    if (_currentStep == 0) ...[
-                      _buildHeroCard(),
-                      const SizedBox(height: 10),
+              SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                  child: Column(
+                    children: [
+                      if (_currentStep == 0) ...[
+                        _buildHeroCard(),
+                        const SizedBox(height: 10),
+                      ],
+                      _buildStepProgress(),
                     ],
-                    _buildStepProgress(),
-                  ],
+                  ),
                 ),
               ),
               const SizedBox(height: 18),
@@ -392,7 +403,12 @@ class _BookingPageState extends ConsumerState<BookingPage> {
           child: AuroraBackground(height: 340),
         ),
         ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            MediaQuery.paddingOf(context).top + 8,
+            20,
+            32,
+          ),
           children: [
             _buildHeroCard(),
             const SizedBox(height: 16),
@@ -448,30 +464,17 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     return AppCard(
       glass: true,
       padding: const EdgeInsets.all(20),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              for (var i = 0; i < _stepLabels.length; i++) ...[
-                _MiniStep(
-                  number: '${i + 1}',
-                  label: _stepLabels[i],
-                  active: i <= _currentStep,
-                ),
-                if (i != _stepLabels.length - 1)
-                  _StepLine(active: i < _currentStep),
-              ],
-            ],
-          ),
-          const SizedBox(height: 14),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-            child: LinearProgressIndicator(
-              value: (_currentStep + 1) / _stepLabels.length,
-              minHeight: 8,
-              backgroundColor: AppColors.surfaceAlt,
+          for (var i = 0; i < _stepLabels.length; i++) ...[
+            _MiniStep(
+              number: '${i + 1}',
+              label: _stepLabels[i],
+              active: i <= _currentStep,
             ),
-          ),
+            if (i != _stepLabels.length - 1)
+              _StepLine(active: i < _currentStep),
+          ],
         ],
       ),
     );
@@ -580,29 +583,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
             _buildPromptPayWarningBanner(),
             const SizedBox(height: 12),
           ],
-          if (service != null && member != null) ...[
-            _ConfirmTile(
-              icon: service.icon,
-              color: service.color,
-              title: service.title,
-              subtitle:
-                  '฿${_estimatedFee.toStringAsFixed(0)} • $_selectedDurationMinutes นาที',
-            ),
-            _ConfirmTile(
-              icon: member.icon,
-              color: member.color,
-              title: member.fullName,
-              subtitle: '${member.relationship} • ${member.age} ปี',
-            ),
-            _ConfirmTile(
-              icon: Icons.schedule_rounded,
-              color: AppColors.primary,
-              title: '${_formatDate(_selectedDate)} เวลา $_startTime-$_endTime',
-              subtitle: 'เวลานัดหมาย',
-            ),
-            const SizedBox(height: 12),
-            _buildSummaryCard(service, member),
-          ] else
+          if (service != null && member != null)
+            _buildSummaryCard(service, member)
+          else
             const AppCard(
               child: Text('กรุณาเลือกบริการและผู้รับบริการให้ครบก่อน'),
             ),
@@ -962,31 +945,36 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       padding: const EdgeInsets.all(18),
       child: Column(
         children: [
+          _SummaryEntityRow(
+            icon: service.icon,
+            color: service.color,
+            title: service.title,
+            subtitle: '$_selectedDurationMinutes นาที',
+          ),
+          const Divider(height: 28),
+          _SummaryEntityRow(
+            icon: member.icon,
+            color: member.color,
+            title: member.fullName,
+            subtitle: '${member.relationship} • ${member.age} ปี',
+          ),
+          const Divider(height: 28),
+          _SummaryEntityRow(
+            icon: Icons.schedule_rounded,
+            color: AppColors.primary,
+            title: '${_formatDate(_selectedDate)} เวลา $_startTime-$_endTime',
+            subtitle: 'เวลานัดหมาย',
+          ),
+          if (service.requiresDestination) ...[
+            const Divider(height: 28),
+            _SummaryRow(
+              label: 'ระยะทาง',
+              value: '${_estimatedDistanceKm.toStringAsFixed(1)} กม.',
+            ),
+          ],
+          const Divider(height: 28),
           Row(
-            children: [
-              Icon(Icons.receipt_long_rounded, color: service.color),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text('สรุปรายการจอง', style: textTheme.titleMedium),
-              ),
-              StatusBadge(text: 'Estimate', color: service.color),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _SummaryRow(label: 'บริการ', value: service.title),
-          _SummaryRow(label: 'ผู้รับบริการ', value: member.fullName),
-          _SummaryRow(
-            label: 'วันเวลา',
-            value: '${_formatDate(_selectedDate)} $_startTime-$_endTime',
-          ),
-          _SummaryRow(
-            label: 'ระยะทาง',
-            value: service.requiresDestination
-                ? '${_estimatedDistanceKm.toStringAsFixed(1)} กม.'
-                : '-',
-          ),
-          const Divider(height: 24),
-          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
                 'ยอดชำระโดยประมาณ',
@@ -995,6 +983,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                 ),
               ),
               const Spacer(),
+              StatusBadge(text: 'ประมาณการ', color: service.color),
+              const SizedBox(width: 8),
               Text(
                 '฿${_estimatedFee.toStringAsFixed(0)}',
                 style: textTheme.headlineMedium?.copyWith(color: service.color),
@@ -1261,7 +1251,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('สร้างรายการจองสำเร็จ กรุณาชำระเงิน')),
     );
-    context.goForward(AppRoutes.payment);
+    context.pushForward(AppRoutes.payment);
   }
 
   String _formatDate(DateTime date) {
@@ -1432,8 +1422,11 @@ class _SummaryRow extends StatelessWidget {
   }
 }
 
-class _ConfirmTile extends StatelessWidget {
-  const _ConfirmTile({
+/// A compact icon+title+subtitle row for inside [AppCard] — separated from
+/// its neighbors by a `Divider`, not its own boxed background, so several
+/// can sit in one card without stacking into repeated same-shape tiles.
+class _SummaryEntityRow extends StatelessWidget {
+  const _SummaryEntityRow({
     required this.icon,
     required this.color,
     required this.title,
@@ -1449,34 +1442,26 @@ class _ConfirmTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceAlt,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      child: Row(
-        children: [
-          CircleIconAvatar(icon: icon, color: color),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: textTheme.titleSmall,
-                ),
-                const SizedBox(height: 3),
-                Text(subtitle, style: textTheme.bodySmall),
-              ],
-            ),
+    return Row(
+      children: [
+        CircleIconAvatar(icon: icon, color: color),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.titleSmall,
+              ),
+              const SizedBox(height: 3),
+              Text(subtitle, style: textTheme.bodySmall),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

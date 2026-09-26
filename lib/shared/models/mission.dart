@@ -3,7 +3,11 @@ import 'booking.dart';
 /// `GET /bookings/:bookingId/mission` response — `mission`/`partner` are
 /// null until the booking reaches `MATCHED` / `IN_PROGRESS`.
 class BookingMissionDetail {
-  const BookingMissionDetail({required this.booking, this.mission, this.partner});
+  const BookingMissionDetail({
+    required this.booking,
+    this.mission,
+    this.partner,
+  });
 
   final Booking booking;
   final Mission? mission;
@@ -84,7 +88,9 @@ class MissionCheckpoint {
       labelTh: json['label_th'] as String? ?? '',
       labelEn: json['label_en'] as String? ?? '',
       notes: json['notes'] as String? ?? '',
-      completedAt: completedRaw == null ? null : DateTime.tryParse(completedRaw),
+      completedAt: completedRaw == null
+          ? null
+          : DateTime.tryParse(completedRaw),
       photoUrl: (photoUrl == null || photoUrl.isEmpty) ? null : photoUrl,
     );
   }
@@ -120,10 +126,13 @@ class Mission {
       partnerId: json['partner_id'] as String? ?? '',
       status: json['status'] as String? ?? '',
       checkpoints: [
-        for (final c in checkpointsJson) MissionCheckpoint.fromJson(c as Map<String, dynamic>),
+        for (final c in checkpointsJson)
+          MissionCheckpoint.fromJson(c as Map<String, dynamic>),
       ],
       startedAt: startedRaw == null ? null : DateTime.tryParse(startedRaw),
-      completedAt: completedRaw == null ? null : DateTime.tryParse(completedRaw),
+      completedAt: completedRaw == null
+          ? null
+          : DateTime.tryParse(completedRaw),
     );
   }
 }

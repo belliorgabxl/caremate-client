@@ -17,11 +17,12 @@ class BannerRepository {
       final items = unwrapped is List
           ? unwrapped
           : (unwrapped is Map<String, dynamic>
-              ? (unwrapped['banners'] as List<dynamic>? ?? const [])
-              : const []);
+                ? (unwrapped['banners'] as List<dynamic>? ?? const [])
+                : const []);
 
       return [
-        for (final item in items) BannerItem.fromJson(item as Map<String, dynamic>),
+        for (final item in items)
+          BannerItem.fromJson(item as Map<String, dynamic>),
       ];
     } on DioException catch (e) {
       _api.throwApiException(e);

@@ -13,6 +13,7 @@ import '../../../../core/storage/local_storage.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/aurora_background.dart';
 import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/back_circle_button.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../controllers/auth_controller.dart';
@@ -165,14 +166,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text('สมัครสมาชิก'),
-        leading: BackButton(onPressed: () => context.goBack(AppRoutes.login)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-      ),
       body: Stack(
         children: [
           const Positioned(
@@ -324,12 +317,14 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                         prefixIcon: Icons.email_outlined,
                         keyboardType: TextInputType.emailAddress,
                         validator: (v) {
-                          if (v == null || v.trim().isEmpty)
+                          if (v == null || v.trim().isEmpty) {
                             return 'กรุณากรอกอีเมล';
+                          }
                           if (!RegExp(
                             r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
-                          ).hasMatch(v.trim()))
+                          ).hasMatch(v.trim())) {
                             return 'อีเมลไม่ถูกต้อง';
+                          }
                           return null;
                         },
                       ),
@@ -363,6 +358,16 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   ),
                 ],
               ],
+            ),
+          ),
+          // Painted after the ListView so it stays on top for hit-testing —
+          // listed before it, the ListView's own (invisible) top padding
+          // would otherwise sit above it in the Stack and swallow the tap.
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 8,
+            left: 20,
+            child: BackCircleButton(
+              onTap: () => context.goBack(AppRoutes.login),
             ),
           ),
         ],

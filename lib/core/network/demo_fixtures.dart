@@ -187,8 +187,6 @@ List<Map<String, dynamic>> demoNotifications() => [
   },
 ];
 
-Map<String, dynamic> demoReferral() => {'code': 'DEMO2026', 'totalReferred': 3};
-
 /// 1x1 transparent PNG, base64-encoded — stands in for Beam's real QR image
 /// (a reviewer can't scan a PromptPay QR against a live bank anyway; the
 /// charge auto-confirms itself shortly after, see `DemoBackend`).

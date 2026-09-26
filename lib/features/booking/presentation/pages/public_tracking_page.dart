@@ -29,8 +29,7 @@ class PublicTrackingPage extends ConsumerStatefulWidget {
   final String token;
 
   @override
-  ConsumerState<PublicTrackingPage> createState() =>
-      _PublicTrackingPageState();
+  ConsumerState<PublicTrackingPage> createState() => _PublicTrackingPageState();
 }
 
 class _PublicTrackingPageState extends ConsumerState<PublicTrackingPage> {
@@ -84,9 +83,8 @@ class _PublicTrackingPageState extends ConsumerState<PublicTrackingPage> {
     // Mirrors BookingStatusPage's own polling cadence — only worth refreshing
     // while a partner might actually be moving.
     final interval = switch (status) {
-      BookingStatus.matched || BookingStatus.inProgress => const Duration(
-        seconds: 20,
-      ),
+      BookingStatus.matched ||
+      BookingStatus.inProgress => const Duration(seconds: 20),
       _ => null,
     };
 
@@ -103,7 +101,7 @@ class _PublicTrackingPageState extends ConsumerState<PublicTrackingPage> {
       ),
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? const SizedBox.shrink()
             : _notFound
             ? Center(
                 child: Padding(
@@ -122,7 +120,8 @@ class _PublicTrackingPageState extends ConsumerState<PublicTrackingPage> {
 
   Widget _buildContent(PublicTracking tracking) {
     final textTheme = Theme.of(context).textTheme;
-    final hasLocation = tracking.partnerLat != null && tracking.partnerLng != null;
+    final hasLocation =
+        tracking.partnerLat != null && tracking.partnerLng != null;
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -194,7 +193,8 @@ class _PublicTrackingPageState extends ConsumerState<PublicTrackingPage> {
             ),
             const SizedBox(height: 16),
           ],
-          if (tracking.pickupAddress != null || tracking.destinationAddress != null)
+          if (tracking.pickupAddress != null ||
+              tracking.destinationAddress != null)
             AppCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

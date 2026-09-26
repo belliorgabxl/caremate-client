@@ -40,14 +40,20 @@ class _SplashPageState extends ConsumerState<SplashPage> {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(28),
-                  child: Image.asset('assets/images/app_icon.png', width: 112, height: 112),
+                  child: Image.asset(
+                    'assets/images/app_icon.png',
+                    width: 112,
+                    height: 112,
+                  ),
                 ),
                 const SizedBox(height: 24),
                 Text('CareMate', style: textTheme.displayMedium),
                 const SizedBox(height: 8),
                 Text(
                   'ดูแลคนที่คุณรัก ทุกที่ทุกเวลา',
-                  style: textTheme.bodyLarge?.copyWith(color: AppColors.textSecondary),
+                  style: textTheme.bodyLarge?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: 32),
                 const CircularProgressIndicator(),

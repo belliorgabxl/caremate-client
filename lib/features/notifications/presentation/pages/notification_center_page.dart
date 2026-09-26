@@ -9,6 +9,7 @@ import '../../../../core/services/app_badge_service.dart';
 import '../../../../core/utils/error_messages.dart';
 import '../../../../shared/models/notification_item.dart';
 import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/back_circle_button.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/primary_button.dart';
@@ -83,9 +84,7 @@ class _NotificationCenterPageState
               n,
         ];
       });
-      await AppBadgeService.setCount(
-        _items.where((n) => !n.isRead).length,
-      );
+      await AppBadgeService.setCount(_items.where((n) => !n.isRead).length);
     } on ApiException catch (_) {
       // Best-effort — a failed mark-read isn't worth surfacing an error for.
     }
@@ -93,8 +92,18 @@ class _NotificationCenterPageState
 
   String _formatDateTime(DateTime dateTime) {
     const months = [
-      'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
-      'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.',
+      'ม.ค.',
+      'ก.พ.',
+      'มี.ค.',
+      'เม.ย.',
+      'พ.ค.',
+      'มิ.ย.',
+      'ก.ค.',
+      'ส.ค.',
+      'ก.ย.',
+      'ต.ค.',
+      'พ.ย.',
+      'ธ.ค.',
     ];
     final h = dateTime.hour.toString().padLeft(2, '0');
     final m = dateTime.minute.toString().padLeft(2, '0');
@@ -105,104 +114,119 @@ class _NotificationCenterPageState
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
+    final topInset = MediaQuery.paddingOf(context).top + 60;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('การแจ้งเตือน'),
-        leading: BackButton(onPressed: () => context.goBack(AppRoutes.home)),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? ListView(
-              padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
-              children: [
-                EmptyState(
-                  icon: Icons.error_outline_rounded,
-                  title: 'โหลดข้อมูลไม่สำเร็จ',
-                  message: _error!,
-                  action: PrimaryButton(
-                    label: 'ลองอีกครั้ง',
-                    icon: Icons.refresh_rounded,
-                    expanded: false,
-                    onPressed: _load,
-                  ),
-                ),
-              ],
-            )
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: _items.isEmpty
-                  ? ListView(
-                      padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
-                      children: const [
-                        EmptyState(
-                          icon: Icons.notifications_none_rounded,
-                          title: 'ยังไม่มีการแจ้งเตือน',
-                          message: 'เมื่อมีความเคลื่อนไหวเกี่ยวกับการจองของคุณ จะแสดงที่นี่',
-                        ),
-                      ],
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                      itemCount: _items.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final item = _items[index];
-                        return AppCard(
-                          onTap: () => _markRead(item),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              CircleIconAvatar(
-                                icon: Icons.notifications_rounded,
-                                color: item.isRead
-                                    ? AppColors.textTertiary
-                                    : AppColors.primary,
-                                radius: 20,
-                                filled: !item.isRead,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      item.title,
-                                      style: textTheme.titleSmall?.copyWith(
-                                        fontWeight: item.isRead
-                                            ? FontWeight.w500
-                                            : FontWeight.w700,
-                                      ),
+      body: Stack(
+        children: [
+          _isLoading
+              ? const SizedBox.shrink()
+              : _error != null
+              ? ListView(
+                  padding: EdgeInsets.fromLTRB(20, topInset, 20, 32),
+                  children: [
+                    EmptyState(
+                      icon: Icons.error_outline_rounded,
+                      title: 'โหลดข้อมูลไม่สำเร็จ',
+                      message: _error!,
+                      action: PrimaryButton(
+                        label: 'ลองอีกครั้ง',
+                        icon: Icons.refresh_rounded,
+                        expanded: false,
+                        onPressed: _load,
+                      ),
+                    ),
+                  ],
+                )
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: _items.isEmpty
+                      ? ListView(
+                          padding: EdgeInsets.fromLTRB(20, topInset, 20, 32),
+                          children: const [
+                            EmptyState(
+                              icon: Icons.notifications_none_rounded,
+                              title: 'ยังไม่มีการแจ้งเตือน',
+                              message:
+                                  'เมื่อมีความเคลื่อนไหวเกี่ยวกับการจองของคุณ จะแสดงที่นี่',
+                            ),
+                          ],
+                        )
+                      : ListView.separated(
+                          padding: EdgeInsets.fromLTRB(16, topInset, 16, 32),
+                          itemCount: _items.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final item = _items[index];
+                            return AppCard(
+                              onTap: () => _markRead(item),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  CircleIconAvatar(
+                                    icon: Icons.notifications_rounded,
+                                    color: item.isRead
+                                        ? AppColors.textTertiary
+                                        : AppColors.primary,
+                                    radius: 20,
+                                    filled: !item.isRead,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item.title,
+                                          style: textTheme.titleSmall?.copyWith(
+                                            fontWeight: item.isRead
+                                                ? FontWeight.w500
+                                                : FontWeight.w700,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          item.body,
+                                          style: textTheme.bodySmall,
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          _formatDateTime(item.createdAt),
+                                          style: textTheme.bodySmall?.copyWith(
+                                            color: AppColors.textTertiary,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(item.body, style: textTheme.bodySmall),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      _formatDateTime(item.createdAt),
-                                      style: textTheme.bodySmall?.copyWith(
-                                        color: AppColors.textTertiary,
+                                  ),
+                                  if (!item.isRead) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: const BoxDecoration(
+                                        color: AppColors.primary,
+                                        shape: BoxShape.circle,
                                       ),
                                     ),
                                   ],
-                                ),
+                                ],
                               ),
-                              if (!item.isRead) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(
-                                    color: AppColors.primary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+                            );
+                          },
+                        ),
+                ),
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 8,
+            left: 20,
+            child: BackCircleButton(
+              onTap: () => context.popBack(AppRoutes.home),
             ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -21,6 +21,16 @@ class BankAccountRequiredSheet {
   }) async {
     final saved = await showModalBottomSheet<bool>(
       context: context,
+      // `BookingPage` renders inside the bottom-tab shell's own nested
+      // Navigator, which sits *under* `MainScaffold`'s outer
+      // `bottomNavigationBar` in paint order — the default (nearest)
+      // Navigator would show this sheet only within that inner body area,
+      // leaving the floating nav pill visibly poking through on top of it
+      // instead of the sheet covering the whole screen the way a required,
+      // non-dismissible gate should. The root Navigator sits above
+      // `MainScaffold` entirely, so the sheet (and its barrier) covers the
+      // nav bar too.
+      useRootNavigator: true,
       isScrollControlled: true,
       useSafeArea: true,
       isDismissible: false,

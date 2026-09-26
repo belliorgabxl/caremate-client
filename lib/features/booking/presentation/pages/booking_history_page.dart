@@ -11,6 +11,7 @@ import '../../../../shared/models/address.dart';
 import '../../../../shared/models/booking.dart';
 import '../../../../shared/models/booking_prefill.dart';
 import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/back_circle_button.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/primary_button.dart';
@@ -108,168 +109,186 @@ class _BookingHistoryPageState extends ConsumerState<BookingHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('ประวัติการจอง'),
-        leading: BackButton(onPressed: () => context.goBack(AppRoutes.profile)),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: _error != null
-                  ? ListView(
-                      padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
-                      children: [
-                        EmptyState(
-                          icon: Icons.error_outline_rounded,
-                          title: 'โหลดประวัติการจองไม่สำเร็จ',
-                          message: _error!,
-                          action: PrimaryButton(
-                            label: 'ลองอีกครั้ง',
-                            icon: Icons.refresh_rounded,
-                            expanded: false,
-                            onPressed: _load,
-                          ),
-                        ),
-                      ],
-                    )
-                  : _bookings.isEmpty
-                  ? ListView(
-                      padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
-                      children: [
-                        EmptyState(
-                          icon: Icons.receipt_long_rounded,
-                          title: 'ยังไม่มีประวัติการจอง',
-                          message: 'เมื่อคุณจองบริการ รายการจะแสดงที่นี่',
-                          action: PrimaryButton(
-                            label: 'จองบริการ',
-                            icon: Icons.add,
-                            expanded: false,
-                            onPressed: () =>
-                                context.goForward(AppRoutes.booking),
-                          ),
-                        ),
-                      ],
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-                      itemCount: _bookings.length,
-                      separatorBuilder: (context, _) =>
-                          const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final booking = _bookings[index];
-                        final textTheme = Theme.of(context).textTheme;
+    final topInset = MediaQuery.paddingOf(context).top + 60;
 
-                        return AppCard(
-                          onTap: () => context.goForward(
-                            AppRoutes.bookingStatusPath(booking.id),
-                            extra: booking,
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              CircleIconAvatar(
-                                icon: booking.serviceIcon,
-                                color: booking.serviceColor,
-                                radius: 24,
+    return Scaffold(
+      body: Stack(
+        children: [
+          _isLoading
+              ? const SizedBox.shrink()
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: _error != null
+                      ? ListView(
+                          padding: EdgeInsets.fromLTRB(20, topInset, 20, 32),
+                          children: [
+                            EmptyState(
+                              icon: Icons.error_outline_rounded,
+                              title: 'โหลดประวัติการจองไม่สำเร็จ',
+                              message: _error!,
+                              action: PrimaryButton(
+                                label: 'ลองอีกครั้ง',
+                                icon: Icons.refresh_rounded,
+                                expanded: false,
+                                onPressed: _load,
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
+                            ),
+                          ],
+                        )
+                      : _bookings.isEmpty
+                      ? ListView(
+                          padding: EdgeInsets.fromLTRB(20, topInset, 20, 32),
+                          children: [
+                            EmptyState(
+                              icon: Icons.receipt_long_rounded,
+                              title: 'ยังไม่มีประวัติการจอง',
+                              message: 'เมื่อคุณจองบริการ รายการจะแสดงที่นี่',
+                              action: PrimaryButton(
+                                label: 'จองบริการ',
+                                icon: Icons.add,
+                                expanded: false,
+                                onPressed: () =>
+                                    context.goForward(AppRoutes.booking),
+                              ),
+                            ),
+                          ],
+                        )
+                      : ListView.separated(
+                          padding: EdgeInsets.fromLTRB(20, topInset, 20, 32),
+                          itemCount: _bookings.length,
+                          separatorBuilder: (context, _) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final booking = _bookings[index];
+                            final textTheme = Theme.of(context).textTheme;
+
+                            return AppCard(
+                              onTap: () => context.pushForward(
+                                AppRoutes.bookingStatusPath(booking.id),
+                                extra: booking,
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  CircleIconAvatar(
+                                    icon: booking.serviceIcon,
+                                    color: booking.serviceColor,
+                                    radius: 24,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Expanded(
-                                          child: Text(
-                                            booking.serviceTitle,
-                                            style: textTheme.titleSmall,
-                                          ),
-                                        ),
-                                        StatusBadge(
-                                          text: booking.status.label,
-                                          color: booking.status.color,
-                                          dense: true,
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'ให้${booking.memberName} • ${_formatDateTime(booking.scheduledAt)}',
-                                      style: textTheme.bodySmall,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      booking.destinationAddress == null
-                                          ? booking.pickupAddress
-                                          : '${booking.pickupAddress} → ${booking.destinationAddress}',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: textTheme.bodySmall?.copyWith(
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 6,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: AppColors.surfaceAlt,
-                                              borderRadius: BorderRadius.circular(
-                                                AppRadius.sm,
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                booking.serviceTitle,
+                                                style: textTheme.titleSmall,
                                               ),
                                             ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(
-                                                  Icons.receipt_rounded,
-                                                  size: 14,
-                                                  color: AppColors.textSecondary,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Flexible(
-                                                  child: Text(
-                                                    '${booking.reference} • ฿${booking.totalAmount.toStringAsFixed(0)}',
-                                                    overflow: TextOverflow.ellipsis,
-                                                    style: textTheme.labelMedium,
-                                                  ),
-                                                ),
-                                              ],
+                                            StatusBadge(
+                                              text: booking.status.label,
+                                              color: booking.status.color,
+                                              dense: true,
                                             ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'ให้${booking.memberName} • ${_formatDateTime(booking.scheduledAt)}',
+                                          style: textTheme.bodySmall,
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          booking.destinationAddress == null
+                                              ? booking.pickupAddress
+                                              : '${booking.pickupAddress} → ${booking.destinationAddress}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: textTheme.bodySmall?.copyWith(
+                                            color: AppColors.textSecondary,
                                           ),
                                         ),
-                                        const SizedBox(width: 8),
-                                        TextButton.icon(
-                                          onPressed: () => _rebook(context, booking),
-                                          style: TextButton.styleFrom(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 6,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.surfaceAlt,
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                        AppRadius.sm,
+                                                      ),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    const Icon(
+                                                      Icons.receipt_rounded,
+                                                      size: 14,
+                                                      color: AppColors
+                                                          .textSecondary,
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Flexible(
+                                                      child: Text(
+                                                        '${booking.reference} • ฿${booking.totalAmount.toStringAsFixed(0)}',
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        style: textTheme
+                                                            .labelMedium,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
                                             ),
-                                          ),
-                                          icon: const Icon(
-                                            Icons.replay_rounded,
-                                            size: 16,
-                                          ),
-                                          label: const Text('จองซ้ำ'),
+                                            const SizedBox(width: 8),
+                                            TextButton.icon(
+                                              onPressed: () =>
+                                                  _rebook(context, booking),
+                                              style: TextButton.styleFrom(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                    ),
+                                              ),
+                                              icon: const Icon(
+                                                Icons.replay_rounded,
+                                                size: 16,
+                                              ),
+                                              label: const Text('จองซ้ำ'),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+                            );
+                          },
+                        ),
+                ),
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 8,
+            left: 20,
+            child: BackCircleButton(
+              onTap: () => context.popBack(AppRoutes.profile),
             ),
+          ),
+        ],
+      ),
     );
   }
 }

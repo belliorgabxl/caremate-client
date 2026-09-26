@@ -12,6 +12,7 @@ import '../../../../shared/utils/confirm_dialogs.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/aurora_background.dart';
+import '../../../../shared/widgets/back_circle_button.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/section_header.dart';
@@ -121,7 +122,7 @@ class _HealthInformationPageState extends ConsumerState<HealthInformationPage> {
   Future<void> _handleBack() async {
     if (await _confirmLeave()) {
       if (!mounted) return;
-      context.goBack(AppRoutes.profile);
+      context.popBack(AppRoutes.profile);
     }
   }
 
@@ -167,49 +168,50 @@ class _HealthInformationPageState extends ConsumerState<HealthInformationPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('บันทึกข้อมูลสุขภาพเรียบร้อยแล้ว')),
     );
-    context.goBack(AppRoutes.profile);
+    context.popBack(AppRoutes.profile);
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading || _loadError != null) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('ข้อมูลสุขภาพ'),
-          leading: BackButton(onPressed: () => context.goBack(AppRoutes.profile)),
-        ),
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : ListView(
-                padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
-                children: [
-                  EmptyState(
-                    icon: Icons.error_outline_rounded,
-                    title: 'โหลดข้อมูลไม่สำเร็จ',
-                    message: _loadError!,
-                    action: PrimaryButton(
-                      label: 'ลองอีกครั้ง',
-                      icon: Icons.refresh_rounded,
-                      expanded: false,
-                      onPressed: _load,
+        body: Stack(
+          children: [
+            SafeArea(
+              child: _isLoading
+                  ? const SizedBox.shrink()
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
+                      children: [
+                        EmptyState(
+                          icon: Icons.error_outline_rounded,
+                          title: 'โหลดข้อมูลไม่สำเร็จ',
+                          message: _loadError!,
+                          action: PrimaryButton(
+                            label: 'ลองอีกครั้ง',
+                            icon: Icons.refresh_rounded,
+                            expanded: false,
+                            onPressed: _load,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+            ),
+            Positioned(
+              top: MediaQuery.paddingOf(context).top + 8,
+              left: 20,
+              child: BackCircleButton(
+                onTap: () => context.popBack(AppRoutes.profile),
               ),
+            ),
+          ],
+        ),
       );
     }
 
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text('ข้อมูลสุขภาพ'),
-        leading: BackButton(onPressed: _handleBack),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-      ),
       body: Stack(
         children: [
           const Positioned(
@@ -221,159 +223,166 @@ class _HealthInformationPageState extends ConsumerState<HealthInformationPage> {
           Form(
             key: _formKey,
             child: ListView(
-            padding: EdgeInsets.fromLTRB(
-              20,
-              MediaQuery.paddingOf(context).top + 68,
-              20,
-              32,
-            ),
-            children: [
-              const SectionHeader(
-                title: 'ผู้ติดต่อฉุกเฉิน',
-                subtitle: 'ใช้ติดต่อกรณีฉุกเฉินระหว่างการใช้บริการ',
-                icon: Icons.emergency_share_rounded,
+              padding: EdgeInsets.fromLTRB(
+                20,
+                MediaQuery.paddingOf(context).top + 68,
+                20,
+                32,
               ),
-              const SizedBox(height: 12),
-              AppCard(
-                child: Column(
-                  children: [
-                    AppTextField(
-                      controller: _emergencyNameController,
-                      label: 'ชื่อผู้ติดต่อฉุกเฉิน',
-                      prefixIcon: Icons.person_outline,
-                      onChanged: (_) => _markDirty(),
-                    ),
-                    const SizedBox(height: 14),
-                    AppTextField(
-                      controller: _emergencyPhoneController,
-                      label: 'เบอร์โทรผู้ติดต่อฉุกเฉิน',
-                      prefixIcon: Icons.phone_outlined,
-                      keyboardType: TextInputType.phone,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      maxLength: 10,
-                      onChanged: (_) => _markDirty(),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) return null;
-                        if (!RegExp(r'^0[0-9]{8,9}$').hasMatch(v.trim())) {
-                          return 'เบอร์โทรไม่ถูกต้อง';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    DropdownButtonFormField<String>(
-                      initialValue: _emergencyRelationship.isEmpty
-                          ? null
-                          : _emergencyRelationship,
-                      decoration: const InputDecoration(
-                        labelText: 'ความสัมพันธ์',
-                        prefixIcon: Icon(Icons.diversity_3_outlined),
+              children: [
+                const SectionHeader(
+                  title: 'ผู้ติดต่อฉุกเฉิน',
+                  subtitle: 'ใช้ติดต่อกรณีฉุกเฉินระหว่างการใช้บริการ',
+                  icon: Icons.emergency_share_rounded,
+                ),
+                const SizedBox(height: 12),
+                AppCard(
+                  child: Column(
+                    children: [
+                      AppTextField(
+                        controller: _emergencyNameController,
+                        label: 'ชื่อผู้ติดต่อฉุกเฉิน',
+                        prefixIcon: Icons.person_outline,
+                        onChanged: (_) => _markDirty(),
                       ),
-                      items: _relationships
-                          .map(
-                            (r) => DropdownMenuItem(value: r, child: Text(r)),
-                          )
-                          .toList(),
-                      onChanged: (v) => setState(() {
-                        _emergencyRelationship =
-                            v ?? _emergencyRelationship;
-                        _dirty = true;
-                      }),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              const SectionHeader(
-                title: 'ข้อมูลสุขภาพพื้นฐาน',
-                subtitle: 'ช่วยให้พาร์ทเนอร์ดูแลคุณได้อย่างเหมาะสม',
-                icon: Icons.medical_information_rounded,
-              ),
-              const SizedBox(height: 12),
-              AppCard(
-                child: Column(
-                  children: [
-                    DropdownButtonFormField<String>(
-                      initialValue: _bloodType.isEmpty ? null : _bloodType,
-                      decoration: const InputDecoration(
-                        labelText: 'กรุ๊ปเลือด',
-                        prefixIcon: Icon(Icons.bloodtype_outlined),
+                      const SizedBox(height: 14),
+                      AppTextField(
+                        controller: _emergencyPhoneController,
+                        label: 'เบอร์โทรผู้ติดต่อฉุกเฉิน',
+                        prefixIcon: Icons.phone_outlined,
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        maxLength: 10,
+                        onChanged: (_) => _markDirty(),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return null;
+                          if (!RegExp(r'^0[0-9]{8,9}$').hasMatch(v.trim())) {
+                            return 'เบอร์โทรไม่ถูกต้อง';
+                          }
+                          return null;
+                        },
                       ),
-                      items: _bloodTypes
-                          .map(
-                            (b) => DropdownMenuItem(value: b, child: Text(b)),
-                          )
-                          .toList(),
-                      onChanged: (v) => setState(() {
-                        _bloodType = v ?? _bloodType;
-                        _dirty = true;
-                      }),
-                    ),
-                    const SizedBox(height: 14),
-                    AppTextField(
-                      controller: _allergiesController,
-                      label: 'ประวัติการแพ้',
-                      hint: 'เช่น แพ้อาหารทะเล, แพ้ยาปฏิชีวนะ',
-                      maxLines: 2,
-                      onChanged: (_) => _markDirty(),
-                    ),
-                    const SizedBox(height: 14),
-                    AppTextField(
-                      controller: _diseasesController,
-                      label: 'โรคประจำตัว',
-                      hint: 'เช่น ความดันโลหิตสูง, เบาหวาน',
-                      maxLines: 2,
-                      onChanged: (_) => _markDirty(),
-                    ),
-                    const SizedBox(height: 14),
-                    AppTextField(
-                      controller: _medicationsController,
-                      label: 'ยาที่ใช้ประจำ',
-                      hint: 'เช่น ยาลดความดัน (เช้า-เย็น)',
-                      maxLines: 2,
-                      onChanged: (_) => _markDirty(),
-                    ),
-                    const SizedBox(height: 14),
-                    AppTextField(
-                      controller: _careNoteController,
-                      label: 'หมายเหตุการดูแล',
-                      hint: 'ข้อมูลอื่น ๆ ที่ผู้ดูแลควรทราบ',
-                      maxLines: 4,
-                      onChanged: (_) => _markDirty(),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Text(
-                  'ข้อมูลสุขภาพของคุณจะถูกเก็บเป็นความลับและใช้เพื่อการดูแลที่ปลอดภัยเท่านั้น',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-              if (_saveError != null) ...[
-                const SizedBox(height: 14),
-                Text(
-                  _saveError!,
-                  style: textTheme.bodySmall?.copyWith(
-                    color: AppColors.danger,
+                      const SizedBox(height: 14),
+                      DropdownButtonFormField<String>(
+                        initialValue: _emergencyRelationship.isEmpty
+                            ? null
+                            : _emergencyRelationship,
+                        decoration: const InputDecoration(
+                          labelText: 'ความสัมพันธ์',
+                          prefixIcon: Icon(Icons.diversity_3_outlined),
+                        ),
+                        items: _relationships
+                            .map(
+                              (r) => DropdownMenuItem(value: r, child: Text(r)),
+                            )
+                            .toList(),
+                        onChanged: (v) => setState(() {
+                          _emergencyRelationship = v ?? _emergencyRelationship;
+                          _dirty = true;
+                        }),
+                      ),
+                    ],
                   ),
                 ),
+                const SizedBox(height: 24),
+                const SectionHeader(
+                  title: 'ข้อมูลสุขภาพพื้นฐาน',
+                  subtitle: 'ช่วยให้พาร์ทเนอร์ดูแลคุณได้อย่างเหมาะสม',
+                  icon: Icons.medical_information_rounded,
+                ),
+                const SizedBox(height: 12),
+                AppCard(
+                  child: Column(
+                    children: [
+                      DropdownButtonFormField<String>(
+                        initialValue: _bloodType.isEmpty ? null : _bloodType,
+                        decoration: const InputDecoration(
+                          labelText: 'กรุ๊ปเลือด',
+                          prefixIcon: Icon(Icons.bloodtype_outlined),
+                        ),
+                        items: _bloodTypes
+                            .map(
+                              (b) => DropdownMenuItem(value: b, child: Text(b)),
+                            )
+                            .toList(),
+                        onChanged: (v) => setState(() {
+                          _bloodType = v ?? _bloodType;
+                          _dirty = true;
+                        }),
+                      ),
+                      const SizedBox(height: 14),
+                      AppTextField(
+                        controller: _allergiesController,
+                        label: 'ประวัติการแพ้',
+                        hint: 'เช่น แพ้อาหารทะเล, แพ้ยาปฏิชีวนะ',
+                        maxLines: 2,
+                        onChanged: (_) => _markDirty(),
+                      ),
+                      const SizedBox(height: 14),
+                      AppTextField(
+                        controller: _diseasesController,
+                        label: 'โรคประจำตัว',
+                        hint: 'เช่น ความดันโลหิตสูง, เบาหวาน',
+                        maxLines: 2,
+                        onChanged: (_) => _markDirty(),
+                      ),
+                      const SizedBox(height: 14),
+                      AppTextField(
+                        controller: _medicationsController,
+                        label: 'ยาที่ใช้ประจำ',
+                        hint: 'เช่น ยาลดความดัน (เช้า-เย็น)',
+                        maxLines: 2,
+                        onChanged: (_) => _markDirty(),
+                      ),
+                      const SizedBox(height: 14),
+                      AppTextField(
+                        controller: _careNoteController,
+                        label: 'หมายเหตุการดูแล',
+                        hint: 'ข้อมูลอื่น ๆ ที่ผู้ดูแลควรทราบ',
+                        maxLines: 4,
+                        onChanged: (_) => _markDirty(),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Text(
+                    'ข้อมูลสุขภาพของคุณจะถูกเก็บเป็นความลับและใช้เพื่อการดูแลที่ปลอดภัยเท่านั้น',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                if (_saveError != null) ...[
+                  const SizedBox(height: 14),
+                  Text(
+                    _saveError!,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: AppColors.danger,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                PrimaryButton(
+                  label: _isSaving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล',
+                  icon: Icons.save_rounded,
+                  isLoading: _isSaving,
+                  onPressed: _isSaving ? null : _save,
+                ),
               ],
-              const SizedBox(height: 24),
-              PrimaryButton(
-                label: _isSaving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล',
-                icon: Icons.save_rounded,
-                isLoading: _isSaving,
-                onPressed: _isSaving ? null : _save,
-              ),
-            ],
             ),
+          ),
+          // Painted after the ListView so it stays on top for hit-testing.
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 8,
+            left: 20,
+            child: BackCircleButton(onTap: _handleBack),
           ),
         ],
       ),

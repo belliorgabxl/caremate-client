@@ -7,9 +7,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/router/nav_direction.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/storage/local_storage.dart';
 import '../../../../core/utils/error_messages.dart';
 import '../../../../shared/models/booking.dart';
 import '../../../../shared/models/booking_cancellation.dart';
@@ -17,8 +19,11 @@ import '../../../../shared/models/mission.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/aurora_background.dart';
+import '../../../../shared/widgets/back_circle_button.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
+import '../../../../shared/widgets/contact_call_card.dart';
 import '../../../../shared/widgets/primary_button.dart';
+import '../../../../shared/widgets/route_map_card.dart';
 import '../../../../shared/widgets/section_header.dart';
 import '../../../../shared/widgets/status_badge.dart';
 import '../../data/booking_repository.dart';
@@ -59,6 +64,14 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
   bool _isSendingEmergency = false;
   bool _isSharingLocation = false;
 
+  /// Checkpoint photos come from the same host as the API, behind the same
+  /// session-cookie auth — `Image.network` uses its own HTTP client, not
+  /// `ApiClient`'s Dio instance, so it never picks up the `Cookie` header
+  /// Dio's interceptor stamps on every request. Without replaying it here
+  /// explicitly, a protected photo URL 404/401s and every checkpoint photo
+  /// silently renders as the broken-image placeholder.
+  Map<String, String> _photoHeaders = const {};
+
   final TextEditingController _reviewCommentController =
       TextEditingController();
   int _reviewRating = 0;
@@ -74,6 +87,13 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
     super.initState();
     _booking = widget.seed;
     _poll();
+    _loadPhotoHeaders();
+  }
+
+  Future<void> _loadPhotoHeaders() async {
+    final cookie = await ref.read(localStorageProvider).readSessionCookie();
+    if (!mounted || cookie == null) return;
+    setState(() => _photoHeaders = {'Cookie': cookie});
   }
 
   @override
@@ -115,8 +135,7 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
       BookingStatus.pending => const Duration(seconds: 5),
       BookingStatus.matched => const Duration(seconds: 20),
       BookingStatus.inProgress => const Duration(seconds: 20),
-      _ =>
-        null,
+      _ => null,
     };
 
     if (interval == null) return;
@@ -365,15 +384,17 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
 
       await SharePlus.instance.share(
         ShareParams(
-          text:
-              'ติดตามตำแหน่งการเดินทางของ $partnerName ได้ที่ $url',
+          text: 'ติดตามตำแหน่งการเดินทางของ $partnerName ได้ที่ $url',
         ),
       );
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _isSharingLocation = false);
       _showSnack(
-        friendlyErrorMessage(e, 'ไม่สามารถสร้างลิงก์แชร์ตำแหน่งได้ กรุณาลองใหม่'),
+        friendlyErrorMessage(
+          e,
+          'ไม่สามารถสร้างลิงก์แชร์ตำแหน่งได้ กรุณาลองใหม่',
+        ),
       );
     }
   }
@@ -410,20 +431,13 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('สถานะการจอง')),
-        body: const Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: SafeArea(child: SizedBox.shrink()));
     }
 
     final booking = _booking!;
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('สถานะการจอง'),
-        leading: BackButton(onPressed: () => context.goBack(AppRoutes.home)),
-      ),
       floatingActionButton: _isEmergencyEligible
           ? Column(
               mainAxisSize: MainAxisSize.min,
@@ -459,7 +473,12 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
           RefreshIndicator(
             onRefresh: _poll,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                MediaQuery.paddingOf(context).top + 52,
+                20,
+                32,
+              ),
               children: [
                 AppCard(
                   glass: true,
@@ -505,6 +524,14 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
                 ),
                 const SizedBox(height: 12),
                 _BookingDetailCard(booking: booking),
+                if (booking.destinationAddress != null) ...[
+                  const SizedBox(height: 20),
+                  RouteMapCard(
+                    pickupAddress: booking.pickupAddress,
+                    destinationAddress: booking.destinationAddress!,
+                    mapHeight: 140,
+                  ),
+                ],
                 const SizedBox(height: 20),
                 _buildStatusBody(booking, textTheme),
                 if (booking.status.isCancellableByUser) ...[
@@ -550,6 +577,18 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
               ],
             ),
           ),
+          // Painted after the ListView (not before) so it always stays
+          // tappable — a Stack paints later children on top, and the map
+          // card's embedded GoogleMap in particular is a native platform
+          // view that can otherwise scroll up and cover a fixed overlay
+          // listed earlier.
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 8,
+            left: 20,
+            child: BackCircleButton(
+              onTap: () => context.popBack(AppRoutes.home),
+            ),
+          ),
         ],
       ),
     );
@@ -560,27 +599,26 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
       case BookingStatus.pending:
         return Column(
           children: [
-            const AppCard(
+            AppCard(
               child: Column(
                 children: [
-                  SizedBox(height: 8),
-                  SizedBox(
+                  const SizedBox(height: 8),
+                  const SizedBox(
                     width: 32,
                     height: 32,
                     child: CircularProgressIndicator(strokeWidth: 3),
                   ),
-                  SizedBox(height: 14),
-                  Text(
-                    'กำลังค้นหาผู้ดูแลใกล้คุณ',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 14),
+                  Text('กำลังค้นหาผู้ดูแลใกล้คุณ', style: textTheme.titleSmall),
+                  const SizedBox(height: 4),
                   Text(
                     'ระบบกำลังจับคู่กับพาร์ทเนอร์ที่เหมาะสม โปรดรอสักครู่',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.textSecondary),
+                    style: textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                 ],
               ),
             ),
@@ -628,68 +666,47 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
                 icon: Icons.badge_rounded,
               ),
               const SizedBox(height: 12),
-              AppCard(
-                child: Row(
+              ContactCallCard(
+                name: _partner!.name,
+                phone: _partner!.phone,
+                label: 'พาร์ทเนอร์ผู้ดูแล',
+              ),
+              if (_partner!.verified || _partner!.ratingAvg != null) ...[
+                const SizedBox(height: 10),
+                Row(
                   children: [
-                    const CircleIconAvatar(
-                      icon: Icons.person_rounded,
-                      color: AppColors.primary,
-                      filled: true,
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  _partner!.name,
-                                  style: textTheme.titleSmall,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              if (_partner!.verified) ...[
-                                const SizedBox(width: 5),
-                                const Icon(
-                                  Icons.verified_rounded,
-                                  size: 16,
-                                  color: AppColors.info,
-                                ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 3),
-                          Text(_partner!.phone, style: textTheme.bodySmall),
-                          if (_partner!.verified) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              'ผ่านการตรวจสอบแล้ว',
-                              style: textTheme.labelSmall?.copyWith(
-                                color: AppColors.info,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ],
+                    if (_partner!.verified) ...[
+                      const Icon(
+                        Icons.verified_rounded,
+                        size: 15,
+                        color: AppColors.info,
                       ),
-                    ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'ผ่านการตรวจสอบแล้ว',
+                        style: textTheme.labelSmall?.copyWith(
+                          color: AppColors.info,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                    if (_partner!.verified && _partner!.ratingAvg != null)
+                      const SizedBox(width: 14),
                     if (_partner!.ratingAvg != null) ...[
                       const Icon(
                         Icons.star_rounded,
                         color: AppColors.badgeDefault,
-                        size: 18,
+                        size: 15,
                       ),
-                      const SizedBox(width: 2),
+                      const SizedBox(width: 3),
                       Text(
                         _partner!.ratingAvg!.toStringAsFixed(1),
-                        style: textTheme.bodySmall,
+                        style: textTheme.labelSmall,
                       ),
                     ],
                   ],
                 ),
-              ),
+              ],
               const SizedBox(height: 14),
               SizedBox(
                 width: double.infinity,
@@ -723,41 +740,40 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const AppCard(
+            AppCard(
               child: Column(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.check_circle_rounded,
                     color: AppColors.success,
                     size: 40,
                   ),
-                  SizedBox(height: 10),
-                  Text(
-                    'งานเสร็จสิ้นแล้ว',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 10),
+                  Text('งานเสร็จสิ้นแล้ว', style: textTheme.titleSmall),
+                  const SizedBox(height: 4),
                   Text(
                     'ขอบคุณที่ใช้บริการ CareMate',
-                    style: TextStyle(color: AppColors.textSecondary),
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 20),
             _reviewSubmitted
-                ? const AppCard(
+                ? AppCard(
                     child: Column(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.favorite_rounded,
                           color: AppColors.danger,
                           size: 32,
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
                           'ขอบคุณสำหรับคะแนนของคุณ',
-                          style: TextStyle(fontWeight: FontWeight.w700),
+                          style: textTheme.titleSmall,
                         ),
                       ],
                     ),
@@ -770,24 +786,23 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const AppCard(
+            AppCard(
               child: Column(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.error_outline_rounded,
                     color: AppColors.danger,
                     size: 40,
                   ),
-                  SizedBox(height: 10),
-                  Text(
-                    'การชำระเงินหมดอายุ',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 10),
+                  Text('การชำระเงินหมดอายุ', style: textTheme.titleSmall),
+                  const SizedBox(height: 4),
                   Text(
                     'รายการนี้ไม่สามารถดำเนินการต่อได้ กรุณาทำรายการจองใหม่',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.textSecondary),
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -810,7 +825,7 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
             PrimaryButton(
               label: 'ชำระเงิน',
               icon: Icons.payment_rounded,
-              onPressed: () => context.goForward(AppRoutes.payment),
+              onPressed: () => context.pushForward(AppRoutes.payment),
             ),
           ],
         );
@@ -821,8 +836,7 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
           BookingStatus.matched =>
             'ระบบได้แจ้งการยกเลิกให้ผู้ดูแลที่รับงานแล้ว',
           BookingStatus.pending => 'ระบบหยุดค้นหาผู้ดูแลให้แล้ว',
-          BookingStatus.awaitingPayment =>
-            'รายการนี้ถูกยกเลิกก่อนการชำระเงิน',
+          BookingStatus.awaitingPayment => 'รายการนี้ถูกยกเลิกก่อนการชำระเงิน',
           _ => 'รายการนี้ถูกยกเลิกแล้ว',
         };
 
@@ -838,15 +852,14 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
                     size: 40,
                   ),
                   const SizedBox(height: 10),
-                  const Text(
-                    'ยกเลิกรายการแล้ว',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
+                  Text('ยกเลิกรายการแล้ว', style: textTheme.titleSmall),
                   const SizedBox(height: 4),
                   Text(
                     detail,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: AppColors.textSecondary),
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   if (cancellation?.reason != null) ...[
                     const Divider(height: 24),
@@ -928,6 +941,7 @@ class _BookingStatusPageState extends ConsumerState<BookingStatusPage> {
                   checkpoint: checkpoints[i],
                   isLast: i == checkpoints.length - 1,
                   isCurrent: i == currentIndex,
+                  photoHeaders: _photoHeaders,
                 ),
             ],
           ),
@@ -1122,6 +1136,35 @@ String _formatCheckpointTime(DateTime dateTime) {
   return '$hour:$minute น.';
 }
 
+/// Checkpoint photo URLs aren't documented as absolute in `booking-flow.md`
+/// — normalize a bare storage path against the API host the same way the
+/// rest of this app already treats backend response inconsistencies as
+/// real, not bugs to special-case away silently.
+String _resolvePhotoUrl(String url) {
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  final path = url.startsWith('/') ? url : '/$url';
+  return '${AppConfig.webBaseUrl}$path';
+}
+
+/// Only replay the session cookie to our own API host. A photo URL can
+/// legitimately point at a separate storage host (S3, a CDN) that doesn't
+/// need it and has no business receiving it — sending a session cookie to a
+/// third-party host on every image request would leak it to whoever
+/// operates (or can see logs from) that host. Takes the already-[resolvedUrl]
+/// (see [_resolvePhotoUrl]) rather than re-resolving it a second time.
+Map<String, String> _headersForPhotoUrl(
+  String resolvedUrl,
+  Map<String, String> sessionHeaders,
+) {
+  if (sessionHeaders.isEmpty) return const {};
+  final resolvedHost = Uri.tryParse(resolvedUrl)?.host;
+  final apiHost = Uri.tryParse(AppConfig.webBaseUrl)?.host;
+  if (resolvedHost == null || apiHost == null || resolvedHost != apiHost) {
+    return const {};
+  }
+  return sessionHeaders;
+}
+
 /// One row of the "ความคืบหน้างาน" step tracker: a [CircleIconAvatar] node
 /// (done / current / upcoming, each with its own icon+color so status never
 /// reads from color alone) connected to the next row by a vertical line,
@@ -1133,11 +1176,13 @@ class _CheckpointTile extends StatelessWidget {
     required this.checkpoint,
     required this.isLast,
     required this.isCurrent,
+    required this.photoHeaders,
   });
 
   final MissionCheckpoint checkpoint;
   final bool isLast;
   final bool isCurrent;
+  final Map<String, String> photoHeaders;
 
   @override
   Widget build(BuildContext context) {
@@ -1236,7 +1281,7 @@ class _CheckpointTile extends StatelessWidget {
                   ],
                   if (checkpoint.photoUrl != null) ...[
                     const SizedBox(height: 10),
-                    _CheckpointPhotoThumbnail(url: checkpoint.photoUrl!),
+                    _buildPhoto(),
                   ],
                 ],
               ),
@@ -1246,15 +1291,24 @@ class _CheckpointTile extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildPhoto() {
+    final resolvedUrl = _resolvePhotoUrl(checkpoint.photoUrl!);
+    return _CheckpointPhotoThumbnail(
+      url: resolvedUrl,
+      headers: _headersForPhotoUrl(resolvedUrl, photoHeaders),
+    );
+  }
 }
 
 /// Tappable thumbnail for a checkpoint photo — opens a full-screen
 /// pinch-to-zoom viewer. Plain `Image.network`, no caching package in this
 /// project yet, so loading/error states are handled explicitly.
 class _CheckpointPhotoThumbnail extends StatelessWidget {
-  const _CheckpointPhotoThumbnail({required this.url});
+  const _CheckpointPhotoThumbnail({required this.url, required this.headers});
 
   final String url;
+  final Map<String, String> headers;
 
   static const _size = 112.0;
 
@@ -1264,7 +1318,8 @@ class _CheckpointPhotoThumbnail extends StatelessWidget {
       onTap: () => showDialog(
         context: context,
         barrierColor: Colors.black,
-        builder: (context) => _CheckpointPhotoViewer(url: url),
+        builder: (context) =>
+            _CheckpointPhotoViewer(url: url, headers: headers),
       ),
       child: Container(
         width: _size,
@@ -1287,6 +1342,7 @@ class _CheckpointPhotoThumbnail extends StatelessWidget {
             children: [
               Image.network(
                 url,
+                headers: headers,
                 fit: BoxFit.cover,
                 loadingBuilder: (context, child, progress) {
                   if (progress == null) return child;
@@ -1314,9 +1370,9 @@ class _CheckpointPhotoThumbnail extends StatelessWidget {
                 bottom: 6,
                 child: Container(
                   padding: const EdgeInsets.all(5),
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.black.withValues(alpha: 0.45),
+                    color: Colors.black87,
                   ),
                   child: const Icon(
                     Icons.zoom_in_rounded,
@@ -1334,9 +1390,10 @@ class _CheckpointPhotoThumbnail extends StatelessWidget {
 }
 
 class _CheckpointPhotoViewer extends StatelessWidget {
-  const _CheckpointPhotoViewer({required this.url});
+  const _CheckpointPhotoViewer({required this.url, required this.headers});
 
   final String url;
+  final Map<String, String> headers;
 
   @override
   Widget build(BuildContext context) {
@@ -1350,6 +1407,7 @@ class _CheckpointPhotoViewer extends StatelessWidget {
               maxScale: 4,
               child: Image.network(
                 url,
+                headers: headers,
                 errorBuilder: (context, error, stackTrace) => const Icon(
                   Icons.broken_image_outlined,
                   color: Colors.white54,
@@ -1364,7 +1422,11 @@ class _CheckpointPhotoViewer extends StatelessWidget {
               child: Align(
                 alignment: Alignment.topLeft,
                 child: Material(
-                  color: Colors.black.withValues(alpha: 0.45),
+                  // A 45%-alpha circle let a bright photo (e.g. a white bed
+                  // sheet) show through and wash out the white icon on top of
+                  // it — solid background guarantees contrast regardless of
+                  // what's behind it.
+                  color: Colors.black87,
                   shape: const CircleBorder(),
                   child: IconButton(
                     onPressed: () => Navigator.of(context).pop(),

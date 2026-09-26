@@ -12,6 +12,7 @@ import '../../../../shared/utils/confirm_dialogs.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/aurora_background.dart';
+import '../../../../shared/widgets/back_circle_button.dart';
 import '../../../../shared/widgets/circle_icon_avatar.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/primary_button.dart';
@@ -164,7 +165,7 @@ class _PersonalInformationPageState
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('บันทึกข้อมูลส่วนตัวเรียบร้อยแล้ว')),
     );
-    context.goBack(AppRoutes.profile);
+    context.popBack(AppRoutes.profile);
   }
 
   String _formatDate(DateTime date) {
@@ -174,7 +175,7 @@ class _PersonalInformationPageState
   Future<void> _handleBack() async {
     if (await _confirmLeave()) {
       if (!mounted) return;
-      context.goBack(AppRoutes.profile);
+      context.popBack(AppRoutes.profile);
     }
   }
 
@@ -182,42 +183,43 @@ class _PersonalInformationPageState
   Widget build(BuildContext context) {
     if (_isLoading || _loadError != null) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('ข้อมูลส่วนตัว'),
-          leading: BackButton(onPressed: () => context.goBack(AppRoutes.profile)),
-        ),
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : ListView(
-                padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
-                children: [
-                  EmptyState(
-                    icon: Icons.error_outline_rounded,
-                    title: 'โหลดข้อมูลไม่สำเร็จ',
-                    message: _loadError!,
-                    action: PrimaryButton(
-                      label: 'ลองอีกครั้ง',
-                      icon: Icons.refresh_rounded,
-                      expanded: false,
-                      onPressed: _load,
+        body: Stack(
+          children: [
+            SafeArea(
+              child: _isLoading
+                  ? const SizedBox.shrink()
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
+                      children: [
+                        EmptyState(
+                          icon: Icons.error_outline_rounded,
+                          title: 'โหลดข้อมูลไม่สำเร็จ',
+                          message: _loadError!,
+                          action: PrimaryButton(
+                            label: 'ลองอีกครั้ง',
+                            icon: Icons.refresh_rounded,
+                            expanded: false,
+                            onPressed: _load,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+            ),
+            Positioned(
+              top: MediaQuery.paddingOf(context).top + 8,
+              left: 20,
+              child: BackCircleButton(
+                onTap: () => context.popBack(AppRoutes.profile),
               ),
+            ),
+          ],
+        ),
       );
     }
 
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text('ข้อมูลส่วนตัว'),
-        leading: BackButton(onPressed: _handleBack),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-      ),
       body: Stack(
         children: [
           const Positioned(
@@ -387,6 +389,12 @@ class _PersonalInformationPageState
                 ),
               ],
             ),
+          ),
+          // Painted after the ListView so it stays on top for hit-testing.
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 8,
+            left: 20,
+            child: BackCircleButton(onTap: _handleBack),
           ),
         ],
       ),

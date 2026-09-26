@@ -6,13 +6,22 @@ int roundUpToBillingStep(int minutes) {
   return ((minutes + step - 1) ~/ step) * step;
 }
 
-double calculateServiceFee({required double baseFeePerHour, required int durationMinutes}) {
+double calculateServiceFee({
+  required double baseFeePerHour,
+  required int durationMinutes,
+}) {
   final billableMinutes = roundUpToBillingStep(durationMinutes);
   return baseFeePerHour * (billableMinutes / 60);
 }
 
-double calculateTotal({required double baseFeePerHour, required int durationMinutes}) {
-  return calculateServiceFee(baseFeePerHour: baseFeePerHour, durationMinutes: durationMinutes) +
+double calculateTotal({
+  required double baseFeePerHour,
+  required int durationMinutes,
+}) {
+  return calculateServiceFee(
+        baseFeePerHour: baseFeePerHour,
+        durationMinutes: durationMinutes,
+      ) +
       AppConfig.platformFee;
 }
 
@@ -55,5 +64,8 @@ double calculateEstimatedTotal({
       distanceKm: distanceKm,
     );
   }
-  return calculateTotal(baseFeePerHour: baseFeePerHour, durationMinutes: durationMinutes);
+  return calculateTotal(
+    baseFeePerHour: baseFeePerHour,
+    durationMinutes: durationMinutes,
+  );
 }
