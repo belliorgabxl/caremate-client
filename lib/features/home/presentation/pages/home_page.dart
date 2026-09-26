@@ -1044,12 +1044,19 @@ class _BannerCard extends StatelessWidget {
   final BannerItem banner;
   final Color accent;
 
-  Future<void> _openLink() async {
-    final linkUrl = banner.linkUrl;
-    if (linkUrl == null || linkUrl.isEmpty) return;
+  static Future<void> _openLink(String linkUrl) async {
     final uri = Uri.tryParse(linkUrl);
     if (uri == null) return;
     await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _showDetail(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _BannerDetailSheet(banner: banner, accent: accent),
+    );
   }
 
   @override
@@ -1067,7 +1074,7 @@ class _BannerCard extends StatelessWidget {
     return SizedBox(
       width: 240,
       child: GestureDetector(
-        onTap: hasLink ? _openLink : null,
+        onTap: () => _showDetail(context),
         child: Container(
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
@@ -1163,6 +1170,84 @@ class _BannerCard extends StatelessWidget {
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Full announcement content — the card itself only ever shows a 2-line
+/// title/body preview, so tapping it needs somewhere to actually read the
+/// rest.
+class _BannerDetailSheet extends StatelessWidget {
+  const _BannerDetailSheet({required this.banner, required this.accent});
+
+  final BannerItem banner;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final linkUrl = banner.linkUrl;
+    final hasLink = linkUrl != null && linkUrl.isNotEmpty;
+
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            CircleIconAvatar(
+              icon: Icons.campaign_rounded,
+              color: accent,
+              filled: true,
+            ),
+            const SizedBox(height: 14),
+            Text(banner.title, style: textTheme.titleLarge),
+            if (banner.body != null && banner.body!.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                banner.body!,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
+            if (hasLink) ...[
+              PrimaryButton(
+                label: 'เปิดลิงก์',
+                icon: Icons.open_in_new_rounded,
+                onPressed: () => _BannerCard._openLink(linkUrl),
+              ),
+              const SizedBox(height: 8),
+            ],
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('ปิด'),
+              ),
+            ),
+          ],
         ),
       ),
     );
