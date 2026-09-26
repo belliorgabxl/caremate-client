@@ -1003,34 +1003,46 @@ class _CareTipCard extends StatelessWidget {
   }
 }
 
-/// Horizontally-scrollable announcements strip — a distinct "announcements"
-/// section rather than blending into the plain-white cards used elsewhere on
-/// this page (per DESIGN.md's "glass only where it reveals real color behind
-/// it" rule, these stay flat `AppCard`s, no `glass:`/aurora tie-in, since
-/// they sit below the hero region).
+/// Horizontally-scrollable announcements strip. Each card carries its own
+/// jewel-tone gradient (cycled from the app's existing brand palette, not a
+/// new one) plus a decorative watermark icon, editorial-card style, rather
+/// than the flat white text-only tiles this replaced — those read as an
+/// afterthought next to the hero card right above them.
 class _BannerCarousel extends StatelessWidget {
   const _BannerCarousel({required this.banners});
 
   final List<BannerItem> banners;
 
+  static const _accents = [
+    AppColors.primary,
+    AppColors.serviceTransport,
+    AppColors.serviceHomeCare,
+    AppColors.serviceMedication,
+    AppColors.serviceErrand,
+  ];
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 148,
+      height: 168,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: banners.length,
-        separatorBuilder: (context, _) => const SizedBox(width: 12),
-        itemBuilder: (context, index) => _BannerCard(banner: banners[index]),
+        separatorBuilder: (context, _) => const SizedBox(width: 14),
+        itemBuilder: (context, index) => _BannerCard(
+          banner: banners[index],
+          accent: _accents[index % _accents.length],
+        ),
       ),
     );
   }
 }
 
 class _BannerCard extends StatelessWidget {
-  const _BannerCard({required this.banner});
+  const _BannerCard({required this.banner, required this.accent});
 
   final BannerItem banner;
+  final Color accent;
 
   Future<void> _openLink() async {
     final linkUrl = banner.linkUrl;
@@ -1044,50 +1056,113 @@ class _BannerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final hasLink = banner.linkUrl != null && banner.linkUrl!.isNotEmpty;
+    final hasImage = banner.imageUrl != null && banner.imageUrl!.isNotEmpty;
+    final darkAccent = Color.lerp(accent, Colors.black, 0.35)!;
+    final gradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [accent, darkAccent],
+    );
 
     return SizedBox(
-      width: 260,
-      child: AppCard(
+      width: 240,
+      child: GestureDetector(
         onTap: hasLink ? _openLink : null,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    banner.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: textTheme.titleSmall,
-                  ),
-                ),
-                if (hasLink) ...[
-                  const SizedBox(width: 6),
-                  const Icon(
-                    Icons.open_in_new_rounded,
-                    size: 16,
-                    color: AppColors.textSecondary,
-                  ),
-                ],
-              ],
-            ),
-            if (banner.body != null && banner.body!.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Expanded(
-                child: Text(
-                  banner.body!,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
+        child: Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            gradient: hasImage ? null : gradient,
+            boxShadow: [
+              BoxShadow(
+                color: accent.withValues(alpha: 0.28),
+                offset: const Offset(0, 10),
+                blurRadius: 22,
               ),
             ],
-          ],
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (hasImage)
+                Image.network(
+                  banner.imageUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => DecoratedBox(
+                    decoration: BoxDecoration(gradient: gradient),
+                  ),
+                )
+              else
+                Positioned(
+                  right: -14,
+                  bottom: -14,
+                  child: Icon(
+                    Icons.campaign_rounded,
+                    size: 92,
+                    color: Colors.white.withValues(alpha: 0.14),
+                  ),
+                ),
+              if (hasImage)
+                const Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.transparent, Colors.black54],
+                        stops: [0.3, 1],
+                      ),
+                    ),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      banner.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.titleSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (banner.body != null && banner.body!.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        banner.body!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.85),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (hasLink)
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.22),
+                    ),
+                    child: const Icon(
+                      Icons.arrow_outward_rounded,
+                      size: 14,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
