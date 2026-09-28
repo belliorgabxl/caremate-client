@@ -17,6 +17,8 @@ class PushNotificationsService {
   PushNotificationsService._();
 
   static bool _initialized = false;
+  static const _apnsRetryLimit = 10;
+  static const _apnsRetryDelay = Duration(milliseconds: 500);
 
   /// Call once at app startup, before login state is known — this only
   /// sets up Firebase + message listeners. Token registration with the
@@ -63,6 +65,10 @@ class PushNotificationsService {
       final settings = await FirebaseMessaging.instance.requestPermission();
       if (settings.authorizationStatus == AuthorizationStatus.denied) return;
 
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        await _waitForApnsToken();
+      }
+
       final token = await FirebaseMessaging.instance.getToken();
       if (token != null) await _register(api, token);
 
@@ -71,6 +77,19 @@ class PushNotificationsService {
       });
     } catch (e) {
       debugPrint('PushNotificationsService.syncToken failed: $e');
+    }
+  }
+
+  /// On iOS, FCM's `getToken()` needs a native APNs device token first —
+  /// right after `requestPermission()` the OS hasn't finished its APNs
+  /// handshake yet, so `getToken()` throws `apns-token-not-set` on a cold
+  /// start. That exception would otherwise skip the `onTokenRefresh`
+  /// listener below entirely, meaning this device's token never gets
+  /// (re)registered for the rest of the app session. Poll briefly instead.
+  static Future<void> _waitForApnsToken() async {
+    for (var attempt = 0; attempt < _apnsRetryLimit; attempt++) {
+      if (await FirebaseMessaging.instance.getAPNSToken() != null) return;
+      await Future.delayed(_apnsRetryDelay);
     }
   }
 
