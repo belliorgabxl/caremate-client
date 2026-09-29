@@ -7,7 +7,7 @@ import 'demo_backend.dart';
 import 'demo_mode.dart';
 
 /// Session cookie value `DemoInterceptor` stamps on a successful demo login
-/// (`AppConfig.demoPhone`/`demoOtp`) — stored via the same
+/// (`DemoConfig.phone`/`otp`, fetched from the backend) — stored via the same
 /// `LocalStorage.saveSessionCookie` path as a real session, so a reviewer
 /// backgrounding/restarting the app mid-demo stays logged in. Checked here
 /// (not just at login time) because a cold start reads this cookie back

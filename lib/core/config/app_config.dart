@@ -31,13 +31,4 @@ class AppConfig {
   /// Autocomplete is biased to Thailand — the app only operates there, and an
   /// unrestricted prediction list is mostly noise for Thai queries.
   static const placesCountries = ['th'];
-
-  /// App Store review demo account (Guideline 2.1) — this phone/OTP pair is
-  /// handed to Apple in App Store Connect's Review Notes. Logging in with it
-  /// flips `DemoMode.enabled` (see `core/network/demo_mode.dart`), which
-  /// routes every API call to in-memory fixtures instead of the real
-  /// backend — a reviewer can exercise every screen without needing a real
-  /// account, real SMS delivery, or a live backend at all.
-  static const demoPhone = '0618204866';
-  static const demoOtp = '051150';
 }

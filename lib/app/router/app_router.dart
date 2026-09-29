@@ -56,10 +56,18 @@ CustomTransitionPage<void> _slidePage(GoRouterState state, Widget child) {
   );
 }
 
+/// Lets code with no `BuildContext` of its own (e.g. a push-notification tap
+/// handler firing before any widget has built) still navigate — GoRouter's
+/// `context.go()` extension just resolves `GoRouter.of(context)` under the
+/// hood, so `rootNavigatorKey.currentContext` gives the same context once
+/// the app has rendered its first frame.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final auth = ref.read(authControllerProvider);
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: AppRoutes.splash,
     refreshListenable: auth,
     redirect: (context, state) {
@@ -96,36 +104,57 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) =>
             _slidePage(state, const RegisterPage()),
       ),
-      ShellRoute(
-        builder: (context, state, child) {
-          return MainScaffold(child: child);
+      // StatefulShellRoute.indexedStack (not a plain ShellRoute) keeps all
+      // four tabs' widget trees alive in an IndexedStack and just toggles
+      // visibility on tab switch — no rebuild, no re-fetch, no flicker. A
+      // plain ShellRoute rebuilds the destination tab's page from scratch on
+      // every `context.go()`, which is what read as a stutter/flash before.
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) {
+          return MainScaffold(navigationShell: navigationShell);
         },
-        routes: [
-          GoRoute(
-            path: AppRoutes.home,
-            pageBuilder: (context, state) =>
-                _slidePage(state, const HomePage()),
-          ),
-          GoRoute(
-            path: AppRoutes.booking,
-            pageBuilder: (context, state) => _slidePage(
-              state,
-              BookingPage(
-                prefill: state.extra is BookingPrefill
-                    ? state.extra as BookingPrefill
-                    : null,
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.home,
+                pageBuilder: (context, state) =>
+                    _slidePage(state, const HomePage()),
               ),
-            ),
+            ],
           ),
-          GoRoute(
-            path: AppRoutes.members,
-            pageBuilder: (context, state) =>
-                _slidePage(state, const MembersPage()),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.booking,
+                pageBuilder: (context, state) => _slidePage(
+                  state,
+                  BookingPage(
+                    prefill: state.extra is BookingPrefill
+                        ? state.extra as BookingPrefill
+                        : null,
+                  ),
+                ),
+              ),
+            ],
           ),
-          GoRoute(
-            path: AppRoutes.profile,
-            pageBuilder: (context, state) =>
-                _slidePage(state, const ProfilePage()),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.members,
+                pageBuilder: (context, state) =>
+                    _slidePage(state, const MembersPage()),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.profile,
+                pageBuilder: (context, state) =>
+                    _slidePage(state, const ProfilePage()),
+              ),
+            ],
           ),
         ],
       ),

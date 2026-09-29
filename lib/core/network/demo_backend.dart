@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 
-import '../config/app_config.dart';
+import 'demo_config.dart';
 import 'demo_fixtures.dart';
 import 'demo_mode.dart';
 
@@ -274,7 +274,7 @@ class DemoBackend {
     }
     if (_matches(o, 'POST', '/authentication/login')) {
       final body = _body(o);
-      if (body['code'] != AppConfig.demoOtp) {
+      if (DemoConfig.otp == null || body['code'] != DemoConfig.otp) {
         throw _error(o, 401, 'รหัส OTP ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
       }
       final response = _ok(o, {'ok': true});
@@ -594,7 +594,8 @@ class DemoInterceptor extends Interceptor {
             (options.path == '/authentication/otp/request' ||
                 options.path == '/authentication/login')) &&
         (options.data is Map) &&
-        (options.data as Map)['phone'] == AppConfig.demoPhone;
+        DemoConfig.phone != null &&
+        (options.data as Map)['phone'] == DemoConfig.phone;
 
     if (!DemoMode.enabled.value && !isDemoAuthCall) {
       handler.next(options);

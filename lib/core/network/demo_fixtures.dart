@@ -4,7 +4,7 @@
 /// `CareService`, `CareMember`, `PaymentMethod`, etc. parse them unchanged.
 library;
 
-import '../config/app_config.dart';
+import 'demo_config.dart';
 
 const demoUserId = 'demo-00000000-0000-0000-0000-000000000001';
 const demoSelfRelativeId = 'demo-relative-self';
@@ -12,7 +12,7 @@ const demoRelativeId = 'demo-relative-mother';
 
 Map<String, dynamic> demoAuthMe() => {
   'id': demoUserId,
-  'phone': AppConfig.demoPhone,
+  'phone': DemoConfig.phone ?? '',
   'name': 'ผู้ใช้ทดสอบ Apple Review',
   'avatarUrl': '',
   'isActive': true,
@@ -121,7 +121,7 @@ List<Map<String, dynamic>> demoRelatives() => [
     'nickname': 'ทดสอบ',
     'relationship': 'ตัวเอง',
     'registerAs': 'self',
-    'phone': AppConfig.demoPhone,
+    'phone': DemoConfig.phone ?? '',
     'gender': 'male',
     'dateOfBirth': '1990-01-01',
     'bloodType': 'O',
@@ -157,7 +157,7 @@ List<Map<String, dynamic>> demoRelatives() => [
     'congenitalDiseases': 'ความดันโลหิตสูง',
     'careNote': 'ต้องการผู้ช่วยพยุงเดิน',
     'emergencyContactName': 'ผู้ใช้ทดสอบ Apple Review',
-    'emergencyContactPhone': AppConfig.demoPhone,
+    'emergencyContactPhone': DemoConfig.phone ?? '',
     'emergencyContactRelationship': 'บุตร',
   },
 ];

@@ -1,7 +1,10 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../app/router/app_router.dart';
+import '../../app/router/app_routes.dart';
 import '../network/api_client.dart';
 import 'local_notifications.dart';
 
@@ -40,6 +43,17 @@ class PushNotificationsService {
           body: body ?? '',
         );
       });
+
+      // App was backgrounded (not terminated) when the notification was tapped.
+      FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
+
+      // App was terminated and this tap is what launched it — the router
+      // isn't attached to a live widget tree yet at this point in `init()`,
+      // so defer the actual navigation a tick via _handleNotificationTap's
+      // own retry loop.
+      final initialMessage = await FirebaseMessaging.instance
+          .getInitialMessage();
+      if (initialMessage != null) _handleNotificationTap(initialMessage);
 
       _initialized = true;
     } catch (e) {
@@ -86,6 +100,30 @@ class PushNotificationsService {
   /// start. That exception would otherwise skip the `onTokenRefresh`
   /// listener below entirely, meaning this device's token never gets
   /// (re)registered for the rest of the app session. Poll briefly instead.
+  /// Tapping a notification should land the user directly on that booking's
+  /// status page, not just open the app to wherever it was left. `bookingId`
+  /// rides in the FCM data payload (see backend's `pushViaFCM`). The router's
+  /// `BuildContext` may not exist yet if this app was launched cold by the
+  /// tap itself, so poll briefly for it the same way [_waitForApnsToken]
+  /// polls for the APNs token.
+  static Future<void> _handleNotificationTap(RemoteMessage message) async {
+    final bookingId = message.data['bookingId'];
+    if (bookingId == null || bookingId.isEmpty) return;
+
+    for (var attempt = 0; attempt < _apnsRetryLimit; attempt++) {
+      final context = rootNavigatorKey.currentContext;
+      if (context != null) {
+        // Not a widget's own context that can go stale across the await
+        // above — this re-reads the live root navigator's context fresh on
+        // every loop iteration.
+        // ignore: use_build_context_synchronously
+        context.go(AppRoutes.bookingStatusPath(bookingId));
+        return;
+      }
+      await Future.delayed(_apnsRetryDelay);
+    }
+  }
+
   static Future<void> _waitForApnsToken() async {
     for (var attempt = 0; attempt < _apnsRetryLimit; attempt++) {
       if (await FirebaseMessaging.instance.getAPNSToken() != null) return;

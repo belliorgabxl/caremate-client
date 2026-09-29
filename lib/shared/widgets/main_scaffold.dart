@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/router/app_routes.dart';
 import '../../app/router/booking_wizard_dirty.dart';
 import '../../app/router/nav_direction.dart';
 import '../utils/confirm_dialogs.dart';
@@ -15,21 +14,18 @@ const _navItems = [
 ];
 
 class MainScaffold extends StatelessWidget {
-  const MainScaffold({super.key, required this.child});
+  const MainScaffold({super.key, required this.navigationShell});
 
-  final Widget child;
-
-  int _getCurrentIndex(String path) {
-    if (path.startsWith(AppRoutes.booking)) return 1;
-    if (path.startsWith(AppRoutes.members)) return 2;
-    if (path.startsWith(AppRoutes.profile)) return 3;
-    return 0;
-  }
+  /// One branch per bottom tab (see `StatefulShellRoute.indexedStack` in
+  /// `app_router.dart`). `navigationShell` itself is the body — it's an
+  /// `IndexedStack` under the hood, keeping every tab's widget tree (and
+  /// scroll position, form state, in-flight data) alive across switches
+  /// instead of rebuilding the destination tab from scratch like a plain
+  /// `ShellRoute` does.
+  final StatefulNavigationShell navigationShell;
 
   Future<void> _onTap(BuildContext context, int index) async {
-    final currentIndex = _getCurrentIndex(
-      GoRouterState.of(context).uri.toString(),
-    );
+    final currentIndex = navigationShell.currentIndex;
 
     // Leaving the booking tab mid-wizard (past the first step) would
     // silently discard everything the user has filled in — confirm first.
@@ -45,27 +41,17 @@ class MainScaffold extends StatelessWidget {
     navDirection.value = index >= currentIndex
         ? NavDirection.forward
         : NavDirection.back;
-    switch (index) {
-      case 0:
-        context.go(AppRoutes.home);
-        break;
-      case 1:
-        context.go(AppRoutes.booking);
-        break;
-      case 2:
-        context.go(AppRoutes.members);
-        break;
-      case 3:
-        context.go(AppRoutes.profile);
-        break;
-    }
+    navigationShell.goBranch(
+      index,
+      // Tapping the already-active tab resets it to its own initial route
+      // (e.g. clears Booking's wizard back to step one) instead of no-op —
+      // matches how a tab bar is expected to behave.
+      initialLocation: index == currentIndex,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final location = GoRouterState.of(context).uri.toString();
-    final currentIndex = _getCurrentIndex(location);
-
     return Scaffold(
       // No `extendBody`: a tab's own FloatingActionButton (Members' "เพิ่ม
       // สมาชิก") positions itself relative to this Scaffold's *body* bounds,
@@ -76,17 +62,10 @@ class MainScaffold extends StatelessWidget {
       // the FAB (and everything else) naturally clears it. Each tab's own
       // ListView already carries its own bottom padding for the pill's
       // height, so scroll content still reads correctly either way.
-      // `child` here is the ShellRoute's own Navigator (same GlobalKey on
-      // every rebuild — see DESIGN.md / router notes), so the actual slide
-      // transition between tabs lives in that Navigator's page transitions
-      // (each tab route's `pageBuilder` in app_router.dart), not here. An
-      // AnimatedSwitcher wrapped around `child` was tried first and never
-      // animated anything, because `child`'s identity never changes for
-      // Flutter to detect a swap.
-      body: child,
+      body: navigationShell,
       bottomNavigationBar: AppBottomNav(
         items: _navItems,
-        currentIndex: currentIndex,
+        currentIndex: navigationShell.currentIndex,
         onTap: (index) => _onTap(context, index),
       ),
     );

@@ -59,6 +59,14 @@ class _NotificationCenterPageState
     }
   }
 
+  void _openNotification(NotificationItem item) {
+    _markRead(item);
+    final bookingId = item.bookingId;
+    if (bookingId != null && bookingId.isNotEmpty) {
+      context.pushForward(AppRoutes.bookingStatusPath(bookingId));
+    }
+  }
+
   Future<void> _markRead(NotificationItem item) async {
     if (item.isRead) return;
     final index = _items.indexWhere((n) => n.id == item.id);
@@ -160,7 +168,7 @@ class _NotificationCenterPageState
                           itemBuilder: (context, index) {
                             final item = _items[index];
                             return AppCard(
-                              onTap: () => _markRead(item),
+                              onTap: () => _openNotification(item),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
