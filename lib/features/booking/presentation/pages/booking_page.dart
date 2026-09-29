@@ -218,6 +218,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         ).uri.toString().startsWith(AppRoutes.booking)) {
           context.goForward(AppRoutes.home);
         }
+        setState(() => _isLoading = false);
         return;
       }
     }
@@ -298,7 +299,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(body: SafeArea(child: SizedBox.shrink()));
+      return const Scaffold(
+        body: SafeArea(child: Center(child: CircularProgressIndicator())),
+      );
     }
 
     final loadError = _loadError;
