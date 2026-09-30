@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/router/members_dirty.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
@@ -71,6 +72,10 @@ class _MembersPageState extends ConsumerState<MembersPage> {
         _members = members;
         _isLoading = false;
       });
+      // Tells BookingPage (kept alive across tab switches by
+      // StatefulShellRoute.indexedStack) its own member list may be stale —
+      // see members_dirty.dart.
+      membersDirty.value = true;
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {

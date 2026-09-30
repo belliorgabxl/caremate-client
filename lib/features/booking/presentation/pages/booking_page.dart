@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/router/booking_wizard_dirty.dart';
+import '../../../../app/router/members_dirty.dart';
 import '../../../../app/router/nav_direction.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
@@ -169,6 +170,31 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     super.initState();
     bookingWizardDirty.value = false;
     _load();
+    membersDirty.addListener(_onMembersDirty);
+  }
+
+  /// `StatefulShellRoute.indexedStack` keeps this page alive across tab
+  /// switches, so `initState`/`_load()` only ever run once per app session —
+  /// without this, a member added/edited/deleted on the Members tab would
+  /// never show up here. Refetches just the member list, not the whole page
+  /// (services/payment methods/bank-account check), so it doesn't re-trigger
+  /// the bank-account-required sheet or reset the wizard step.
+  Future<void> _onMembersDirty() async {
+    if (!membersDirty.value || _isLoading) return;
+    membersDirty.value = false;
+
+    try {
+      final members = await ref.read(memberRepositoryProvider).list();
+      if (!mounted) return;
+      setState(() {
+        _members = members;
+        if (_selectedMemberIndex >= members.length) {
+          _selectedMemberIndex = members.isEmpty ? 0 : members.length - 1;
+        }
+      });
+    } on ApiException {
+      // Best-effort — keep showing the previous list rather than erroring.
+    }
   }
 
   Future<void> _load() async {
@@ -289,6 +315,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   @override
   void dispose() {
     bookingWizardDirty.value = false;
+    membersDirty.removeListener(_onMembersDirty);
     _pageController.dispose();
     _pickupController.dispose();
     _destinationController.dispose();
