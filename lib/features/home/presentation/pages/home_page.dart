@@ -1023,15 +1023,32 @@ class _BannerCarousel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The page's own ListView pads everything 20px on each side. `Padding`
+    // can't take negative insets to cancel that (asserts), so use
+    // `OverflowBox` to lay this out 20px wider on each side than the space
+    // its parent actually gives it — cards can then scroll edge-to-edge and
+    // the peeking next card bleeds to the true screen edge instead of
+    // stopping short of it. The inner `ListView`'s own 20px padding keeps
+    // the first/last card aligned with the rest of the page content at the
+    // start/end of the scroll.
+    final screenWidth = MediaQuery.sizeOf(context).width;
     return SizedBox(
       height: 168,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: banners.length,
-        separatorBuilder: (context, _) => const SizedBox(width: 14),
-        itemBuilder: (context, index) => _BannerCard(
-          banner: banners[index],
-          accent: _accents[index % _accents.length],
+      child: OverflowBox(
+        maxWidth: screenWidth,
+        alignment: Alignment.center,
+        child: SizedBox(
+          width: screenWidth,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: banners.length,
+            separatorBuilder: (context, _) => const SizedBox(width: 14),
+            itemBuilder: (context, index) => _BannerCard(
+              banner: banners[index],
+              accent: _accents[index % _accents.length],
+            ),
+          ),
         ),
       ),
     );

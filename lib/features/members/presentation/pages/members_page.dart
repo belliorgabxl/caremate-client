@@ -605,6 +605,7 @@ class _MembersPageState extends ConsumerState<MembersPage> {
                           prefixIcon: Icons.phone_outlined,
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(10),
                           ],
                           validator: (v) =>
                               (v == null || !RegExp(r'^0[0-9]{9}$').hasMatch(v))

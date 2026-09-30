@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/router/booking_tab_activated.dart';
 import '../../app/router/booking_wizard_dirty.dart';
 import '../../app/router/nav_direction.dart';
 import '../utils/confirm_dialogs.dart';
@@ -48,6 +49,11 @@ class MainScaffold extends StatelessWidget {
       // matches how a tab bar is expected to behave.
       initialLocation: index == currentIndex,
     );
+
+    // Booking's bank-account gate and member list must be fresh every time
+    // this tab is entered, not just the first time this app session (see
+    // booking_tab_activated.dart).
+    if (index == 1) bookingTabActivated.value++;
   }
 
   @override

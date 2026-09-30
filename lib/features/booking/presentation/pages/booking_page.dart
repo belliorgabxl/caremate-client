@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/router/booking_tab_activated.dart';
 import '../../../../app/router/booking_wizard_dirty.dart';
 import '../../../../app/router/members_dirty.dart';
 import '../../../../app/router/nav_direction.dart';
@@ -165,12 +166,65 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     return earthRadiusKm * c;
   }
 
+  // Set from the notifier's value at build time (not 0) so the listener
+  // below only reacts to activations that happen *after* this page exists —
+  // the very first load is already covered by initState's own _load() call.
+  int _lastBookingActivation = bookingTabActivated.value;
+
   @override
   void initState() {
     super.initState();
     bookingWizardDirty.value = false;
     _load();
     membersDirty.addListener(_onMembersDirty);
+    bookingTabActivated.addListener(_onBookingTabActivatedTick);
+  }
+
+  void _onBookingTabActivatedTick() {
+    if (bookingTabActivated.value == _lastBookingActivation) return;
+    _lastBookingActivation = bookingTabActivated.value;
+    _recheckBankAccountAndMembers();
+  }
+
+  /// Re-runs the bank-account gate and refreshes the member list every time
+  /// the user re-enters this tab (see booking_tab_activated.dart) — not just
+  /// the services/payment-methods-free subset [_onMembersDirty] handles, so
+  /// a bank account removed elsewhere is caught here too. Skipped while a
+  /// full [_load] is already in flight to avoid racing it.
+  Future<void> _recheckBankAccountAndMembers() async {
+    if (_isLoading) return;
+
+    try {
+      final profileRepo = ref.read(profileRepositoryProvider);
+      final bankAccount = await profileRepo.getBankAccount();
+      if (!mounted) return;
+      if (!bankAccount.hasBankAccount) {
+        final saved = await BankAccountRequiredSheet.show(
+          context,
+          repository: profileRepo,
+        );
+        if (!mounted) return;
+        if (!saved) {
+          if (GoRouterState.of(
+            context,
+          ).uri.toString().startsWith(AppRoutes.booking)) {
+            context.goForward(AppRoutes.home);
+          }
+          return;
+        }
+      }
+
+      final members = await ref.read(memberRepositoryProvider).list();
+      if (!mounted) return;
+      setState(() {
+        _members = members;
+        if (_selectedMemberIndex >= members.length) {
+          _selectedMemberIndex = members.isEmpty ? 0 : members.length - 1;
+        }
+      });
+    } on ApiException {
+      // Best-effort — keep showing whatever was loaded before.
+    }
   }
 
   /// `StatefulShellRoute.indexedStack` keeps this page alive across tab
@@ -316,6 +370,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   void dispose() {
     bookingWizardDirty.value = false;
     membersDirty.removeListener(_onMembersDirty);
+    bookingTabActivated.removeListener(_onBookingTabActivatedTick);
     _pageController.dispose();
     _pickupController.dispose();
     _destinationController.dispose();
