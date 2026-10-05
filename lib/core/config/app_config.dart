@@ -17,7 +17,7 @@ class AppConfig {
   // `flutter run --dart-define=WEB_BASE_URL=http://10.0.2.2:3001`.
   static const webBaseUrl = String.fromEnvironment(
     'WEB_BASE_URL',
-    defaultValue: 'https://api.caremate.in.th',
+    defaultValue: 'https://caremate-backend.nattavee.com',
   );
   static const apiBaseUrl = '$webBaseUrl/api/v1';
 
