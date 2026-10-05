@@ -31,9 +31,9 @@ class AuthRepository {
   /// `POST /authentication/otp/request` — asks the backend to send a real
   /// SMS OTP (via ThaiBulkSMS). `purpose` is `login` or `register`; the
   /// backend namespaces codes separately per purpose so one can't be
-  /// replayed for the other. For `login` on an unregistered phone this
-  /// still returns 200 (anti phone-enumeration) but issues no real code —
-  /// the actual "no such account" only surfaces later, from [login].
+  /// replayed for the other. For `login` on an unregistered phone the
+  /// backend answers 404 before sending any SMS; for `register` on an
+  /// already-registered phone it answers 409.
   Future<void> _requestOtp(String phone, String purpose) async {
     try {
       await _api.dio.post(

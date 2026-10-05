@@ -46,7 +46,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       await auth.requestLoginOtp(phone);
     } on ApiException catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.message);
+      setState(
+        () => _error = e.statusCode == 404
+            ? 'ไม่พบบัญชีที่ใช้เบอร์โทรนี้ กรุณาสมัครสมาชิกก่อน'
+            : e.message,
+      );
       return;
     } catch (_) {
       if (!mounted) return;

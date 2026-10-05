@@ -44,9 +44,8 @@ class AuthController extends ChangeNotifier {
   }
 
   /// Sends the real SMS OTP for the login flow. Throws [ApiException] (e.g.
-  /// malformed phone) — caller shows the error and never opens the OTP
-  /// sheet. A phone that isn't registered still returns success here
-  /// (anti-enumeration); the real failure only surfaces from [login].
+  /// malformed phone, or 404 when the phone isn't registered) — caller shows
+  /// the error and never opens the OTP sheet.
   Future<void> requestLoginOtp(String phone) => _repo.requestLoginOtp(phone);
 
   /// Sends the real SMS OTP for the register flow. Unlike login's, an
