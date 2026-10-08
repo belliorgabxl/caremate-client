@@ -2,7 +2,6 @@ class AppConfig {
   const AppConfig._();
 
   static const maxRelatives = 5;
-  static const platformFee = 20.0;
   static const billingStepMinutes = 30;
 
   /// care-mate-backend (Go/Fiber), called directly — no more Next.js proxy.

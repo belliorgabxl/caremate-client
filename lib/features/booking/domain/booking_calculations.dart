@@ -14,17 +14,6 @@ double calculateServiceFee({
   return baseFeePerHour * (billableMinutes / 60);
 }
 
-double calculateTotal({
-  required double baseFeePerHour,
-  required int durationMinutes,
-}) {
-  return calculateServiceFee(
-        baseFeePerHour: baseFeePerHour,
-        durationMinutes: durationMinutes,
-      ) +
-      AppConfig.platformFee;
-}
-
 /// Mirrors the backend's `DISTANCE_TIERED` formula
 /// (`pkg/calculate.DistanceTieredFee`) — [baseFeeFirstKm] is a minimum fare
 /// covering the first km; [ratePerKm] applies only to distance beyond that.
@@ -38,34 +27,35 @@ double calculateDistanceTieredFee({
   return baseFeeFirstKm + ratePerKm * (distanceKm - 1);
 }
 
-/// Estimates a service's fee using whichever formula its `pricingModel`
-/// selects — `DISTANCE_TIERED` prices purely by distance (ignoring
-/// `baseFeePerHour`/duration entirely), everything else falls back to the
-/// hourly formula. This is a presentational estimate only; the real total
-/// always comes back authoritative from `POST /bookings/create`.
+/// Mirrors the backend fee (`CreateBooking` in
+/// `internal/services/booking_service.go`): the platform fee is a cut taken
+/// from this amount, never added on top. Presentational only — the
+/// authoritative total comes back from `POST /bookings/create`.
 double calculateEstimatedTotal({
   required String pricingModel,
   required double baseFeePerHour,
   required double ratePerKm,
   required double baseFeeFirstKm,
+  required double flatFee,
   required int durationMinutes,
   required double distanceKm,
 }) {
-  if (pricingModel == 'DISTANCE_TIERED') {
-    // Unlike the hourly estimate below, no separate platform-fee add-on here:
-    // the backend's platform fee is a revenue split taken FROM this fee, not
-    // an extra charge on top of it (`fee` IS `payment.totalAmount` — see
-    // `internal/services/booking_service.go`). Adding `AppConfig.platformFee`
-    // here would inflate the wizard's estimate above what the payment page
-    // and the actual charge both show.
-    return calculateDistanceTieredFee(
+  return switch (pricingModel) {
+    'DISTANCE_TIERED' => calculateDistanceTieredFee(
       baseFeeFirstKm: baseFeeFirstKm,
       ratePerKm: ratePerKm,
       distanceKm: distanceKm,
-    );
-  }
-  return calculateTotal(
-    baseFeePerHour: baseFeePerHour,
-    durationMinutes: durationMinutes,
-  );
+    ),
+    'FLAT_PER_BOOKING' || 'MONTHLY_PACKAGE' => flatFee,
+    'HOURLY_PLUS_DISTANCE' =>
+      calculateServiceFee(
+            baseFeePerHour: baseFeePerHour,
+            durationMinutes: durationMinutes,
+          ) +
+          ratePerKm * distanceKm,
+    _ => calculateServiceFee(
+      baseFeePerHour: baseFeePerHour,
+      durationMinutes: durationMinutes,
+    ),
+  };
 }

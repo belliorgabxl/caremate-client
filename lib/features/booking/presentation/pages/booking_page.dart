@@ -138,6 +138,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       baseFeePerHour: service.baseFeePerHour,
       ratePerKm: service.ratePerKm,
       baseFeeFirstKm: service.baseFeeFirstKm,
+      flatFee: service.flatFee,
       durationMinutes: _selectedDurationMinutes,
       distanceKm: _estimatedDistanceKm,
     );
